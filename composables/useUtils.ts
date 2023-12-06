@@ -234,8 +234,6 @@ export default function useUtils() {
     flattenObject,
     unflattenObject,
     setInitialFormValues,
-    equals,
-    formatDate,
-    formatDateTimeAgo
+    equals
   };
 }
