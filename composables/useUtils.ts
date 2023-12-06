@@ -1,7 +1,4 @@
 import { Ref } from 'vue';
-import { formatDistance } from 'date-fns';
-import { fr } from 'date-fns/locale';
-import { formatInTimeZone } from 'date-fns-tz';
 
 export default function useUtils() {
   const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1);
@@ -225,13 +222,6 @@ export default function useUtils() {
     } else {
       formData.value = filterSchemaKeys(formData.value, formSchema.value, initialValues);
     }
-  };
-
-  const formatDate = (date: Date | string, token: string): string => {
-    return formatInTimeZone(new Date(date), 'Europe/Paris', token, { locale: fr });
-  };
-  const formatDateTimeAgo = (date: Date | string): string => {
-    return formatDistance(new Date(date), new Date(), { locale: fr, addSuffix: true });
   };
 
   return {
