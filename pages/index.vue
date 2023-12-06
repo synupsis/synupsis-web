@@ -1,12 +1,53 @@
 <template>
-  <div>
-    <div class="w-full h-screen items-center flex justify-center">
-      <img class="h-56 w-56" src="~/assets/svg/logo.svg"  alt="Synupsis"/>
+  <div class="w-full h-screen flex flex-col items-center gap-4 sm:justify-center">
+    <div class="relative h-56 w-56 overflow-hidden rounded-3xl">
+      <img src="~/assets/svg/logo.svg" alt="Synupsis"/>
+      <div class="bg"></div>
     </div>
-    <div class="bg"></div>
+    <div class="flex items-center justify-center gap-4 w-full px-4">
+      <Combobox :fetch-items="searchShows" :items="items" :items-loading="loading" :click-action="goToShow" class="w-full sm:w-80" :show-chevron-icon="false"
+                placeholder="Search for a show"></Combobox>
+      <div v-if="error">{{ error }}</div>
+    </div>
   </div>
 </template>
 <script setup lang="ts">
+import Combobox from "~/components/ui/Combobox.vue";
+import useSupabase from "~/composables/useSupabase";
+const router = useRouter()
+
+const {supabase} = useSupabase();
+
+const items = ref([]);
+const loading = ref(false);
+const error = ref(null);
+
+const searchShows = async (value: any) => {
+  loading.value = true;
+  const {data: searchData, error: searchError} = await supabase.functions.invoke('hello-world', {
+    body: {query: value},
+  })
+  loading.value = false;
+
+  error.value = searchError;
+
+  items.value = searchData.shows.map((show) => {
+    return {
+      name: show.name,
+      secondary: `${new Date(show.premiered).getFullYear()} - ${show.ended ? new Date(show.ended).getFullYear() : 'Present'}`,
+      id: show.id,
+    }
+  })
+}
+
+const goToShow = (show: any) => {
+  const slug = show.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
+  navigateTo({
+    path: `/show/${slug}`,
+    params: {slug: slug},
+  })
+}
+
 </script>
 
 <style scoped lang="scss">
@@ -17,31 +58,56 @@ body {
 }
 
 .bg {
-  position: fixed;
+  position: absolute;
   top: -50%;
   left: -50%;
   right: -50%;
   bottom: -50%;
   width: 200%;
-  height: 200vh;
+  height: 200%;
   background: transparent url('http://assets.iceable.com/img/noise-transparent.png') repeat 0 0;
-  background-repeat: repeat;
   animation: bg-animation .2s infinite;
   opacity: .9;
   visibility: visible;
+  -webkit-mask-image: url(assets/svg/logo.svg);
+  mask-image: url(assets/svg/logo.svg);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
 }
 
 @keyframes bg-animation {
-  0% { transform: translate(0,0) }
-  10% { transform: translate(-5%,-5%) }
-  20% { transform: translate(-10%,5%) }
-  30% { transform: translate(5%,-10%) }
-  40% { transform: translate(-5%,15%) }
-  50% { transform: translate(-10%,5%) }
-  60% { transform: translate(15%,0) }
-  70% { transform: translate(0,10%) }
-  80% { transform: translate(-15%,0) }
-  90% { transform: translate(10%,5%) }
-  100% { transform: translate(5%,0) }
+  0% {
+    transform: translate(0, 0)
+  }
+  10% {
+    transform: translate(-5%, -5%)
+  }
+  20% {
+    transform: translate(-10%, 5%)
+  }
+  30% {
+    transform: translate(5%, -10%)
+  }
+  40% {
+    transform: translate(-5%, 15%)
+  }
+  50% {
+    transform: translate(-10%, 5%)
+  }
+  60% {
+    transform: translate(15%, 0)
+  }
+  70% {
+    transform: translate(0, 10%)
+  }
+  80% {
+    transform: translate(-15%, 0)
+  }
+  90% {
+    transform: translate(10%, 5%)
+  }
+  100% {
+    transform: translate(5%, 0)
+  }
 }
 </style>
