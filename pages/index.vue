@@ -5,15 +5,21 @@
       <div class="bg"></div>
     </div>
     <div class="flex items-center justify-center gap-4 w-full px-4">
-      <Combobox :fetch-items="searchShows" :items="items" :items-loading="loading" :click-action="goToShow" class="w-full sm:w-80" :show-chevron-icon="false"
+      <Combobox :fetch-items="searchShows" :items="items" :items-loading="loading" :click-action="goToShow"
+                class="w-full sm:w-80" :show-chevron-icon="false"
                 placeholder="Search for a show"></Combobox>
-      <div v-if="error">{{ error }}</div>
     </div>
+    <Alert v-if="error" title="Something went wrong">
+      <p>There was an error</p>
+      <p>{{ error }}</p>
+    </Alert>
   </div>
 </template>
 <script setup lang="ts">
 import Combobox from "~/components/ui/Combobox.vue";
 import useSupabase from "~/composables/useSupabase";
+import Alert from "~/components/ui/Alert.vue";
+
 const router = useRouter()
 
 const {supabase} = useSupabase();
@@ -24,27 +30,31 @@ const error = ref(null);
 
 const searchShows = async (value: any) => {
   loading.value = true;
-  const {data: searchData, error: searchError} = await supabase.functions.invoke('hello-world', {
+  const {data: searchData, error: searchError} = await supabase.functions.invoke('search-show', {
     body: {query: value},
   })
   loading.value = false;
 
-  error.value = searchError;
+  error.value = searchError?.message;
 
-  items.value = searchData.shows.map((show) => {
-    return {
-      name: show.name,
-      secondary: `${new Date(show.premiered).getFullYear()} - ${show.ended ? new Date(show.ended).getFullYear() : 'Present'}`,
-      id: show.id,
-    }
-  })
+  if (searchData) {
+    items.value = searchData.shows.map((show) => {
+      return {
+        name: show.name,
+        secondary: `${new Date(show.premiered).getFullYear()} - ${show.ended ? new Date(show.ended).getFullYear() : 'Present'}`,
+        id: show.id,
+      }
+    })
+  }
+
+
 }
 
 const goToShow = (show: any) => {
   const slug = show.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
   navigateTo({
-    path: `/show/${slug}`,
-    params: {slug: slug},
+    path: `/shows/${slug}-${show.id}`,
+    params: {slug: `${slug}-${show.id}`},
   })
 }
 
