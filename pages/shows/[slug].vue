@@ -2,8 +2,6 @@
   <div>
     <div class="flex w-full justify-center py-10">
       <router-link to="/"><img class="h-32 w-32" src="~/assets/svg/logo.svg" alt="Synupsis"/></router-link>
-
-      {{ data }}
     </div>
     <Alert v-if="error" title="Something went wrong">
       <p>There was an error</p>
