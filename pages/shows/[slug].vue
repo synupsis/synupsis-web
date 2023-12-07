@@ -42,14 +42,14 @@
         </div>
         <ul role="list"
             class="mx-auto mt-20 grid max-w-2xl grid-cols-1 gap-6 sm:grid-cols-2 lg:mx-0 lg:max-w-none lg:grid-cols-3 lg:gap-8">
-          <li v-for="season in data?._embedded?.seasons" :key="season.id" class="rounded-2xl bg-gray-800 px-8 py-10">
-            <img v-if="season?.image?.original" class="mx-auto h-48 w-48 rounded-full md:h-56 md:w-56" :src="season?.image?.original" alt=""/>
-            <h3 class="mt-6 text-base font-semibold leading-7 tracking-tight text-white">{{ season.name }}</h3>
-            <p class="text-sm leading-6 text-gray-400">Season {{ season.number }}</p>
+          <li @click="onSeasonClick(season)" v-for="season in data?._embedded?.seasons" :key="season.id" class="transition-all cursor-pointer rounded-2xl bg-gray-800 px-8 py-10 outline outline-1 outline-transparent hover:outline-white">
+            <h3 class="text-base font-semibold leading-7 tracking-tight text-white">Season {{ season.number }}</h3>
+            <p v-if="season.name" class="text-sm leading-6 text-gray-400">{{ season.name }}</p>
           </li>
         </ul>
       </div>
     </div>
+    <Recap v-model:is-open="isRecapOpen" />
   </div>
 </template>
 <script setup lang="ts">
@@ -60,12 +60,14 @@ const {supabase} = useSupabase();
 const loading = ref(true);
 const error = ref(null);
 const data = ref(null)
+const route = useRoute()
+const isRecapOpen = ref(false);
+const selectedSeason = ref(null);
 
 onMounted(async () => {
-  const router = useRoute()
   loading.value = true;
   const {data: showData, error: showError} = await supabase.functions.invoke('get-show', {
-    body: {slug: router.params.slug},
+    body: {slug: route.params.slug},
   })
   loading.value = false;
 
@@ -73,15 +75,8 @@ onMounted(async () => {
   error.value = showError?.message;
 })
 
-const people = [
-  {
-    name: 'Leonard Krasner',
-    role: 'Senior Designer',
-    imageUrl:
-        'https://images.unsplash.com/photo-1519345182560-3f2917c472ef?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=8&w=1024&h=1024&q=80',
-    twitterUrl: '#',
-    linkedinUrl: '#',
-  },
-  // More people...
-]
+const onSeasonClick = (season: any) => {
+  isRecapOpen.value = true;
+  selectedSeason.value = season;
+}
 </script>
