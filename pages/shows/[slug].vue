@@ -3,6 +3,7 @@
     <div class="flex w-full justify-center py-10">
       <router-link to="/"><img class="h-32 w-32" src="~/assets/svg/logo.svg" alt="Synupsis"/></router-link>
 
+      {{ data }}
     </div>
     <Alert v-if="error" title="Something went wrong">
       <p>There was an error</p>
@@ -15,7 +16,7 @@
           <div class="lg:pr-4">
             <div :class="{'animate-pulse': loading}"
                  class="relative overflow-hidden rounded-3xl bg-gray-900 px-6 pb-9 pt-[364px] shadow-2xl sm:px-12 lg:max-w-lg lg:px-8 lg:pb-8 xl:px-10 xl:pb-10">
-              <img v-if="data" class="absolute inset-0 h-full w-full object-cover brightness-125 saturate-0"
+              <img v-if="data?.image?.original" class="absolute inset-0 h-full w-full object-cover brightness-125 saturate-0"
                    :src="data?.image?.original" alt=""/>
               <div class="absolute inset-0 bg-gray-800 mix-blend-multiply"/>
               <div class="absolute left-1/2 top-1/2 -ml-16 -translate-x-1/2 -translate-y-1/2 transform-gpu blur-3xl"
@@ -44,7 +45,7 @@
         <ul role="list"
             class="mx-auto mt-20 grid max-w-2xl grid-cols-1 gap-6 sm:grid-cols-2 lg:mx-0 lg:max-w-none lg:grid-cols-3 lg:gap-8">
           <li v-for="season in data?._embedded?.seasons" :key="season.id" class="rounded-2xl bg-gray-800 px-8 py-10">
-            <img class="mx-auto h-48 w-48 rounded-full md:h-56 md:w-56" :src="season.image.original" alt=""/>
+            <img v-if="season?.image?.original" class="mx-auto h-48 w-48 rounded-full md:h-56 md:w-56" :src="season?.image?.original" alt=""/>
             <h3 class="mt-6 text-base font-semibold leading-7 tracking-tight text-white">{{ season.name }}</h3>
             <p class="text-sm leading-6 text-gray-400">Season {{ season.number }}</p>
           </li>
