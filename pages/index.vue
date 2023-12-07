@@ -4,6 +4,7 @@
       <img src="~/assets/svg/logo.svg" alt="Synupsis"/>
       <div class="bg"></div>
     </div>
+    <p class="italic">{{ randomTagline }}</p>
     <div class="flex items-center justify-center gap-4 w-full px-4">
       <Combobox :fetch-items="searchShows" :items="items" :items-loading="loading" :click-action="goToShow"
                 class="w-full sm:w-80" :show-chevron-icon="false"
@@ -27,6 +28,20 @@ const {supabase} = useSupabase();
 const items = ref([]);
 const loading = ref(false);
 const error = ref(null);
+
+const taglines = [
+    "Short memory, but don't worry.",
+    "Quick Summaries for Every Show",
+    "Never Forget What Happened",
+    "Binge the Summary, Savor the Show.",
+    "Your Series, Briefly.",
+    "All Shows, Short and Sweet.",
+    "Every Series Summarized.",
+    "Your Shortcut to Storylines.",
+    "Summing Up Stories"
+]
+
+const randomTagline = taglines[Math.floor(Math.random() * taglines.length)];
 
 const searchShows = async (value: any) => {
   loading.value = true;
