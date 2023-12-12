@@ -6,7 +6,7 @@
     </div>
     <div class="h-6">
       <TransitionRoot :show="!!randomTagline"
-                      enter="transition-opacity duration-75"
+                      enter="transition-opacity duration-150"
                       enter-from="opacity-0"
                       enter-to="opacity-100"
                       leave="transition-opacity duration-150"
@@ -108,10 +108,6 @@ body {
   animation: bg-animation .2s infinite;
   opacity: .9;
   visibility: visible;
-  -webkit-mask-image: url(assets/svg/logo.svg);
-  mask-image: url(assets/svg/logo.svg);
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
 }
 
 @keyframes bg-animation {
