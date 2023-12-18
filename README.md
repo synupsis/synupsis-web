@@ -60,6 +60,91 @@ To deploy Supabase Edge Functions run
   supabase functions deploy
 ```
 
+## Git flow
+
+### Features
+
+#### Start a new feature
+`git flow feature start`
+
+#### Finish up a feature
+`git flow feature finish --push`
+
+### Bugfixes
+
+#### Start a new bugfix
+`git flow bugfix start`
+
+#### Finish up a bugfix
+`git flow bugfix finish --push`
+
+### Hotfixes
+
+#### Start a new hotfix
+`git flow hotfix start 1.2.x`
+
+#### Finish up a hotfix
+`git flow hotfix finish --push`
+
+### Make a release
+
+#### Start a new release
+`git flow release start 1.x.x`
+
+#### Finish up a release
+`git flow release finish --push`
+
+## Conventions
+
+### Branches
+
+The naming convention for the branches is kebab case.
+
+Example : `feature/my-new-feature`
+
+### Commits
+
+This project uses conventional commits.
+`<type>(<optional scope>): <description>`
+
+#### Types
+
+- `feat` : A new feature
+- `fix` : A bug fix
+- `docs` :Documentation only changes
+- `style` : Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
+- `refactor` : A code change that neither fixes a bug nor adds a feature
+- `perf` : A code change that improves performance
+- `test` : Adding missing tests or correcting existing tests
+- `build` : Changes that affect the build system or external dependencies (example scopes: gulp, broccoli, npm)
+- `chore` : Other changes that don't modify src or test files
+- `revert` : Reverts a previous commit
+
+#### Scopes
+
+The `scope` provides additional contextual information.
+
+- all
+- homepage
+- showpage
+- recap
+- auth
+
+#### Description
+
+The `description` contains a concise description of the change.
+
+Is a mandatory part of the format
+Use the imperative, present tense: "change" not "changed" nor "changes"
+Think of `This commit will...` or `This commit should...`
+Don't capitalize the first letter
+No dot (.) at the end
+
+#### Examples
+
+- `feat: add email notifications on new direct messages`
+- `feat(homepage): add the amazing button`
+- `build: update dependencies`
 
 ## Supabase Edge Functions Reference
 
