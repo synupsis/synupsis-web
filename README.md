@@ -1,75 +1,92 @@
-# Nuxt 3 Minimal Starter
 
-Look at the [Nuxt 3 documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+# Synupsis web client
 
-## Setup
+Generate a quick summary for all seasons of all TV series of the world.
+## Features
 
-Make sure to install the dependencies:
+- Search a show
+- Display show informations and seasons
+- [WIP] Authentication
+- [WIP] Create recap canvas
+## Roadmap
 
-```bash
-# npm
-npm install
+- Summary generation using AI
+- ... and more !
 
-# pnpm
-pnpm install
 
-# yarn
-yarn install
+## Tech Stack
 
-# bun
-bun install
-```
+**Client:** VueJS, Nuxt, TailwindCSS
 
-## Development Server
+**Server:** Supabase, Deno
 
-Start the development server on `http://localhost:3000`:
 
-```bash
-# npm
-npm run dev
+## Run Locally
 
-# pnpm
-pnpm run dev
+#### Nuxt
 
-# yarn
-yarn dev
-
-# bun
-bun run dev
-```
-
-## Production
-
-Build the application for production:
+Install the dependencies
 
 ```bash
-# npm
-npm run build
-
-# pnpm
-pnpm run build
-
-# yarn
-yarn build
-
-# bun
-bun run build
+  yarn install
 ```
 
-Locally preview production build:
+Start the development server on `http://localhost:3000`
 
 ```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm run preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
+  yarn dev
 ```
 
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+#### Supabase
+
+Make sure **Supabase CLI** is installed and **Docker** is running, then start the Supabase development server on `http://localhost:54323`
+
+```bash
+  supabase start
+```
+
+Run Edge Functions locally
+
+```bash
+  supabase functions serve
+```
+## Deployment
+
+Nuxt web client deployment is automatic on commit on *main* branch.
+
+To deploy Supabase Edge Functions run
+
+```bash
+  supabase functions deploy
+```
+
+
+## Supabase Edge Functions Reference
+
+### search-show
+Search through all the shows in [TV Maze](https://www.tvmaze.com/api) database by the show's name.
+
+| Parameter | Type     | Description                |
+| :-------- | :------- | :------------------------- |
+| `query` | `string` | **Required**. Search query |
+
+### get-show
+
+Retrieve all primary information for a given show.
+
+| Parameter | Type     | Description                       |
+| :-------- | :------- | :-------------------------------- |
+| `slug`      | `string` | **Required**. Slug (*[show name] - [TV Maze id]*) of item to fetch |
+
+
+## Environment Variables
+
+To run this project, you will need to add the following environment variables to your .env file
+
+`SUPABASE_URL`
+
+`SUPABASE_ANON_KEY`
+## Authors
+
+- [@valentingbt](https://www.github.com/valentingbt)
+- [@FrogSkyWater](https://www.github.com/FrogSkyWater)
