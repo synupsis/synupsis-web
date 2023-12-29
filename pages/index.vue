@@ -1,5 +1,5 @@
 <template>
-  <div class='w-full h-screen flex flex-col items-center gap-4 sm:justify-center'>
+  <div class='w-full h-screen flex flex-col items-center gap-4 sm:justify-center py-10'>
     <Logo class='h-56 w-56' />
     <div class='h-6'>
       <TransitionRoot :show='!!randomTagline'

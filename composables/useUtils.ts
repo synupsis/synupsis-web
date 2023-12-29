@@ -1,4 +1,4 @@
-import { Ref } from 'vue';
+import type { Ref } from 'vue';
 
 export default function useUtils() {
   const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1);
