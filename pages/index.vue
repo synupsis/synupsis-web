@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col h-screen bg-blue-900">
+  <div class='w-full h-screen flex flex-col items-center gap-4 sm:justify-center'>
     <div class="text-right w-screen pt-6 pr-4">
       <div v-if="user">{{ user.email }}</div>
       <div v-else class="flex gap-4 items-center justify-end">
@@ -7,38 +7,28 @@
         <router-link to="/signup"><Button>Sign up</Button></router-link>
       </div>
     </div>
-
-    <div class="w-full h-screen flex flex-col items-center gap-4 sm:justify-center">
-      <Logo class="h-56 w-56" />
-      <div class="h-6">
-        <TransitionRoot
-          :show="!!randomTagline"
-          enter="transition-opacity duration-150"
-          enter-from="opacity-0"
-          enter-to="opacity-100"
-          leave="transition-opacity duration-150"
-          leave-from="opacity-100"
-          leave-to="opacity-0"
-        >
-          <p class="italic">{{ randomTagline }}</p>
-        </TransitionRoot>
-      </div>
-      <div class="flex items-center justify-center gap-4 w-full px-4">
-        <Combobox
-          :click-action="goToShow"
-          :fetch-items="searchShows"
-          :items="items"
-          :items-loading="loading"
-          :show-chevron-icon="false"
-          class="w-full sm:w-80"
-          placeholder="Search for a show"
-        ></Combobox>
-      </div>
-      <Alert v-if="error" title="Something went wrong">
-        <p>There was an error</p>
-        <p>{{ error }}</p>
-      </Alert>
+    <Logo class='h-56 w-56' />
+    <div class='h-6'>
+      <TransitionRoot :show='!!randomTagline'
+                      enter='transition-opacity duration-150'
+                      enter-from='opacity-0'
+                      enter-to='opacity-100'
+                      leave='transition-opacity duration-150'
+                      leave-from='opacity-100'
+                      leave-to='opacity-0'>
+        <p class='italic'>{{ randomTagline }}</p>
+      </TransitionRoot>
     </div>
+    <div class='flex items-center justify-center gap-4 w-full px-4'>
+      <Combobox :click-action='goToShow' :fetch-items='searchShows' :items='items' :items-loading='loading'
+                :show-chevron-icon='false' class='w-full sm:w-80'
+                placeholder='Search for a show'></Combobox>
+    </div>
+    <Alert v-if='error' title='Something went wrong'>
+      <p>There was an error</p>
+      <p>{{ error }}</p>
+
+    </Alert>
   </div>
 </template>
 
@@ -95,10 +85,7 @@ const searchShows = async (value: any) => {
 };
 
 const goToShow = (show: any) => {
-  const slug = show.name
-    .toLowerCase()
-    .replace(/ /g, '-')
-    .replace(/[^\w-]+/g, '');
+  const slug = show.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
   navigateTo({
     path: `/shows/${slug}-${show.id}`,
     params: { slug: `${slug}-${show.id}` }
