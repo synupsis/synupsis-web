@@ -11,8 +11,11 @@
         </router-link>
       </div>
     </div>
-    <div class='w-full h-screen flex flex-col items-center gap-4 sm:justify-center'>
-      <Logo class='h-56 w-56' />
+    <div class='w-full h-[90vh] flex flex-col items-center gap-4 sm:justify-center'>
+      <div class='flex flex-col items-center'>
+        <Logo class='h-56 w-56' />
+        <img alt='Synupsis' class='w-96 -mt-6' src='~/assets/svg/logo_text.svg' />
+      </div>
       <div class='h-6'>
         <TransitionRoot :show='!!randomTagline'
                         enter='transition-opacity duration-150'
