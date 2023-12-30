@@ -1,6 +1,6 @@
 <template>
   <div class='relative overflow-hidden'>
-    <img alt='Synupsis' class='object-cover' src='~/assets/svg/logo_dark.svg' />
+    <img alt='Synupsis' class='' src='~/assets/svg/logo_dark.svg' />
     <!--    <div class='bg'></div>-->
   </div>
 </template>
@@ -57,3 +57,5 @@
 }
 </style>
 
+<script lang='ts' setup>
+</script>
