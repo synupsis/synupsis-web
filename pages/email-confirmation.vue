@@ -1,5 +1,5 @@
 <template>
-  <div class="h-screen w-screen" style="background-color: rgba(0, 18, 51); color: #ff595a">
+  <div class="h-screen w-screen bg-blue-900 text-red-500">
     <div class="text-9xl mb-48 leading-relaxed">
       We've sent a mail to your "mail adress placeholder", please confirm your account by clicking
       the link in the mail

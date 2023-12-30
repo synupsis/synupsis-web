@@ -1,7 +1,6 @@
 <template>
   <div
-    class="text-black relative flex min-h-screen flex-col justify-center overflow-hidden bg-green-500 py-6 sm:py-12"
-    style="background-color: color(srgb 0 0.070588 0.2)"
+    class="text-black bg-blue-900 relative flex min-h-screen flex-col justify-center overflow-hidden bg-green-500 py-6 sm:py-12"
   >
     <div
       class="relative bg-white px-6 pt-10 pb-8 shadow-xl ring-1 ring-gray-900/5 sm:mx-auto sm:max-w-lg sm:rounded-lg sm:px-10 m-8"

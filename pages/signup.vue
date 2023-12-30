@@ -1,7 +1,6 @@
 <template>
   <div
-    class="relative flex min-h-screen flex-col justify-center overflow-hidden bg-black py-6 sm:py-12"
-    style="background-color: color(srgb 0 0.070588 0.2)"
+    class="relative flex min-h-screen flex-col justify-center overflow-hidden bg-blue-900 py-6 sm:py-12"
   >
     <div
       class="relative bg-white px-6 pt-10 pb-8 shadow-xl ring-1 ring-gray-900/5 sm:mx-auto sm:max-w-lg sm:rounded-lg sm:px-10 m-8"
@@ -16,13 +15,12 @@
       <div class="mb-6">
         <div class="text-black font-semibold">Username</div>
         <label class="relative block">
-          <span class="sr-only">username</span>
+          <span class="sr-only">Username input</span>
           <input
-            class="placeholder:italic placeholder:text-slate-400 block bg-white w-full border border-slate-300 rounded-md py-2 pr-3 shadow-sm focus:outline-none focus:border-sky-500 focus:ring-sky-500 focus:ring-1 sm:text-xs"
+            class="placeholder:italic placeholder:text-slate-400 text-black block bg-white w-full border border-slate-300 rounded-md py-2 pr-3 shadow-sm focus:outline-none focus:border-sky-500 focus:ring-sky-500 focus:ring-1 sm:text-xs"
             placeholder="Enter your username"
             type="text"
-            style="color: black"
-            name="usernameinput"
+            name="username"
           />
         </label>
       </div>
@@ -30,37 +28,15 @@
       <div class="mb-2">
         <div class="text-black font-semibold">Email</div>
         <label class="relative block">
-          <span class="sr-only">Mailinput</span>
-          <Input
-            v-model="email"
-            placeholder="Enter your email"
-            type="email"
-            name="email"
-            @input="checkEmails"
-          />
-        </label>
-      </div>
-
-      <div class="mb-6">
-        <div class="text-black font-semibold">Confirm Email</div>
-        <label class="relative block">
-          <span class="sr-only">Mailinput</span>
-          <input
-            class="placeholder:italic placeholder:text-slate-400 block bg-white w-full border border-slate-300 rounded-md py-2 pr-3 shadow-sm focus:outline-none focus:border-sky-500 focus:ring-sky-500 focus:ring-1 sm:text-xs"
-            placeholder="Confirm your email"
-            type="email"
-            style="color: black"
-            name="emailconfirmationinput"
-            v-model="confirmEmail"
-            @input="checkEmails"
-          />
+          <span class="sr-only">E-mail input</span>
+          <Input v-model="email" placeholder="Enter your email" type="email" name="email" />
         </label>
       </div>
 
       <div class="mb-2">
         <div class="text-black font-semibold">Password</div>
         <label class="relative block">
-          <span class="sr-only">Pwdinput</span>
+          <span class="sr-only">Password input</span>
           <Input
             v-model="password"
             placeholder="Enter your password"
@@ -81,31 +57,13 @@
         >
       </div>
 
-      <div class="mb-2">
-        <div class="text-black font-semibold">Confirm password</div>
-        <label class="relative block">
-          <span class="sr-only">Pwdinput</span>
-          <input
-            class="placeholder:italic placeholder:text-slate-400 block bg-white w-full border border-slate-300 rounded-md py-2 pr-3 mb-12 shadow-sm focus:outline-none focus:border-sky-500 focus:ring-sky-500 focus:ring-1 sm:text-xs"
-            placeholder="Confirm your password"
-            type="password"
-            style="color: black"
-            name="confirmpwdinput"
-          />
-        </label>
-      </div>
-
       <div class="flex justify-center mb-1">
-        <Button :disabled="!emailsMatch" @click="register()"> Register </Button>
+        <Button :disabled="!email || !password" @click="register()"> Register </Button>
       </div>
-
-      <p class="text-center text-red-600" v-if="!emailsMatch">Les emails ne correspondent pas.</p>
-
       <div class="flex justify-center gap-1">
         <p class="text-black text-sm">Already registered ?</p>
         <div class="text-black text-sm underline underline-offset-1">
           <router-link to="/login">Login</router-link>
-          <!-- remplacer par le lien définitif-->
         </div>
       </div>
     </div>
@@ -127,15 +85,6 @@ const register = async () => {
     email: email.value,
     password: password.value
   });
-  navigateTo('/mailconfscreen');
-};
-
-import { ref } from 'vue';
-
-const confirmEmail = ref('');
-const emailsMatch = ref(true);
-
-const checkEmails = () => {
-  emailsMatch.value = email.value === confirmEmail.value;
+  navigateTo('/email-confirmation');
 };
 </script>

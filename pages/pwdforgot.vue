@@ -1,8 +1,5 @@
 <template>
-  <div
-    class="w-screen h-screen"
-    style="background-color: color(srgb 0 0.070588 0.2); color: #cac0b3"
-  >
+  <div class="w-screen h-screen bg-blue-900 text-red-100">
     <div class="flex flex-row">
       <div class="hidden lg:flex w-[1080px] h-screen">
         <video class="h-screen max-w-[1080px] responsive-video" autoplay loop muted>
@@ -28,11 +25,8 @@
     </div>
   </div>
 
-  <!--
-- reste logo à afficher en haut à gauche
-- crédit de la vidéo
-- 
---></template>
+  <!-- TODO: Display logo + video credits -->
+</template>
 
 <script lang="ts" setup>
 import Button from '~/components/ui/Button.vue';

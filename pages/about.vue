@@ -1,15 +1,12 @@
 <template>
-  <div style="background-color: color(srgb 0 0.070588 0.2); color: #cac0b3">
-    <div
-      class="flex flex-row gap-8 w-screen h-fit items-center pt-4 pb-4"
-      style="background-color: color(srgb 0 0.070588 0.2); color: #ff595a"
-    >
+  <div class="bg-blue-900 text-red-100">
+    <div class="flex flex-row gap-8 w-screen text-red-500 h-fit items-center pt-4 pb-4">
       <Logo class="shrink-0 w-64 h-64"></Logo>
       <div class="flex flex-col gap-4">
         <div class="shrink-0 w-4/12 text-5xl font-black">
           DON'T MISS A REFERENCE WHEN JUMPING BACK IN THE SHOW
         </div>
-        <div class="shrink-0 w-4/12 text-justify" style="color: #cac0b3">
+        <div class="shrink-0 w-4/12 text-justify text-red-100">
           Delay between seasons can sometimes trick our mind. Who killed Jennifer in the first part
           of previous season ? Why didn't Michael escape from the island with the treasure ? Why
           this background character gets so much in the new season trailer already ?
@@ -24,7 +21,7 @@
       challenge for the both of us, has seen the rise of AI and decision has been made : we'll use
       AI to generate summaries !
     </div>
-    <div style="color: #ff595a" class="w-screen pt-4 pl-8 text-3xl font-semibold text-right pr-24">
+    <div class="w-screen pt-4 pl-8 text-3xl text-red-500 font-semibold text-right pr-24">
       Our values
     </div>
     <div class="flex w-screen pt-4 pl-8 pb-4 text-right justify-end pr-24">
@@ -35,8 +32,7 @@
       </div>
     </div>
     <div
-      class="bg-slate-800 rounded-lg pt-2 flex flex-row h-52 w-screen bg-red-500 text-justify text-white justify-center gap-x-2"
-      style="color: #cac0b3"
+      class="bg-slate-800 rounded-lg pt-2 flex flex-row h-52 w-screen bg-red-500 text-justify text-red-100 justify-center gap-x-2"
     >
       <div class="pl-2 pr-2 pt-4 w-2/12 h-48">
         <div class="text-center font-bold">Community First</div>
@@ -84,7 +80,7 @@
       shared passion, guided by values that reinforce our commitment to you, our valued users.
     </div>
 
-    <div style="color: #ff595a" class="pt-8 pl-8 text-3xl font-semibold">About us</div>
+    <div class="pt-8 pl-8 text-3xl text-red-500 font-semibold">About us</div>
     <div class="pt-4 pl-8 pb-4">
       We're 2 young folks from the end 90's era, rocked by the pop culture and passionate in our own
       hobbies...

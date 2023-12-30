@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col h-screen" style="background-color: color(srgb 0 0.070588 0.2)">
+  <div class="flex flex-col h-screen bg-blue-900">
     <div class="text-right w-screen pt-6 pr-4">
       <div v-if="user">{{ user.email }}</div>
       <div v-else class="flex gap-4 items-center justify-end">
