@@ -46,11 +46,57 @@
         <ul
           class='mx-auto mt-20 grid max-w-2xl grid-cols-1 gap-6 sm:grid-cols-2 lg:mx-0 lg:max-w-none lg:grid-cols-3 lg:gap-8'
           role='list'>
-          <li v-for='season in data?.seasons' :key='season.id'
-              class='transition-all cursor-pointer rounded-2xl bg-gray-800 px-8 py-10 outline outline-1 outline-transparent hover:outline-white'
-              @click='onSeasonClick(season)'>
-            <h3 class='text-base font-semibold leading-7 tracking-tight text-white'>Season {{ season.number }}</h3>
-            <p v-if='season.name' class='text-sm leading-6 text-gray-400'>{{ season.name }}</p>
+          <li v-for='season in data?.seasons' :key='season.id'>
+            <div
+              v-if='false'
+              class='rounded-2xl bg-gray-800 px-8 py-10'
+            >
+              <h3 class='text-base font-semibold leading-7 tracking-tight text-white'>Season {{ season.number }}</h3>
+              <p v-if='season.name' class='text-sm leading-6 text-gray-400'>{{ season.name }}</p>
+              <div class='flex'>
+                <button
+                  class='relative block w-full p-4 text-center text-gray-400 hover:text-gray-300 transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2'
+                  type='button'
+                  @click='showRecap(season)'>
+                  <EyeIcon class='mx-auto h-6 w-6' />
+                  <span class='mt-2 block text-sm font-semibold'>See recap</span>
+                </button>
+                <button
+                  class='relative block w-full p-4 text-center text-gray-400 hover:text-gray-300 transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2'
+                  type='button'>
+                  <PencilSquareIcon class='mx-auto h-6 w-6' />
+                  <span class='mt-2 block text-sm font-semibold'>Edit recap</span>
+                </button>
+              </div>
+            </div>
+            <div v-else class='rounded-lg border-2 border-dashed border-gray-300'>
+              <div>
+                <div class='bg-white text-gray-900'>
+                  <h3 class='text-base font-semibold leading-7 tracking-tight'>Season {{ season.number
+                    }}</h3>
+                  <p v-if='season.name' class='text-sm leading-6 text-gray-400'>{{ season.name }}</p>
+                </div>
+
+                <p class='text-sm mt-2'>No Recap</p>
+                <p class='text-sm text-gray-400'>Get started by creating a new recap.</p>
+              </div>
+              <div class='flex gap-2 divide-white'>
+                <button
+                  class='relative block w-full px-12 py-6 text-center focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 cursor-not-allowed opacity-50'
+                  disabled
+                  type='button'>
+                  <SparklesIcon class='mx-auto h-12 w-12 text-gray-400' />
+                  <span class='mt-2 block text-sm font-semibold text-gray-300'>Generate recap (soon)</span>
+                </button>
+                <button
+                  class='relative block w-full px-12 py-6 text-center text-gray-400 hover:text-gray-300 transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2'
+                  type='button'
+                  @click='goToNewRecap(data?.id, season.id)'>
+                  <SquaresPlusIcon class='mx-auto h-12 w-12' />
+                  <span class='mt-2 block text-sm font-semibold'>Create a new recap</span>
+                </button>
+              </div>
+            </div>
           </li>
         </ul>
       </div>
@@ -63,6 +109,7 @@ import useSupabase from '~/composables/useSupabase';
 import Alert from '~/components/ui/Alert.vue';
 import type { Ref } from 'vue';
 import type { Show } from '~/types/database.types.ts';
+import { EyeIcon, PencilSquareIcon, SparklesIcon, SquaresPlusIcon } from '@heroicons/vue/24/outline';
 
 const { supabase } = useSupabase();
 const loading = ref(true);
@@ -83,8 +130,16 @@ onMounted(async () => {
   error.value = showError?.message;
 });
 
-const onSeasonClick = (season: any) => {
+const showRecap = (season: any) => {
   isRecapOpen.value = true;
   selectedSeason.value = season;
 };
+
+const goToNewRecap = (show?: string, season?: string) => {
+  navigateTo({
+    path: '/new-recap',
+    query: { show, season }
+  });
+};
+
 </script>

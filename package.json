@@ -10,6 +10,7 @@
   },
   "devDependencies": {
     "@nuxt/devtools": "latest",
+    "@types/fabric": "^5.3.6",
     "@typescript-eslint/eslint-plugin": "^6.14.0",
     "@typescript-eslint/parser": "^6.14.0",
     "autoprefixer": "^10.4.16",
@@ -32,6 +33,7 @@
     "@tailwindcss/forms": "^0.5.7",
     "date-fns": "^2.30.0",
     "date-fns-tz": "^2.0.0",
+    "fabric": "^5.3.0",
     "install": "^0.13.0",
     "type-fest": "^4.8.3",
     "typescript": "^5.3.3"
