@@ -1,6 +1,7 @@
 <template>
   <div
     class="relative flex min-h-screen flex-col justify-center overflow-hidden bg-black py-6 sm:py-12"
+    style="background-color: color(srgb 0 0.070588 0.2)"
   >
     <div
       class="relative bg-white px-6 pt-10 pb-8 shadow-xl ring-1 ring-gray-900/5 sm:mx-auto sm:max-w-lg sm:rounded-lg sm:px-10 m-8"
@@ -30,12 +31,12 @@
         <div class="text-black font-semibold">Email</div>
         <label class="relative block">
           <span class="sr-only">Mailinput</span>
-          <input
-            class="placeholder:italic placeholder:text-slate-400 block bg-white w-full border border-slate-300 rounded-md py-2 pr-3 shadow-sm focus:outline-none focus:border-sky-500 focus:ring-sky-500 focus:ring-1 sm:text-xs"
-            placeholder="Enter your email here"
+          <Input
+            v-model="email"
+            placeholder="Enter your email"
             type="email"
-            style="color: black"
-            name="emailinput"
+            name="email"
+            @input="checkEmails"
           />
         </label>
       </div>
@@ -50,6 +51,8 @@
             type="email"
             style="color: black"
             name="emailconfirmationinput"
+            v-model="confirmEmail"
+            @input="checkEmails"
           />
         </label>
       </div>
@@ -58,12 +61,11 @@
         <div class="text-black font-semibold">Password</div>
         <label class="relative block">
           <span class="sr-only">Pwdinput</span>
-          <input
-            class="placeholder:italic placeholder:text-slate-400 block bg-white w-full border border-slate-300 rounded-md py-2 pr-3 shadow-sm focus:outline-none focus:border-sky-500 focus:ring-sky-500 focus:ring-1 sm:text-xs"
-            placeholder="Enter your password here"
+          <Input
+            v-model="password"
+            placeholder="Enter your password"
             type="password"
-            style="color: black"
-            name="pwdinput"
+            name="password"
           />
         </label>
       </div>
@@ -94,12 +96,10 @@
       </div>
 
       <div class="flex justify-center mb-1">
-        <button
-          class="w-40 h-10 rounded-lg text-white bg-purple-950 hover:bg-purple-500 transition"
-        >
-          Register
-        </button>
+        <Button :disabled="!emailsMatch" @click="register()"> Register </Button>
       </div>
+
+      <p class="text-center text-red-600" v-if="!emailsMatch">Les emails ne correspondent pas.</p>
 
       <div class="flex justify-center gap-1">
         <p class="text-black text-sm">Already registered ?</p>
@@ -114,4 +114,28 @@
 
 <script lang="ts" setup>
 import useSupabase from '~/composables/useSupabase';
+import Button from '~/components/ui/Button.vue';
+import Input from '~/components/ui/Input.vue';
+
+const { supabase } = useSupabase();
+
+const email = ref('');
+const password = ref('');
+
+const register = async () => {
+  let { data, error } = await supabase.auth.signUp({
+    email: email.value,
+    password: password.value
+  });
+  navigateTo('/mailconfscreen');
+};
+
+import { ref } from 'vue';
+
+const confirmEmail = ref('');
+const emailsMatch = ref(true);
+
+const checkEmails = () => {
+  emailsMatch.value = email.value === confirmEmail.value;
+};
 </script>
