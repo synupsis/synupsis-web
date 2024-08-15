@@ -41,11 +41,12 @@
   </div>
 </template>
 
-<script lang='ts' setup>
+<script lang="ts" setup>
 import Combobox from '~/components/ui/Combobox.vue';
 import useSupabase from '~/composables/useSupabase';
 import Alert from '~/components/ui/Alert.vue';
 import { TransitionRoot } from '@headlessui/vue';
+import type { TvMazeShow } from '~/types/tv-maze.types';
 import Button from '~/components/ui/Button.vue';
 
 const { supabase } = useSupabase();
@@ -57,7 +58,7 @@ const randomTagline = ref('');
 
 onMounted(() => {
   const taglines = [
-    'Short memory, but don\'t worry.',
+    "Short memory, but don't worry.",
     'Quick Summaries for Every Show',
     'Never Forget What Happened',
     'Binge the Summary, Savor the Show.',
@@ -71,7 +72,7 @@ onMounted(() => {
   randomTagline.value = taglines[Math.floor(Math.random() * taglines.length)];
 });
 
-const searchShows = async (value: any) => {
+const searchShows = async (value: string) => {
   loading.value = true;
   const { data: searchData, error: searchError } = await supabase.functions.invoke('search-show', {
     body: { query: value }
@@ -81,7 +82,7 @@ const searchShows = async (value: any) => {
   error.value = searchError?.message;
 
   if (searchData) {
-    items.value = searchData.shows.map(show => {
+    items.value = searchData.shows.map((show: TvMazeShow) => {
       return {
         name: show.name,
         secondary: `${new Date(show.premiered).getFullYear()} - ${
@@ -93,8 +94,11 @@ const searchShows = async (value: any) => {
   }
 };
 
-const goToShow = (show: any) => {
-  const slug = show.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
+const goToShow = (show: TvMazeShow) => {
+  const slug = show.name
+    .toLowerCase()
+    .replace(/ /g, '-')
+    .replace(/[^\w-]+/g, '');
   navigateTo({
     path: `/shows/${slug}-${show.id}`,
     params: { slug: `${slug}-${show.id}` }

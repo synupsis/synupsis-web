@@ -46,7 +46,7 @@
         <ul
           class='mx-auto mt-20 grid max-w-2xl grid-cols-1 gap-6 sm:grid-cols-2 lg:mx-0 lg:max-w-none lg:grid-cols-3 lg:gap-8'
           role='list'>
-          <li v-for='season in data?.seasons' :key='season.id'>
+          <li v-for='season in data?._embedded?.seasons' :key='season.id'>
             <div
               v-if='false'
               class='rounded-2xl bg-gray-800 px-8 py-10'
@@ -109,6 +109,7 @@ import useSupabase from '~/composables/useSupabase';
 import Alert from '~/components/ui/Alert.vue';
 import type { Ref } from 'vue';
 import type { Show } from '~/types/database.types.ts';
+import type { TvMazeShow } from '~/types/tv-maze.types';
 import { EyeIcon, PencilSquareIcon, SparklesIcon, SquaresPlusIcon } from '@heroicons/vue/24/outline';
 
 const { supabase } = useSupabase();
@@ -126,7 +127,7 @@ onMounted(async () => {
   });
   loading.value = false;
 
-  data.value = showData?.show;
+  data.value = showData?.show as TvMazeShow;
   error.value = showError?.message;
 });
 
