@@ -33,6 +33,7 @@ import Combobox from '~/components/ui/Combobox.vue';
 import useSupabase from '~/composables/useSupabase';
 import Alert from '~/components/ui/Alert.vue';
 import { TransitionRoot } from '@headlessui/vue';
+import type { TvMazeShow } from '~/types/tv-maze.types';
 
 const { supabase } = useSupabase();
 
@@ -67,7 +68,7 @@ const searchShows = async (value: any) => {
   error.value = searchError?.message;
 
   if (searchData) {
-    items.value = searchData.shows.map((show) => {
+    items.value = searchData.shows.map((show: TvMazeShow) => {
       return {
         name: show.name,
         secondary: `${new Date(show.premiered).getFullYear()} - ${show.ended ? new Date(show.ended).getFullYear() : 'Present'}`,
