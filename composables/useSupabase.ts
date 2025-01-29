@@ -1,11 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '~/types/database.types';
 
-export default function useSupabase() {
-  const config = useRuntimeConfig();
-  const supabase = createClient<Database>(config.public.supabaseUrl, config.public.supabaseAnonKey);
+let supabaseInstance: ReturnType<typeof createClient<Database>> | null = null;
 
-  return {
-    supabase
-  };
+export default function useSupabase() {
+  if (!supabaseInstance) {
+    const config = useRuntimeConfig();
+    supabaseInstance = createClient<Database>(
+      config.public.supabaseUrl,
+      config.public.supabaseAnonKey
+    );
+  }
+  return supabaseInstance;
 }

@@ -1,11 +1,17 @@
 <template>
   <div>
+    <NuxtRouteAnnouncer />
+    <NuxtLoadingIndicator />
     <NuxtPage />
   </div>
 </template>
 
-<script lang='ts' setup>
-import { provideUseId } from '@headlessui/vue';
-
-provideUseId(() => useId().replace(/[-:]/, '_'));
+<script lang="ts" setup>
+useHead({
+  htmlAttrs: {
+    'data-theme': 'night',
+    class: 'dark'
+  }
+});
+provideHeadlessUseId(() => useId());
 </script>

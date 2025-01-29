@@ -224,6 +224,14 @@ export default function useUtils() {
     }
   };
 
+  const slugify = (text: string) => {
+    return text
+      .toLowerCase()
+      .trim()
+      .replace(/[\s]+/g, '-')
+      .replace(/[^\w-]+/g, '');
+  };
+
   return {
     pluralize,
     capitalize,
@@ -234,6 +242,7 @@ export default function useUtils() {
     flattenObject,
     unflattenObject,
     setInitialFormValues,
-    equals
+    equals,
+    slugify
   };
 }

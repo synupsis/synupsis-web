@@ -1,7 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   pages: true,
-  devtools: { enabled: true },
+  devtools: { enabled: false },
   css: ['~/assets/css/main.css'],
 
   postcss: {
@@ -22,5 +22,10 @@ export default defineNuxtConfig({
     typeCheck: false
   },
 
-  compatibilityDate: '2024-08-15'
+  supabase: {
+    redirect: false
+  },
+
+  compatibilityDate: '2024-08-15',
+  modules: ['@nuxtjs/supabase', 'nuxt-headlessui']
 });
