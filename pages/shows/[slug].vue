@@ -5,9 +5,11 @@
         <Logo class="h-32 w-32" />
       </router-link>
     </div>
-    <Alert v-if="error" title="Something went wrong">
-      <p>There was an error</p>
-      <p>{{ error }}</p>
+    <Alert v-if="error" variant="destructive">
+      <AlertTitle>Something went wrong</AlertTitle>
+      <AlertDescription>
+        {{ error }}
+      </AlertDescription>
     </Alert>
     <div class="py-10">
       <div class="mx-auto max-w-7xl px-6 lg:px-8">
@@ -145,23 +147,19 @@
   </div>
 </template>
 <script lang="ts" setup>
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import InteractiveHoverButton from '~/components/ui/InteractiveHoverButton.vue';
+import RecapBackgroundModal from '~/components/RecapBackgroundModal.vue';
+import RecapCanvas from '~/components/RecapCanvas.vue';
 import useSupabase from '~/composables/useSupabase';
-import Alert from '~/components/ui/Alert.vue';
-import LineShadowText from '~/components/ui/LineShadowText.vue';
-import type { Ref } from 'vue';
-import type { Show } from '~/types/database.types.ts';
+import type { Database } from '~/types/database.types';
 import type { TvMazeShow } from '~/types/tv-maze.types';
-import {
-  EyeIcon,
-  PencilSquareIcon,
-  SparklesIcon,
-  SquaresPlusIcon
-} from '@heroicons/vue/24/outline';
+import { EyeIcon, PencilSquareIcon, SparklesIcon, SquaresPlusIcon } from '@heroicons/vue/24/outline';
 
 const supabase = useSupabase();
 const loading = ref(true);
 const error = ref(null);
-const data: Ref<Show | null> = ref(null);
+const data: Ref<TvMazeShow | null> = ref(null);
 const route = useRoute();
 const isRecapOpen = ref(false);
 const selectedSeason = ref(null);

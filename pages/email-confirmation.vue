@@ -1,15 +1,25 @@
 <template>
-  <div class="h-screen w-screen bg-blue-900 text-red-500">
-    <div class="text-9xl mb-48 leading-relaxed">
-      We've sent a mail to your "mail adress placeholder", please confirm your account by clicking
-      the link in the mail
+  <div class="flex items-center justify-center min-h-screen bg-gray-900 text-white">
+    <div class="max-w-md w-full p-8 space-y-8">
+      <div class="text-center">
+        <h2 class="text-3xl font-extrabold">Check your inbox</h2>
+      </div>
+      <Alert>
+        <AlertTitle>Confirmation Email Sent</AlertTitle>
+        <AlertDescription>
+          We've sent a confirmation email to
+          <span class="font-semibold">{{ $route.query.email }}</span
+          >. Please click the link in the email to confirm your account.
+        </AlertDescription>
+      </Alert>
+      <router-link to="/" class="block w-full">
+        <Button class="w-full">Back to Homepage</Button>
+      </router-link>
     </div>
-    <router-link to="/"
-      ><div class="flex items-center place-content-center">
-        <button class="h-8 font-semibold text-black bg-green-500 rounded-lg">
-          Back to Homepage ?
-        </button>
-      </div></router-link
-    >
   </div>
 </template>
+
+<script lang="ts" setup>
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import Button from '~/components/ui/Button.vue';
+</script>

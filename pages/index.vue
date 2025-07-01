@@ -5,9 +5,8 @@
         class="relative flex w-full h-[600px] flex-col items-center justify-center overflow-hidden rounded-lg lg:w-full md:w-full"
       >
         <div class="absolute top-5 right-5 text-right w-full">
-          <SpinLoader v-if="!user" class="h-5 w-5" />
-          <div v-else-if="user">{{ user.email }}</div>
-          <div v-else class="flex gap-4 items-center justify-end">
+          <SpinLoader v-if="user === undefined" class="h-5 w-5" />
+          <div v-else-if="user === null" class="flex gap-4 items-center justify-end">
             <router-link to="/login">
               <RippleButton>Log in</RippleButton>
             </router-link>
@@ -15,6 +14,7 @@
               <RippleButton>Sign up</RippleButton>
             </router-link>
           </div>
+          <div v-else>{{ user.email }}</div>
         </div>
         <Logo class="z-10 h-56 w-56" />
         <div class="absolute w-full p-2 flex flex-col items-center mt-[400px]">

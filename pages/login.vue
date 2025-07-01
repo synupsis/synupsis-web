@@ -10,6 +10,13 @@
         <div class="text-white text-2xl font-black inline-block">Welcome back !</div>
       </div>
 
+      <Alert v-if="error" variant="destructive" class="mb-4">
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>
+          {{ error }}
+        </AlertDescription>
+      </Alert>
+
       <div class="mb-6">
         <div class="text-white font-semibold">Email</div>
         <label class="relative block">
@@ -59,18 +66,26 @@
 import Input from '~/components/ui/Input.vue';
 import Checkbox from '~/components/ui/Checkbox.vue';
 import Button from '~/components/ui/Button.vue';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import useSupabase from '~/composables/useSupabase';
 
 const supabase = useSupabase();
 
 const email = ref('');
 const password = ref('');
+const error = ref('');
+
 
 const login = async () => {
-  let { data, error } = await supabase.auth.signInWithPassword({
+  error.value = '';
+  let { data, error: loginError } = await supabase.auth.signInWithPassword({
     email: email.value,
     password: password.value
   });
+  if (loginError) {
+    error.value = loginError.message;
+    return;
+  }
   navigateTo('/');
 };
 </script>

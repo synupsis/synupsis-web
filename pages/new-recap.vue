@@ -1,9 +1,12 @@
 <template>
   <div class="flex flex-col w-full justify-center items-center p-4">
-    <div v-if="error" class="text-red-500">
-      <p>Error loading data: {{ error.message }}</p>
-      <button class="btn btn-primary" @click="goBack">Go Back</button>
-    </div>
+    <Alert v-if="error" variant="destructive">
+      <AlertTitle>Error loading data</AlertTitle>
+      <AlertDescription>
+        {{ error.message }}
+        <Button class="mt-2" @click="goBack">Go Back</Button>
+      </AlertDescription>
+    </Alert>
     <div v-else class="w-full">
       <div class="w-full mb-4">
         <div class="flex w-full justify-between items-center">
@@ -74,6 +77,18 @@
           <span>{{ isPublishing ? 'Publishing...' : 'Publish Recap' }}</span>
         </button>
       </div>
+      <Alert v-if="publicationError" variant="destructive" class="mt-4">
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>
+          {{ publicationError }}
+        </AlertDescription>
+      </Alert>
+      <Alert v-if="publicationSuccess" class="mt-4">
+        <AlertTitle>Success</AlertTitle>
+        <AlertDescription>
+          {{ publicationSuccess }}
+        </AlertDescription>
+      </Alert>
     </div>
   </div>
 </template>
@@ -90,6 +105,8 @@ import {
 import { useRoute, useRouter } from 'vue-router';
 import useSupabase from '~/composables/useSupabase';
 import type { Show, Season } from '~/types/database.types';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import Button from '~/components/ui/Button.vue';
 
 type Slide = {
   id: number;
@@ -172,6 +189,9 @@ const updateSlideCanvas = (canvas: string) => {
   }
 };
 
+const publicationError = ref('');
+const publicationSuccess = ref('');
+
 const { pending: isPublishing, execute: publishRecap } = useFetch('/api/recap/create', {
   method: 'POST',
   body: {
@@ -182,13 +202,14 @@ const { pending: isPublishing, execute: publishRecap } = useFetch('/api/recap/cr
   immediate: false,
   onResponse({ response }) {
     if (response.ok) {
-      // Optionally, navigate to the newly created recap page
-      router.push(`/shows/${pageData.value?.show?.name}-${showId.value}`);
+      publicationSuccess.value = 'Recap published successfully!';
+      setTimeout(() => {
+        router.push(`/shows/${pageData.value?.show?.name}-${showId.value}`);
+      }, 2000);
     }
   },
   onResponseError({ response }) {
-    console.error('Failed to publish recap:', response._data?.message);
-    // You might want to show a toast notification here
+    publicationError.value = response._data?.message || 'Failed to publish recap.';
   }
 });
 </script>

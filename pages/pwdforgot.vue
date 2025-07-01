@@ -19,8 +19,22 @@
           </div>
         </div>
         <div class="w-3/6 mb-2">Email Address</div>
-        <Input class="w-3/6 mb-4" type="email" />
-        <Button class="text-sm font-semibold">Send Reset Instructions</Button>
+        <Input v-model="email" class="w-3/6 mb-4" type="email" />
+        <Button class="text-sm font-semibold" @click="sendResetInstructions"
+          >Send Reset Instructions</Button
+        >
+        <Alert v-if="error" variant="destructive" class="mt-4 w-3/6">
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            {{ error }}
+          </AlertDescription>
+        </Alert>
+        <Alert v-if="message" class="mt-4 w-3/6">
+          <AlertTitle>Success</AlertTitle>
+          <AlertDescription>
+            {{ message }}
+          </AlertDescription>
+        </Alert>
       </div>
     </div>
   </div>
@@ -29,6 +43,28 @@
 </template>
 
 <script lang="ts" setup>
+import { ref } from 'vue';
 import Button from '~/components/ui/Button.vue';
 import Input from '~/components/ui/Input.vue';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import useSupabase from '~/composables/useSupabase';
+
+const supabase = useSupabase();
+const email = ref('');
+const error = ref('');
+const message = ref('');
+
+const sendResetInstructions = async () => {
+  error.value = '';
+  message.value = '';
+  const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.value, {
+    redirectTo: `${window.location.origin}/password-reset`
+  });
+
+  if (resetError) {
+    error.value = resetError.message;
+  } else {
+    message.value = 'Password reset instructions sent to your email.';
+  }
+};
 </script>

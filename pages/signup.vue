@@ -4,9 +4,11 @@
       <router-link to="/">
         <Logo class="h-36 w-36" />
       </router-link>
-      <Alert v-if="error" title="Something went wrong">
-        <p>There was an error</p>
-        <p>{{ error }}</p>
+      <Alert v-if="error" variant="destructive">
+        <AlertTitle>Something went wrong</AlertTitle>
+        <AlertDescription>
+          {{ error }}
+        </AlertDescription>
       </Alert>
     </div>
 
@@ -75,7 +77,7 @@
 import useSupabase from '~/composables/useSupabase';
 import Button from '~/components/ui/Button.vue';
 import Input from '~/components/ui/Input.vue';
-import Alert from '~/components/ui/Alert.vue';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 
 const supabase = useSupabase();
 
