@@ -1,10 +1,10 @@
-import { classRegistry, Textbox } from 'fabric';
+import * as fabric from 'fabric';
 
-export class RoundedTextbox extends Textbox {
+export class RoundedTextbox extends fabric.Textbox {
   static override type = 'RoundedTextbox';
   backgroundPadding: number;
 
-  constructor(text: string, options: any) {
+  constructor(text: string, options: fabric.ITextboxOptions & { backgroundPadding?: number }) {
     super(text, options);
     this.backgroundPadding = options.backgroundPadding || 0;
   }
@@ -44,5 +44,5 @@ export class RoundedTextbox extends Textbox {
   }
 }
 
-classRegistry.setClass(RoundedTextbox, 'RoundedTextbox');
-classRegistry.setSVGClass(RoundedTextbox, 'RoundedTextbox');
+fabric.classRegistry.setClass(RoundedTextbox, 'RoundedTextbox');
+fabric.classRegistry.setSVGClass(RoundedTextbox, 'RoundedTextbox');

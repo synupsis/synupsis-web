@@ -44,14 +44,11 @@ export interface TvMazeSelf {
   href: string;
 }
 
-export interface TvMazePreviousEpisode extends TvMazeSelf {
-}
+export interface TvMazePreviousEpisode extends TvMazeSelf {}
 
-export interface TvMazeShowLink extends TvMazeSelf {
-}
+export interface TvMazeShowLink extends TvMazeSelf {}
 
-export interface TvMazeCharacterLink extends TvMazeSelf {
-}
+export interface TvMazeCharacterLink extends TvMazeSelf {}
 
 export interface TvMazeLinks {
   self?: TvMazeSelf;

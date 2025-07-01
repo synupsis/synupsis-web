@@ -78,7 +78,7 @@
           class="mx-auto mt-20 grid max-w-2xl grid-cols-1 gap-6 sm:grid-cols-2 lg:mx-0 lg:max-w-none lg:grid-cols-3 lg:gap-8"
           role="list"
         >
-          <li v-for="season in data?._embedded?.seasons" :key="season.id">
+          <li v-for="season in data?.seasons" :key="season.id">
             <div v-if="false" class="rounded-2xl bg-gray-800 px-8 py-10">
               <h3 class="text-base font-semibold leading-7 tracking-tight text-white">
                 Season {{ season.number }}
@@ -168,13 +168,14 @@ const selectedSeason = ref(null);
 
 onMounted(async () => {
   loading.value = true;
-  const { data: showData, error: showError } = await supabase.functions.invoke('get-show', {
-    body: { slug: route.params.slug }
-  });
-  loading.value = false;
-
-  data.value = showData?.show as TvMazeShow;
-  error.value = showError?.message;
+  try {
+    const response = await $fetch(`/api/shows/${route.params.slug}`);
+    data.value = response.show;
+  } catch (e: any) {
+    error.value = e.message;
+  } finally {
+    loading.value = false;
+  }
 });
 
 const showRecap = (season: any) => {

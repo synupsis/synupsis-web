@@ -15,16 +15,16 @@
 </template>
 
 <script setup>
-import { XCircleIcon } from '@heroicons/vue/20/solid'
+import { XCircleIcon } from '@heroicons/vue/20/solid';
 
 defineProps({
   type: {
     type: String,
-    default: 'error',
+    default: 'error'
   },
   title: {
     type: String,
-    default: '',
-  },
-})
+    default: ''
+  }
+});
 </script>

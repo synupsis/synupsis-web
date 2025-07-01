@@ -39,6 +39,7 @@
     "@supabase/supabase-js": "^2.39.0",
     "@tailwindcss/forms": "^0.5.7",
     "@vueuse/core": "^12.5.0",
+    "axios": "^1.10.0",
     "date-fns": "^2.30.0",
     "date-fns-tz": "^2.0.0",
     "fabric": "^6.5.1",

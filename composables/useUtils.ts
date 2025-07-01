@@ -117,16 +117,20 @@ export default function useUtils() {
     return pluriel;
   };
 
-  const sortBy = (key: string) => (a: Record<string, any>, b: Record<string, any>) =>
+  const sortBy = <T extends Record<string, unknown>>(key: keyof T) => (a: T, b: T) =>
     a[key] > b[key] ? 1 : b[key] > a[key] ? -1 : 0;
 
-  const groupBy = (array: Array<any>, key: string) =>
-    (array || []).reduce((r, v, _i, _a, k = v[key]) => ((r[k] || (r[k] = [])).push(v), r), {});
+  const groupBy = <T extends Record<string, unknown>>(array: T[], key: keyof T) =>
+    (array || []).reduce((r, v) => {
+      const k = v[key] as string;
+      (r[k] || (r[k] = [])).push(v);
+      return r;
+    }, {} as Record<string, T[]>);
 
-  const keyBy = (array: Array<any>, key: string) =>
-    (array || []).reduce((r, x) => ({ ...r, [key ? x[key] : x]: x }), {});
+  const keyBy = <T extends Record<string, unknown>>(array: T[], key: keyof T) =>
+    (array || []).reduce((r, x) => ({ ...r, [x[key] as string]: x }), {} as Record<string, T>);
 
-  const debounce = <T extends (...args: any[]) => any>(
+  const debounce = <T extends (...args: unknown[]) => unknown>(
     callback: T,
     ms = 300
   ): ((...args: Parameters<T>) => Promise<ReturnType<T>>) => {
@@ -146,68 +150,69 @@ export default function useUtils() {
   };
 
   const flattenObject = (
-    object: Record<string, any>,
+    object: Record<string, unknown>,
     parents: Array<string> = []
-  ): Record<string, string> => {
+  ): Record<string, unknown> => {
     return Object.assign(
       {},
       ...Object.entries(object).map(([k, v]) =>
         v && typeof v === 'object'
-          ? flattenObject(v, [...parents, k])
+          ? flattenObject(v as Record<string, unknown>, [...parents, k])
           : { [[...parents, k].join('.')]: v }
       )
     );
   };
 
-  const unflattenObject = (obj: Record<string, any>) =>
+  const unflattenObject = (obj: Record<string, unknown>) =>
     Object.keys(obj).reduce((res, k) => {
       k.split('.').reduce(
-        (acc: Record<string, any>, e, i, keys) =>
+        (acc: Record<string, unknown>, e, i, keys) =>
           acc[e] ||
           (acc[e] = isNaN(Number(keys[i + 1])) ? (keys.length - 1 === i ? obj[k] : {}) : []),
         res
       );
       return res;
-    }, {});
+    }, {} as Record<string, unknown>);
 
-  const equals = (a: Array<any>, b: Array<any>) => {
+  const equals = (a: Array<unknown>, b: Array<unknown>) => {
     return a.length === b.length && a.every((v, i) => v === b[i]);
   };
 
   const setInitialFormValues = (
-    formData: Ref<Record<string, any>>,
-    formSchema: Ref<Record<string, any>> | Ref<Array<Record<string, any>>>,
-    initialValues: Record<string, any>
+    formData: Ref<Record<string, unknown>>,
+    formSchema: Ref<Record<string, unknown> | Array<Record<string, unknown>>>,
+    initialValues: Record<string, unknown>
   ) => {
-    const flattenToSchemaObject = (schema: Array<Record<string, any>>): Record<string, any> => {
+    const flattenToSchemaObject = (schema: Array<Record<string, unknown>>): Record<string, unknown> => {
       return schema.reduce((res, field) => {
         if (field instanceof Array) {
           res = { ...res, ...flattenToSchemaObject(field) };
         }
 
         if (field.schema instanceof Array) {
-          res[field.model] = { ...field, schema: flattenToSchemaObject(field.schema) };
+          res[field.model as string] = { ...field, schema: flattenToSchemaObject(field.schema as Array<Record<string, unknown>>) };
         } else {
-          res[field.model] = field;
+          res[field.model as string] = field;
         }
         return res;
-      }, {});
+      }, {} as Record<string, unknown>);
     };
 
     const filterSchemaKeys = (
-      data: Record<string, any>,
-      schema: Record<string, any>,
-      values: Record<string, any>
+      data: Record<string, unknown>,
+      schema: Record<string, unknown>,
+      values: Record<string, unknown>
     ) => {
       const schemaKeys = Object.keys(schema);
       for (const [key, value] of Object.entries(values)) {
         if (!schemaKeys.includes(key)) {
           continue;
         }
-        if (value instanceof Object && schema[key].schema) {
-          data[key] = filterSchemaKeys({}, schema[key].schema, values[key]);
+        const schemaEntry = schema[key] as Record<string, unknown>;
+        if (value instanceof Object && schemaEntry.schema) {
+          data[key] = filterSchemaKeys({}, schemaEntry.schema as Record<string, unknown>, value as Record<string, unknown>);
         } else {
-          data[key] = values[key];
+          data[key] = value;
         }
       }
       return data;
@@ -216,11 +221,11 @@ export default function useUtils() {
     if (formSchema.value instanceof Array) {
       formData.value = filterSchemaKeys(
         formData.value,
-        flattenToSchemaObject(formSchema.value),
+        flattenToSchemaObject(formSchema.value as Array<Record<string, unknown>>),
         initialValues
       );
     } else {
-      formData.value = filterSchemaKeys(formData.value, formSchema.value, initialValues);
+      formData.value = filterSchemaKeys(formData.value, formSchema.value as Record<string, unknown>, initialValues);
     }
   };
 

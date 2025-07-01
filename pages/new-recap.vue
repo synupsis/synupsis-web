@@ -1,28 +1,29 @@
 <template>
   <div class="flex flex-col w-full justify-center items-center p-4">
-    <div class="w-full">
+    <div v-if="error" class="text-red-500">
+      <p>Error loading data: {{ error.message }}</p>
+      <button class="btn btn-primary" @click="goBack">Go Back</button>
+    </div>
+    <div v-else class="w-full">
       <div class="w-full mb-4">
         <div class="flex w-full justify-between items-center">
           <h3 class="my-4 text-2xl font-semibold">Create a new Recap</h3>
           <div
             class="text-gray-400 p-4 hover:text-gray-300 cursor-pointer transition"
-            @click="goback"
+            @click="goBack"
           >
             <XMarkIcon class="h-7 w-7" />
           </div>
         </div>
         <div class="text-center flex items-center flex-col">
-          <div v-if="loading || !showName" class="flex gap-1">
-            <div class="skeleton h-6 w-14"></div>
-            <div class="skeleton h-6 w-8"></div>
-            <div class="skeleton h-6 w-20"></div>
+          <div v-if="loading" class="flex flex-col items-center gap-2">
+            <div class="skeleton h-6 w-32"></div>
+            <div class="skeleton h-5 w-20"></div>
           </div>
-          <p v-else class="font-semibold text-xl transition-opacity">{{ showName }}</p>
-          <div v-if="loading || !seasonNumber" class="flex gap-1 mt-2">
-            <div class="skeleton h-5 w-16"></div>
-            <div class="skeleton h-5 w-4"></div>
-          </div>
-          <p v-else>Season {{ seasonNumber }}</p>
+          <template v-else>
+            <p class="font-semibold text-xl transition-opacity">{{ showName }}</p>
+            <p>Season {{ seasonNumber }}</p>
+          </template>
         </div>
       </div>
       <div class="flex justify-center">
@@ -30,14 +31,14 @@
           :image="showImage"
           :json="selectedSlide?.canvas"
           :loading="loading"
-          @update:json="updateSlide"
+          @update:json="updateSlideCanvas"
         />
       </div>
 
-      <div class="flex justify-center gap-6 py-8">
-        <div v-for="(slide, index) in slides" class="relative">
+      <div class="flex justify-center gap-6 py-8 overflow-x-auto">
+        <div v-for="(slide, index) in slides" :key="slide.id" class="relative flex-shrink-0">
           <div
-            class="btn rounded-full bg-white absolute -right-3 -top-3 cursor-pointer hover:bg-gray-300 transition shadow-lg"
+            class="btn rounded-full bg-white absolute -right-3 -top-3 cursor-pointer hover:bg-gray-300 transition shadow-lg z-10"
             @click="removeSlide(slide)"
           >
             <TrashIcon class="h-4 w-4 text-black" />
@@ -54,7 +55,7 @@
         </div>
 
         <button
-          class="px-6 py-6 text-center text-gray-400 hover:text-gray-300 transition focus:ring-0"
+          class="px-6 py-6 text-center text-gray-400 hover:text-gray-300 transition focus:ring-0 flex-shrink-0"
           type="button"
           @click="addSlide"
         >
@@ -63,17 +64,14 @@
         </button>
       </div>
       <div class="flex justify-end gap-2">
-        <button class="py-2 px-4 btn btn-neutral gap-2" @click="goback">
-          <span>
-            <XCircleIcon class="h-5 w-5" />
-          </span>
-          Cancel
+        <button class="py-2 px-4 btn btn-neutral gap-2" @click="goBack">
+          <XCircleIcon class="h-5 w-5" />
+          <span>Cancel</span>
         </button>
-        <button class="py-2 px-4 btn btn-primary" @click="createRecap">
-          <span>
-            <ArrowUpCircleIcon class="h-5 w-5" />
-          </span>
-          Publish recap
+        <button class="py-2 px-4 btn btn-primary" :disabled="isPublishing" @click="publishRecap">
+          <span v-if="isPublishing" class="loading loading-spinner"></span>
+          <ArrowUpCircleIcon v-else class="h-5 w-5" />
+          <span>{{ isPublishing ? 'Publishing...' : 'Publish Recap' }}</span>
         </button>
       </div>
     </div>
@@ -81,8 +79,7 @@
 </template>
 
 <script lang="ts" setup>
-import useSupabase from '~/composables/useSupabase';
-import type { Ref } from 'vue';
+import { ref, computed } from 'vue';
 import {
   ArrowUpCircleIcon,
   SquaresPlusIcon,
@@ -90,23 +87,56 @@ import {
   XCircleIcon,
   XMarkIcon
 } from '@heroicons/vue/24/outline';
-
-const loading = ref(false);
-const error: Ref<string | undefined> = ref(undefined);
-const showId: Ref<string | undefined> = ref(undefined);
-const seasonId: Ref<string | undefined> = ref(undefined);
-const showName: Ref<string | undefined> = ref(undefined);
-const showImage: Ref<string | undefined> = ref(undefined);
-const seasonNumber: Ref<number | undefined> = ref(undefined);
-const route = useRoute();
-const router = useRouter();
+import { useRoute, useRouter } from 'vue-router';
+import useSupabase from '~/composables/useSupabase';
+import type { Show, Season } from '~/types/database.types';
 
 type Slide = {
   id: number;
   canvas: string;
 };
 
-const slides: Ref<Array<Slide>> = ref([
+const route = useRoute();
+const router = useRouter();
+const supabase = useSupabase();
+
+const showId = computed(() => route.query.show as string | undefined);
+const seasonId = computed(() => route.query.season as string | undefined);
+
+const {
+  data: pageData,
+  pending: loading,
+  error
+} = useAsyncData(
+  `new-recap-data-${showId.value}-${seasonId.value}`,
+  async () => {
+    if (!showId.value || !seasonId.value) {
+      throw new Error('Show ID and Season ID are required.');
+    }
+
+    const [showResult, seasonResult] = await Promise.all([
+      supabase.from('show').select('id, name, image').eq('id', showId.value).single(),
+      supabase.from('season').select('id, number').eq('id', seasonId.value).single()
+    ]);
+
+    if (showResult.error) throw showResult.error;
+    if (seasonResult.error) throw seasonResult.error;
+
+    return {
+      show: showResult.data as Show,
+      season: seasonResult.data as Season
+    };
+  },
+  {
+    watch: [showId, seasonId]
+  }
+);
+
+const showName = computed(() => pageData.value?.show?.name);
+const showImage = computed(() => pageData.value?.show?.image);
+const seasonNumber = computed(() => pageData.value?.season?.number);
+
+const slides = ref<Slide[]>([
   { id: 1, canvas: '' },
   { id: 2, canvas: '' }
 ]);
@@ -115,61 +145,50 @@ const selectedSlide = computed(
   () => slides.value.find(s => s.id === selectedSlideId.value) ?? slides.value[0]
 );
 
-const supabase = useSupabase();
-
-onMounted(async () => {
-  loading.value = true;
-  const { data: showData, error: showError } = await supabase
-    .from('show')
-    .select('id, name, image')
-    .eq('id', route?.query?.show ?? '')
-    .maybeSingle();
-
-  const { data: seasonData, error: seasonError } = await supabase
-    .from('season')
-    .select('id, number')
-    .eq('id', route?.query?.season ?? '')
-    .maybeSingle();
-
-  showId.value = showData?.id;
-  showName.value = showData?.name;
-  showImage.value = showData?.image;
-  seasonId.value = seasonData?.id;
-  seasonNumber.value = seasonData?.number;
-  error.value = showError?.message ?? seasonError?.message ?? undefined;
-  loading.value = false;
-});
-
-const goback = () => {
-  router.back();
-};
+const goBack = () => router.back();
 
 const addSlide = () => {
-  const id = slides.value.length + 1;
-  slides.value.push({ id, canvas: '' });
+  const newId = (slides.value.at(-1)?.id ?? 0) + 1;
+  slides.value.push({ id: newId, canvas: '' });
+  selectedSlideId.value = newId;
 };
 
-const removeSlide = (slide: Slide) => {
-  if (selectedSlideId.value === slide.id) {
-    selectedSlideId.value = slides.value[0].id;
+const removeSlide = (slideToRemove: Slide) => {
+  if (slides.value.length <= 1) return; // Prevent removing the last slide
+  if (selectedSlideId.value === slideToRemove.id) {
+    const currentIndex = slides.value.findIndex(s => s.id === slideToRemove.id);
+    selectedSlideId.value = slides.value[currentIndex - 1]?.id ?? slides.value[0]?.id;
   }
-  slides.value = slides.value.filter(s => s.id !== slide.id);
+  slides.value = slides.value.filter(s => s.id !== slideToRemove.id);
 };
 
 const selectSlide = (slide: Slide) => {
   selectedSlideId.value = slide.id;
 };
 
-const updateSlide = (canvas: string) => {
-  selectedSlide.value.canvas = canvas;
+const updateSlideCanvas = (canvas: string) => {
+  if (selectedSlide.value) {
+    selectedSlide.value.canvas = canvas;
+  }
 };
 
-const createRecap = async () => {
-  console.log('create recap');
-  const { data, error } = await supabase.functions.invoke('create-recap', {
-    body: { foo: 'bar', slides: slides.value, seasonId: seasonId.value, showId: showId.value }
-  });
-  console.log(route?.query?.show);
-  console.log(data, error);
-};
+const { pending: isPublishing, execute: publishRecap } = useFetch('/api/recap/create', {
+  method: 'POST',
+  body: {
+    showId: showId.value,
+    seasonId: seasonId.value,
+    slides
+  },
+  immediate: false,
+  onResponse({ response }) {
+    if (response.ok) {
+      // Optionally, navigate to the newly created recap page
+      router.push(`/shows/${pageData.value?.show?.name}-${showId.value}`);
+    }
+  },
+  onResponseError({ response }) {
+    console.error('Failed to publish recap:', response._data?.message);
+    // You might want to show a toast notification here
+  }
+});
 </script>
