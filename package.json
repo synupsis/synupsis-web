@@ -20,7 +20,7 @@
     "daisyui": "^4.12.14",
     "eslint": "^8.55.0",
     "eslint-plugin-vue": "^9.19.2",
-    "nuxt": "^3.14.1592",
+    "nuxt": "^3.17.5",
     "nuxt-headlessui": "^1.2.0",
     "postcss": "^8.4.31",
     "prettier": "3.1.1",
@@ -46,5 +46,6 @@
     "motion-v": "^0.8.1",
     "type-fest": "^4.8.3",
     "typescript": "^5.3.3"
-  }
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }
