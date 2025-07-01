@@ -1,61 +1,64 @@
 <template>
-  <div class="relative flex min-h-screen flex-col justify-center overflow-hidden py-6 sm:py-12">
-    <div
-      class="relative bg-black px-6 pt-10 pb-8 shadow-xl ring-1 ring-gray-900/5 sm:mx-auto sm:max-w-lg sm:rounded-lg sm:px-10 m-8"
-    >
-      <div class="flex justify-between gap-4 items-center mb-10">
-        <router-link to="/">
-          <Logo class="h-16 w-16" />
-        </router-link>
-        <div class="text-white text-2xl font-black inline-block">Welcome back !</div>
+  <div class="w-full h-screen bg-gray-900 text-white">
+    <div class="flex h-full">
+      <div class="hidden lg:flex w-1/2 h-full">
+        <video class="h-full w-full object-cover" autoplay loop muted>
+          <source src="~/assets/mp4/wednesday.mp4" type="video/mp4" />
+        </video>
       </div>
+      <div class="flex flex-col justify-center items-center w-full lg:w-1/2 p-8">
+        <div class="max-w-md w-full">
+          <div class="flex justify-center mb-8">
+            <router-link to="/">
+              <Logo class="h-24 w-24" />
+            </router-link>
+          </div>
+          <h2 class="text-3xl font-bold text-center mb-6">Welcome back!</h2>
 
-      <Alert v-if="error" variant="destructive" class="mb-4">
-        <AlertTitle>Error</AlertTitle>
-        <AlertDescription>
-          {{ error }}
-        </AlertDescription>
-      </Alert>
+          <Alert v-if="error" variant="destructive" class="mb-4">
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>
+              {{ error }}
+            </AlertDescription>
+          </Alert>
 
-      <div class="mb-6">
-        <div class="text-white font-semibold">Email</div>
-        <label class="relative block">
-          <span class="sr-only">Mail input</span>
-          <Input v-model="email" name="email" placeholder="Enter your email" type="email" />
-        </label>
-      </div>
-      <div class="mb-2">
-        <div class="text-white font-semibold">Password</div>
-        <label class="relative block">
-          <span class="sr-only">Password input</span>
-          <Input
-            v-model="password"
-            name="password"
-            placeholder="Enter your password"
-            type="password"
-          />
-        </label>
-      </div>
+          <form class="space-y-6" @submit.prevent="login">
+            <div>
+              <label class="font-semibold" for="email">Email</label>
+              <Input
+                id="email"
+                v-model="email"
+                name="email"
+                placeholder="Enter your email"
+                type="email"
+              />
+            </div>
+            <div>
+              <label class="font-semibold" for="password">Password</label>
+              <Input
+                id="password"
+                v-model="password"
+                name="password"
+                placeholder="Enter your password"
+                type="password"
+              />
+            </div>
 
-      <div class="flex gap-10 text-sm mb-8 justify-between">
-        <div class="flex justify gap-1 ml-2 items-center">
-          <Checkbox name="remember-me" />
-          <div class="text-white">Remember me</div>
-        </div>
-        <div class="text-white underline underline-offset-1">
-          <a href="http://localhost:3000/pwdforgot">Forgot password ?</a>
-          <!-- remplacer par le lien définitif-->
-        </div>
-      </div>
+            <div class="flex items-center justify-between text-sm">
+              <div class="flex items-center gap-2">
+                <Checkbox id="remember-me" name="remember-me" />
+                <label for="remember-me">Remember me</label>
+              </div>
+              <router-link class="underline" to="/pwdforgot">Forgot password?</router-link>
+            </div>
 
-      <div class="flex justify-center mb-1">
-        <Button @click="login">Login</Button>
-      </div>
+            <Button :disabled="!email || !password" class="w-full" type="submit">Login</Button>
 
-      <div class="flex justify-center gap-1">
-        <p class="text-white text-sm">No account yet ?</p>
-        <div class="text-white text-sm underline underline-offset-1">
-          <router-link to="/signup" type="link">Register</router-link>
+            <p class="text-center text-sm">
+              No account yet?
+              <router-link class="underline" to="/signup">Register</router-link>
+            </p>
+          </form>
         </div>
       </div>
     </div>

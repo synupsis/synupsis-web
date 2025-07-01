@@ -11,7 +11,7 @@
               <RippleButton>Log in</RippleButton>
             </router-link>
             <router-link to="/signup">
-              <RippleButton>Sign up</RippleButton>
+              <RippleButton class="bg-white text-black">Sign up</RippleButton>
             </router-link>
           </div>
           <div v-else>{{ user.email }}</div>
