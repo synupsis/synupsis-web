@@ -147,7 +147,6 @@
   </div>
 </template>
 <script lang="ts" setup>
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import InteractiveHoverButton from '~/components/ui/InteractiveHoverButton.vue';
 import RecapBackgroundModal from '~/components/RecapBackgroundModal.vue';
 import RecapCanvas from '~/components/RecapCanvas.vue';

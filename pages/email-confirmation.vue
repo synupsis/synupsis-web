@@ -20,6 +20,4 @@
 </template>
 
 <script lang="ts" setup>
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
-import Button from '~/components/ui/Button.vue';
 </script>

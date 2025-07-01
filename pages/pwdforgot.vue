@@ -44,9 +44,7 @@
 
 <script lang="ts" setup>
 import { ref } from 'vue';
-import Button from '~/components/ui/Button.vue';
 import Input from '~/components/ui/Input.vue';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import useSupabase from '~/composables/useSupabase';
 
 const supabase = useSupabase();

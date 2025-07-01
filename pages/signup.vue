@@ -74,9 +74,6 @@
 
 <script lang="ts" setup>
 import useSupabase from '~/composables/useSupabase';
-import Button from '~/components/ui/Button.vue';
-import Input from '~/components/ui/Input.vue';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 
 const supabase = useSupabase();
 

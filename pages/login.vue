@@ -66,10 +66,7 @@
 </template>
 
 <script lang="ts" setup>
-import Input from '~/components/ui/Input.vue';
 import Checkbox from '~/components/ui/Checkbox.vue';
-import Button from '~/components/ui/Button.vue';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import useSupabase from '~/composables/useSupabase';
 
 const supabase = useSupabase();

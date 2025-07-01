@@ -105,8 +105,6 @@ import {
 import { useRoute, useRouter } from 'vue-router';
 import useSupabase from '~/composables/useSupabase';
 import type { Show, Season } from '~/types/database.types';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
-import Button from '~/components/ui/Button.vue';
 
 type Slide = {
   id: number;

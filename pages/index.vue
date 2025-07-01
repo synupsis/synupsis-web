@@ -4,15 +4,11 @@
       <div
         class="relative flex w-full h-[600px] flex-col items-center justify-center overflow-hidden rounded-lg lg:w-full md:w-full"
       >
-        <div class="absolute top-5 right-5 text-right w-full">
+        <div class="absolute top-5 right-5 text-right w-full z-20">
           <SpinLoader v-if="user === undefined" class="h-5 w-5" />
           <div v-else-if="user === null" class="flex gap-4 items-center justify-end">
-            <router-link to="/login">
-              <RippleButton>Log in</RippleButton>
-            </router-link>
-            <router-link to="/signup">
-              <RippleButton class="bg-white text-black">Sign up</RippleButton>
-            </router-link>
+            <Button variant="ghost" @click="goToLogin">Log in</Button>
+            <Button @click="goToSignup">Sign up</Button>
           </div>
           <div v-else>{{ user.email }}</div>
         </div>
@@ -155,5 +151,13 @@ watch(searchInput, debouncedSearch);
 function goToShow(show: SearchResult) {
   const slug = slugify(show.name);
   router.push(`/shows/${slug}-${show.id}`);
+}
+
+function goToLogin() {
+  router.push('/login');
+}
+
+function goToSignup() {
+  router.push('/signup');
 }
 </script>
