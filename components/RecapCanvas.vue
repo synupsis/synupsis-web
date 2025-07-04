@@ -100,6 +100,10 @@ watch(
     if (!canvas) return;
     canvas.loadFromJSON(newJson || '{}', () => {
       canvas?.renderAll();
+      // Force a re-render on the next animation frame
+      requestAnimationFrame(() => {
+        canvas?.renderAll();
+      });
     });
   },
   { immediate: true }
