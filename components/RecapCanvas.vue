@@ -210,5 +210,14 @@ const addTextbox = async () => {
     isAddingText.value = false;
   }
 };
+
+defineExpose({
+  redraw: () => {
+    canvas?.renderAll();
+    requestAnimationFrame(() => {
+      canvas?.renderAll();
+    });
+  }
+});
 </script>
 
