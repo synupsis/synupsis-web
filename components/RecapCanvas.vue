@@ -98,12 +98,21 @@ watch(
       return;
     }
     if (!canvas) return;
+
+    // Temporarily detach listeners to prevent the feedback loop
+    canvas.off('object:modified', emitUpdate);
+    canvas.off('object:removed', emitUpdate);
+
+    canvas.clear();
     canvas.loadFromJSON(newJson || '{}', () => {
       canvas?.renderAll();
-      // Force a re-render on the next animation frame
       requestAnimationFrame(() => {
         canvas?.renderAll();
       });
+
+      // Re-attach listeners after the programmatic update is complete
+      canvas.on('object:modified', emitUpdate);
+      canvas.on('object:removed', emitUpdate);
     });
   },
   { immediate: true }
