@@ -23,18 +23,6 @@
         <Button class="text-sm font-semibold" @click="sendResetInstructions"
           >Send Reset Instructions</Button
         >
-        <Alert v-if="error" variant="destructive" class="mt-4 w-3/6">
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>
-            {{ error }}
-          </AlertDescription>
-        </Alert>
-        <Alert v-if="message" class="mt-4 w-3/6">
-          <AlertTitle>Success</AlertTitle>
-          <AlertDescription>
-            {{ message }}
-          </AlertDescription>
-        </Alert>
       </div>
     </div>
   </div>
@@ -45,23 +33,24 @@
 <script lang="ts" setup>
 import { ref } from 'vue';
 import useSupabase from '~/composables/useSupabase';
+import { toast } from 'vue-sonner'
 
 const supabase = useSupabase();
 const email = ref('');
-const error = ref('');
-const message = ref('');
 
 const sendResetInstructions = async () => {
-  error.value = '';
-  message.value = '';
   const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.value, {
     redirectTo: `${window.location.origin}/password-reset`
   });
 
   if (resetError) {
-    error.value = resetError.message;
+    toast.error('Error', {
+      description: resetError.message
+    })
   } else {
-    message.value = 'Password reset instructions sent to your email.';
+    toast.success('Success', {
+      description: 'Password reset instructions sent to your email.'
+    })
   }
 };
 </script>

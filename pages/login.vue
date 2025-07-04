@@ -15,13 +15,6 @@
           </div>
           <h2 class="text-3xl font-bold text-center mb-6">Welcome back!</h2>
 
-          <Alert v-if="error" variant="destructive" class="mb-4">
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>
-              {{ error }}
-            </AlertDescription>
-          </Alert>
-
           <form class="space-y-6" @submit.prevent="login">
             <div>
               <label class="font-semibold" for="email">Email</label>
@@ -68,22 +61,23 @@
 <script lang="ts" setup>
 import Checkbox from '~/components/ui/Checkbox.vue';
 import useSupabase from '~/composables/useSupabase';
+import { toast } from 'vue-sonner'
 
 const supabase = useSupabase();
 
 const email = ref('');
 const password = ref('');
-const error = ref('');
 
 
 const login = async () => {
-  error.value = '';
   let { data, error: loginError } = await supabase.auth.signInWithPassword({
     email: email.value,
     password: password.value
   });
   if (loginError) {
-    error.value = loginError.message;
+    toast.error('Error', {
+      description: loginError.message
+    })
     return;
   }
   navigateTo('/');

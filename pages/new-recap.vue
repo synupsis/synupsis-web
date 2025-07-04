@@ -1,12 +1,9 @@
 <template>
   <div class="flex flex-col w-full justify-center items-center p-4">
-    <Alert v-if="error" variant="destructive">
-      <AlertTitle>Error loading data</AlertTitle>
-      <AlertDescription>
-        {{ error.message }}
-        <Button class="mt-2" @click="goBack">Go Back</Button>
-      </AlertDescription>
-    </Alert>
+    <div v-if="error" class="text-red-500">
+      <p>{{ error.message }}</p>
+      <Button class="mt-2" @click="goBack">Go Back</Button>
+    </div>
     <div v-else class="w-full">
       <div class="w-full mb-4">
         <div class="flex w-full justify-between items-center">
@@ -77,18 +74,6 @@
           <span>{{ isPublishing ? 'Publishing...' : 'Publish Recap' }}</span>
         </button>
       </div>
-      <Alert v-if="publicationError" variant="destructive" class="mt-4">
-        <AlertTitle>Error</AlertTitle>
-        <AlertDescription>
-          {{ publicationError }}
-        </AlertDescription>
-      </Alert>
-      <Alert v-if="publicationSuccess" class="mt-4">
-        <AlertTitle>Success</AlertTitle>
-        <AlertDescription>
-          {{ publicationSuccess }}
-        </AlertDescription>
-      </Alert>
     </div>
   </div>
 </template>
@@ -106,6 +91,7 @@ import {
 import { useRoute, useRouter } from 'vue-router';
 import useSupabase from '~/composables/useSupabase';
 import type { Show, Season } from '~/types/database.types';
+import { toast } from 'vue-sonner'
 
 type Slide = {
   id: number;
@@ -186,15 +172,11 @@ const removeSlide = (slideToRemove: Slide) => {
   slides.value = slides.value.filter(s => s.id !== slideToRemove.id);
 };
 
-const publicationError = ref('');
-const publicationSuccess = ref('');
 const isSaving = ref(false);
 const isPublishing = ref(false);
 
 const saveDraft = async () => {
   isSaving.value = true;
-  publicationError.value = '';
-  publicationSuccess.value = '';
 
   try {
     await $fetch('/api/recap/save-draft', {
@@ -205,9 +187,13 @@ const saveDraft = async () => {
         slides: slides.value
       }
     });
-    publicationSuccess.value = 'Draft saved successfully!';
+    toast.success('Success', {
+      description: 'Draft saved successfully!'
+    })
   } catch (e: any) {
-    publicationError.value = e.data?.message || 'Failed to save draft.';
+    toast.error('Error', {
+      description: e.data?.message || 'Failed to save draft.'
+    })
   } finally {
     isSaving.value = false;
   }
@@ -215,8 +201,6 @@ const saveDraft = async () => {
 
 const publishRecap = async () => {
   isPublishing.value = true;
-  publicationError.value = '';
-  publicationSuccess.value = '';
 
   try {
     await $fetch('/api/recap/create', {
@@ -227,12 +211,16 @@ const publishRecap = async () => {
         slides: slides.value
       }
     });
-    publicationSuccess.value = 'Recap published successfully!';
+    toast.success('Success', {
+      description: 'Recap published successfully!'
+    })
     setTimeout(() => {
       router.push(`/shows/${pageData.value?.show?.name}-${showId.value}`);
     }, 2000);
   } catch (e: any) {
-    publicationError.value = e.data?.message || 'Failed to publish recap.';
+    toast.error('Error', {
+      description: e.data?.message || 'Failed to publish recap.'
+    })
   } finally {
     isPublishing.value = false;
   }

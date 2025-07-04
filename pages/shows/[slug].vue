@@ -5,12 +5,6 @@
         <Logo class="h-32 w-32" />
       </router-link>
     </div>
-    <Alert v-if="error" variant="destructive">
-      <AlertTitle>Something went wrong</AlertTitle>
-      <AlertDescription>
-        {{ error }}
-      </AlertDescription>
-    </Alert>
     <div class="py-10">
       <div class="mx-auto max-w-7xl px-6 lg:px-8">
         <div
@@ -154,10 +148,10 @@ import useSupabase from '~/composables/useSupabase';
 import type { Database } from '~/types/database.types';
 import type { TvMazeShow } from '~/types/tv-maze.types';
 import { EyeIcon, PencilSquareIcon, SparklesIcon, SquaresPlusIcon } from '@heroicons/vue/24/outline';
+import { toast } from 'vue-sonner'
 
 const supabase = useSupabase();
 const loading = ref(true);
-const error = ref(null);
 const data: Ref<TvMazeShow | null> = ref(null);
 const route = useRoute();
 const isRecapOpen = ref(false);
@@ -169,7 +163,9 @@ onMounted(async () => {
     const response = await $fetch(`/api/shows/${route.params.slug}`);
     data.value = response.show;
   } catch (e: any) {
-    error.value = e.message;
+    toast.error('Something went wrong', {
+      description: e.message
+    })
   } finally {
     loading.value = false;
   }

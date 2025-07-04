@@ -3,10 +3,14 @@
     <NuxtRouteAnnouncer />
     <NuxtLoadingIndicator />
     <NuxtPage />
+    <Toaster position="top-right" />
   </div>
 </template>
 
 <script lang="ts" setup>
+import { Toaster } from '~/components/shadcn/sonner'
+import 'vue-sonner/style.css'
+
 useHead({
   htmlAttrs: {
     'data-theme': 'night',

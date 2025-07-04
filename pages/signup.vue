@@ -15,13 +15,6 @@
           </div>
           <h2 class="text-3xl font-bold text-center mb-6">Create an account</h2>
 
-          <Alert v-if="error" variant="destructive" class="mb-4">
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>
-              {{ error }}
-            </AlertDescription>
-          </Alert>
-
           <form class="space-y-6" @submit.prevent="register">
             <div>
               <label class="font-semibold" for="username">Username</label>
@@ -74,13 +67,13 @@
 
 <script lang="ts" setup>
 import useSupabase from '~/composables/useSupabase';
+import { toast } from 'vue-sonner'
 
 const supabase = useSupabase();
 
 const email = ref('');
 const password = ref('');
 const username = ref('');
-const error = ref('');
 
 const register = async () => {
   let { data, error: signUpError } = await supabase.auth.signUp({
@@ -91,8 +84,9 @@ const register = async () => {
     }
   });
   if (signUpError) {
-    console.log(signUpError);
-    error.value = signUpError.message;
+    toast.error('Error', {
+      description: signUpError.message
+    })
     return;
   } else {
     navigateTo({
