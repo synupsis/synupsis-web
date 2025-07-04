@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full flex justify-center">
+  <div class="w-full h-full flex justify-center items-center">
     <div v-if="!readOnly" class="px-4 flex flex-col items-end gap-4">
       <button class="py-2 px-4 btn btn-outline" @click="addTextbox()" :disabled="isAddingText">
         <span v-if="isAddingText" class="loading loading-spinner"></span>
@@ -32,10 +32,12 @@
       </button>
     </div>
     <div
+      ref="canvasContainerRef"
       :class="{ skeleton: loading }"
-      class="w-[390px] h-[844px] bg-neutral rounded-3xl overflow-hidden shadow outline outline-4"
+      class="w-full h-full bg-neutral rounded-3xl overflow-hidden shadow"
+      :style="{ outline: readOnly ? 'none' : '4px solid' }"
     >
-      <canvas ref="canvasRef" height="844" width="390"></canvas>
+      <canvas ref="canvasRef"></canvas>
     </div>
     <div v-if="!readOnly" class="px-4">
       <button
@@ -52,7 +54,7 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted, ref, watch } from 'vue';
+import { onMounted, onUnmounted, ref, watch } from 'vue';
 import * as fabric from 'fabric';
 import { RoundedTextbox } from '~/utils/RoundedTextbox';
 import {
@@ -83,15 +85,39 @@ const isBackgroundModalOpen = ref(false);
 const isAddingText = ref(false);
 const selectedObject = ref<fabric.Object | null>(null);
 
-const canvasRef = ref<HTMLCanvasElement | undefined>(undefined);
+const canvasRef = ref<HTMLCanvasElement | null>(null);
+const canvasContainerRef = ref<HTMLDivElement | null>(null);
 let canvas: fabric.Canvas | null = null;
 let isInternalUpdate = false;
+
+const originalWidth = 390;
+const originalHeight = 844;
 
 const emitUpdate = () => {
   if (props.readOnly || !canvas) return;
   isInternalUpdate = true;
   const json = JSON.stringify(canvas.toJSON());
   emit('update:modelValue', json);
+};
+
+const scaleAndPositionCanvas = () => {
+  if (!canvas || !canvasContainerRef.value) return;
+
+  const containerWidth = canvasContainerRef.value.clientWidth;
+  const containerHeight = canvasContainerRef.value.clientHeight;
+
+  const scale = Math.min(
+    containerWidth / originalWidth,
+    containerHeight / originalHeight
+  );
+
+  const newWidth = originalWidth * scale;
+  const newHeight = originalHeight * scale;
+
+  canvas.setWidth(newWidth);
+  canvas.setHeight(newHeight);
+  canvas.setZoom(scale);
+  canvas.renderAll();
 };
 
 watch(
@@ -105,21 +131,18 @@ watch(
 
     if (!props.readOnly) {
       canvas.off('object:modified', emitUpdate);
-      canvas.off('object:removed', emitUpdate);
+      canvas.off('object:removed',emitUpdate);
     }
 
-    canvas.clear();
     canvas.loadFromJSON(newJson || '{}', () => {
-      canvas?.renderAll();
+      scaleAndPositionCanvas();
       if (props.readOnly) {
         canvas?.forEachObject(obj => {
           obj.selectable = false;
           obj.evented = false;
         });
       }
-      requestAnimationFrame(() => {
-        canvas?.renderAll();
-      });
+      canvas?.renderAll();
 
       if (!props.readOnly) {
         canvas.on('object:modified', emitUpdate);
@@ -130,13 +153,16 @@ watch(
   { immediate: true }
 );
 
+let resizeObserver: ResizeObserver | null = null;
+
 onMounted(() => {
   // @ts-ignore
   fabric.classRegistry.setClass(RoundedTextbox);
-  if (!canvasRef.value) return;
+  if (!canvasRef.value || !canvasContainerRef.value) return;
 
   canvas = new fabric.Canvas(canvasRef.value, {
     selection: !props.readOnly,
+    backgroundColor: 'transparent',
   });
 
   if (!props.readOnly) {
@@ -149,18 +175,26 @@ onMounted(() => {
 
   if (props.modelValue) {
     canvas.loadFromJSON(props.modelValue, () => {
-      canvas?.renderAll();
       if (props.readOnly) {
         canvas?.forEachObject(obj => {
           obj.selectable = false;
           obj.evented = false;
         });
       }
+      scaleAndPositionCanvas();
     });
+  } else {
+    scaleAndPositionCanvas();
   }
+
+  resizeObserver = new ResizeObserver(scaleAndPositionCanvas);
+  resizeObserver.observe(canvasContainerRef.value);
 });
 
 onUnmounted(() => {
+  if (resizeObserver && canvasContainerRef.value) {
+    resizeObserver.unobserve(canvasContainerRef.value);
+  }
   canvas?.dispose();
 });
 
@@ -213,11 +247,12 @@ const addTextbox = async () => {
 
 defineExpose({
   redraw: () => {
-    canvas?.renderAll();
-    requestAnimationFrame(() => {
-      canvas?.renderAll();
-    });
+    if (canvas) {
+      scaleAndPositionCanvas();
+      requestAnimationFrame(() => {
+        canvas?.renderAll();
+      });
+    }
   }
 });
 </script>
-

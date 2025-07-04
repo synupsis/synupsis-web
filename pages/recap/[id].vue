@@ -1,18 +1,17 @@
 <template>
-  <div class="w-full h-screen bg-background text-foreground flex flex-col">
-    <header v-if="data" class="flex items-center justify-between p-4 border-b border-border">
-      <Button variant="ghost" @click="goBack">
-        <ChevronLeftIcon class="h-4 w-4 mr-2" />
-        Back to {{ data.show.name }}
+  <div class="w-full h-dvh bg-background text-foreground flex flex-col">
+    <header v-if="data" class="flex items-center justify-between p-2 sm:p-4 border-b border-border">
+      <Button variant="ghost" @click="goBack" class="w-auto">
+        <ChevronLeftIcon class="h-4 w-4 sm:mr-2" />
+        <span class="hidden sm:inline">Back to {{ data.show.name }}</span>
       </Button>
-      <div class="text-center">
-        <h1 class="text-lg font-semibold">{{ data.show.name }}</h1>
-        <p class="text-sm text-muted-foreground">Season {{ data.season.number }}</p>
+      <div class="text-right">
+        <h1 class="text-md sm:text-lg font-semibold">{{ data.show.name }}</h1>
+        <p class="text-xs sm:text-sm text-muted-foreground">Season {{ data.season.number }}</p>
       </div>
-      <div class="w-32" /> <!-- Spacer -->
     </header>
 
-    <main class="flex-1 flex items-center justify-center">
+    <main class="flex-1 flex items-center justify-center overflow-hidden">
       <div v-if="pending" class="flex flex-col items-center gap-4">
         <SpinLoader class="h-12 w-12" />
         <p>Loading Recap...</p>
@@ -21,11 +20,11 @@
         <p>Could not load the recap.</p>
         <p class="text-sm">{{ error.data?.message }}</p>
       </div>
-      <Carousel v-else-if="data" class="relative w-full max-w-lg mx-auto" @init-api="setApi">
-        <CarouselContent>
-          <CarouselItem v-for="(slide, index) in data.slides" :key="slide.id">
-            <div class="p-1">
-              <div class="w-[390px] h-[844px] bg-neutral rounded-3xl overflow-hidden shadow mx-auto">
+      <Carousel v-else-if="data" class="relative w-full h-full max-w-md mx-auto py-4" @init-api="setApi">
+        <CarouselContent class="h-full">
+          <CarouselItem v-for="(slide, index) in data.slides" :key="slide.id" class="h-full">
+            <div class="p-1 h-full">
+              <div class="relative aspect-[9/19.5] h-full bg-neutral rounded-3xl overflow-hidden shadow mx-auto">
                 <RecapCanvas
                   :ref="el => (canvasRefs[index] = el)"
                   :model-value="JSON.stringify(slide.canvas_data)"
@@ -35,8 +34,8 @@
             </div>
           </CarouselItem>
         </CarouselContent>
-        <CarouselPrevious class="absolute left-4 top-1/2 -translate-y-1/2" />
-        <CarouselNext class="absolute right-4 top-1/2 -translate-y-1/2" />
+        <CarouselPrevious class="absolute -left-4 sm:-left-12 top-1/2 -translate-y-1/2" />
+        <CarouselNext class="absolute -right-4 sm:-right-12 top-1/2 -translate-y-1/2" />
       </Carousel>
     </main>
   </div>
