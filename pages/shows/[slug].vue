@@ -53,7 +53,10 @@
         >
           <Card v-for="season in data?.seasons" :key="season.id" class="flex flex-col">
             <CardHeader>
-              <CardTitle>Season {{ season.number }}</CardTitle>
+              <div class="flex items-center justify-between">
+                <CardTitle>Season {{ season.number }}</CardTitle>
+                <Badge v-if="season.recap.find(r => r.status === 'draft')" variant="secondary">Draft</Badge>
+              </div>
               <CardDescription v-if="season.name">{{ season.name }}</CardDescription>
             </CardHeader>
             <CardContent class="flex-grow">
@@ -64,13 +67,17 @@
             </CardContent>
             <ClientOnly>
               <CardFooter class="flex flex-col items-stretch gap-2">
+                <Button v-if="season.recap.find(r => r.status === 'published')" variant="secondary" @click="goToRecap(season.recap.find(r => r.status === 'published').id)">
+                  <EyeIcon class="mr-2 h-4 w-4" />
+                  View Recap
+                </Button>
                 <Button v-if="!user" disabled variant="outline">
                   <SparklesIcon class="mr-2 h-4 w-4" />
                   Generate (soon)
                 </Button>
                 <template v-if="user">
                   <div v-if="season.recap && season.recap.length > 0" class="w-full">
-                    <Button class="w-full" @click="goToNewRecap(data?.id, season.id)">
+                    <Button class="w-full" @click="goToRecapEditor(data?.id, season.id)">
                       <PencilIcon class="mr-2 h-4 w-4" />
                       Edit Recap
                     </Button>
@@ -80,7 +87,7 @@
                       <SparklesIcon class="mr-2 h-4 w-4" />
                       Generate (soon)
                     </Button>
-                    <Button @click="goToNewRecap(data?.id, season.id)">
+                    <Button @click="goToRecapEditor(data?.id, season.id)">
                       <SquaresPlusIcon class="mr-2 h-4 w-4" />
                       Create Recap
                     </Button>
@@ -103,7 +110,7 @@
 </template>
 <script lang="ts" setup>
 import type { TvMazeShow } from '~/types/tv-maze.types';
-import { CalendarIcon, PencilIcon, SparklesIcon, SquaresPlusIcon, StarIcon, TvIcon } from '@heroicons/vue/24/outline';
+import { CalendarIcon, PencilIcon, SparklesIcon, SquaresPlusIcon, StarIcon, TvIcon, EyeIcon } from '@heroicons/vue/24/outline';
 import { toast } from 'vue-sonner'
 import {
   Card,
@@ -146,10 +153,14 @@ const showRecap = (season: any) => {
   selectedSeason.value = season;
 };
 
-const goToNewRecap = (show?: string, season?: string) => {
+const goToRecapEditor = (show?: string, season?: string) => {
   navigateTo({
     path: '/recap-editor',
     query: { show, season }
   });
+};
+
+const goToRecap = (recapId: string) => {
+  navigateTo(`/recap/${recapId}`);
 };
 </script>

@@ -14,7 +14,15 @@ export default defineEventHandler(async event => {
     throw createError({ statusCode: 400, statusMessage: 'Missing required fields' });
   }
 
-  // 1. Upsert the recap to get a stable ID
+  // 1. Check for an existing recap to preserve its status
+  const { data: existingRecap } = await client
+    .from('recap')
+    .select('status')
+    .eq('season_id', seasonId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  // 2. Upsert the recap, preserving the existing status or defaulting to 'draft'
   const { data: recap, error: recapError } = await client
     .from('recap')
     .upsert(
@@ -22,7 +30,7 @@ export default defineEventHandler(async event => {
         show_id: showId,
         season_id: seasonId,
         user_id: user.id,
-        status: 'draft'
+        status: existingRecap?.status || 'draft' // Preserve status
       },
       { onConflict: 'show_id, season_id, user_id', ignoreDuplicates: false }
     )
@@ -34,18 +42,16 @@ export default defineEventHandler(async event => {
     throw createError({ statusCode: 500, statusMessage: 'Could not save recap draft' });
   }
 
-  // 2. Delete old slides for this recap
+  // 3. Delete old slides for this recap
   const { error: deleteError } = await client.from('slide').delete().eq('recap_id', recap.id);
 
   if (deleteError) {
     console.error('Error deleting old slides:', deleteError);
-    // We can continue, but it's not ideal. The user might see old slides if they fail to save new ones.
   }
 
-  // 3. Insert new slides
+  // 4. Insert new slides
   const slideData = slides.map((slide: any, index: number) => ({
     recap_id: recap.id,
-    // Parse the canvas JSON string from the client into an object for the JSONB column
     canvas_data: JSON.parse(slide.canvas || '{}'),
     order: index
   }));

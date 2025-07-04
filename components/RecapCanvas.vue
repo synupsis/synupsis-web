@@ -1,6 +1,6 @@
 <template>
   <div class="w-full flex justify-center">
-    <div class="px-4 flex flex-col items-end gap-4">
+    <div v-if="!readOnly" class="px-4 flex flex-col items-end gap-4">
       <button class="py-2 px-4 btn btn-outline" @click="addTextbox()" :disabled="isAddingText">
         <span v-if="isAddingText" class="loading loading-spinner"></span>
         <span v-else class="flex items-center gap-2">
@@ -37,7 +37,7 @@
     >
       <canvas ref="canvasRef" height="844" width="390"></canvas>
     </div>
-    <div class="px-4">
+    <div v-if="!readOnly" class="px-4">
       <button
         class="opacity-0 py-2 px-4 bg-blue-600 hover:bg-blue-500 transition shadow rounded-full flex items-center gap-2"
       >
@@ -47,7 +47,7 @@
         Choose background
       </button>
     </div>
-    <RecapBackgroundModal v-model:is-open="isBackgroundModalOpen" />
+    <RecapBackgroundModal v-if="!readOnly" v-model:is-open="isBackgroundModalOpen" />
   </div>
 </template>
 
@@ -70,6 +70,10 @@ const props = defineProps({
   loading: {
     type: Boolean,
     default: false
+  },
+  readOnly: {
+    type: Boolean,
+    default: false
   }
 });
 
@@ -84,7 +88,7 @@ let canvas: fabric.Canvas | null = null;
 let isInternalUpdate = false;
 
 const emitUpdate = () => {
-  if (!canvas) return;
+  if (props.readOnly || !canvas) return;
   isInternalUpdate = true;
   const json = JSON.stringify(canvas.toJSON());
   emit('update:modelValue', json);
@@ -99,20 +103,28 @@ watch(
     }
     if (!canvas) return;
 
-    // Temporarily detach listeners to prevent the feedback loop
-    canvas.off('object:modified', emitUpdate);
-    canvas.off('object:removed', emitUpdate);
+    if (!props.readOnly) {
+      canvas.off('object:modified', emitUpdate);
+      canvas.off('object:removed', emitUpdate);
+    }
 
     canvas.clear();
     canvas.loadFromJSON(newJson || '{}', () => {
       canvas?.renderAll();
+      if (props.readOnly) {
+        canvas?.forEachObject(obj => {
+          obj.selectable = false;
+          obj.evented = false;
+        });
+      }
       requestAnimationFrame(() => {
         canvas?.renderAll();
       });
 
-      // Re-attach listeners after the programmatic update is complete
-      canvas.on('object:modified', emitUpdate);
-      canvas.on('object:removed', emitUpdate);
+      if (!props.readOnly) {
+        canvas.on('object:modified', emitUpdate);
+        canvas.on('object:removed', emitUpdate);
+      }
     });
   },
   { immediate: true }
@@ -123,19 +135,27 @@ onMounted(() => {
   fabric.classRegistry.setClass(RoundedTextbox);
   if (!canvasRef.value) return;
 
-  canvas = new fabric.Canvas(canvasRef.value);
-
-  canvas.on('object:modified', emitUpdate);
-  canvas.on('object:removed', emitUpdate);
-
-  canvas.on('mouse:down', e => {
-    selectedObject.value = e.target ?? null;
+  canvas = new fabric.Canvas(canvasRef.value, {
+    selection: !props.readOnly,
   });
 
-  // Load initial value
+  if (!props.readOnly) {
+    canvas.on('object:modified', emitUpdate);
+    canvas.on('object:removed', emitUpdate);
+    canvas.on('mouse:down', e => {
+      selectedObject.value = e.target ?? null;
+    });
+  }
+
   if (props.modelValue) {
     canvas.loadFromJSON(props.modelValue, () => {
       canvas?.renderAll();
+      if (props.readOnly) {
+        canvas?.forEachObject(obj => {
+          obj.selectable = false;
+          obj.evented = false;
+        });
+      }
     });
   }
 });
@@ -145,21 +165,20 @@ onUnmounted(() => {
 });
 
 const deleteText = () => {
-  if (canvas && canvas.getActiveObject()) {
-    canvas.remove(canvas.getActiveObject());
-    canvas.discardActiveObject();
-    // The 'object:removed' event will handle the emit.
-  }
+  if (props.readOnly || !canvas || !canvas.getActiveObject()) return;
+  canvas.remove(canvas.getActiveObject());
+  canvas.discardActiveObject();
 };
 
 const openBackgroundModal = () => {
+  if (props.readOnly) return;
   isBackgroundModalOpen.value = true;
 };
 
 const clearSlide = () => {
-  if (!canvas) return;
+  if (props.readOnly || !canvas) return;
   canvas.clear();
-  emitUpdate(); // Emit the empty state
+  emitUpdate();
 };
 
 const TEXTBOX_CONFIG = {
@@ -175,7 +194,7 @@ const TEXTBOX_CONFIG = {
 };
 
 const addTextbox = async () => {
-  if (!canvas || isAddingText.value) return;
+  if (props.readOnly || !canvas || isAddingText.value) return;
   isAddingText.value = true;
   try {
     await document.fonts.load('1em "Fredoka One"');
@@ -184,7 +203,7 @@ const addTextbox = async () => {
     canvas.setActiveObject(textbox);
     canvas.centerObject(textbox);
     textbox.enterEditing();
-    emitUpdate(); // Explicitly emit the update
+    emitUpdate();
   } catch (error) {
     console.error('Failed to load font and add textbox:', error);
   } finally {

@@ -7,7 +7,12 @@
           <Logo variant="white" class="h-8 w-8" />
         </router-link>
         <div>
-          <h1 class="text-lg font-semibold">Recap Editor</h1>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg font-semibold">Recap Editor</h1>
+            <Badge v-if="recapStatus" :variant="recapStatus === 'published' ? 'default' : 'secondary'">
+              {{ recapStatus }}
+            </Badge>
+          </div>
           <p v-if="!loading" class="text-sm text-muted-foreground">
             {{ showName }} - Season {{ seasonNumber }}
           </p>
@@ -23,10 +28,10 @@
           <span class="ml-2">
             <template v-if="isSaving">Saving...</template>
             <template v-else-if="!isDirty">Saved</template>
-            <template v-else>Save Draft</template>
+            <template v-else>{{ recapStatus === 'published' ? 'Save' : 'Save Draft' }}</template>
           </span>
         </Button>
-        <Button class="min-w-[130px]" :disabled="loading || isPublishing" @click="publishRecap">
+        <Button v-if="recapStatus !== 'published'" class="min-w-[130px]" :disabled="loading || isPublishing" @click="publishRecap">
           <span v-if="isPublishing" class="loading loading-spinner h-4 w-4" />
           <ArrowUpCircleIcon v-else class="h-4 w-4" />
           <span class="ml-2">{{ isPublishing ? 'Publishing...' : 'Publish' }}</span>
@@ -119,6 +124,7 @@ import { useRoute, useRouter } from 'vue-router';
 import type { Show, Season } from '~/types/database.types';
 import { toast } from 'vue-sonner'
 import { Button } from '~/components/shadcn/button'
+import { Badge } from '~/components/shadcn/badge'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -147,6 +153,7 @@ const seasonId = computed(() => route.query.season as string | undefined);
 const slides = ref<Slide[]>([]);
 const selectedSlideId = ref(1);
 const existingRecapId = ref<string | null>(null);
+const recapStatus = ref<'draft' | 'published' | null>(null);
 
 // State for change detection
 const initialSlidesState = ref('');
@@ -157,7 +164,7 @@ const {
   pending: loading,
   error
 } = useAsyncData(
-  `new-recap-data-${showId.value}-${seasonId.value}`,
+  `recap-editor-data-${showId.value}-${seasonId.value}`,
   async () => {
     if (!showId.value || !seasonId.value || !user.value) {
       throw new Error('Show ID, Season ID, and User are required.');
@@ -167,7 +174,7 @@ const {
     const seasonPromise = supabase.from('season').select('id, number').eq('id', seasonId.value).single();
     const recapPromise = supabase
       .from('recap')
-      .select('id, slide(*)')
+      .select('id, status, slide(*)')
       .eq('season_id', seasonId.value)
       .eq('user_id', user.value.id)
       .maybeSingle();
@@ -181,6 +188,7 @@ const {
     const existingRecap = recapResult.data;
     if (existingRecap) {
       existingRecapId.value = existingRecap.id;
+      recapStatus.value = existingRecap.status as 'draft' | 'published' | null;
       const existingSlides = existingRecap.slide;
       if (existingSlides && existingSlides.length > 0) {
         slides.value = existingSlides
@@ -295,9 +303,9 @@ const publishRecap = async () => {
     toast.success('Success', {
       description: 'Recap published successfully!'
     })
-    setTimeout(() => {
-      router.push(`/shows/${pageData.value?.show?.name}-${showId.value}`);
-    }, 2000);
+    recapStatus.value = 'published';
+    initialSlidesState.value = JSON.stringify(slides.value);
+    isDirty.value = false;
   } catch (e: any) {
     toast.error('Error', {
       description: e.data?.message || 'Failed to publish recap.'
