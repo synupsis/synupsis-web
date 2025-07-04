@@ -23,6 +23,7 @@ export default defineEventHandler(async event => {
       )
     `)
     .eq('id', recapId)
+    .eq('status', 'published') // Ensure we only fetch published recaps
     .order('order', { foreignTable: 'slide', ascending: true })
     .single();
 
@@ -32,12 +33,7 @@ export default defineEventHandler(async event => {
   }
 
   if (!recap) {
-    throw createError({ statusCode: 404, statusMessage: 'Recap not found' });
-  }
-  
-  // Only published recaps are publicly viewable
-  if (recap.status !== 'published') {
-      throw createError({ statusCode: 403, statusMessage: 'This recap is not public.' });
+    throw createError({ statusCode: 404, statusMessage: 'Published recap not found' });
   }
 
   return recap;

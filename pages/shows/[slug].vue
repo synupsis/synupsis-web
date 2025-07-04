@@ -1,8 +1,8 @@
 <template>
-  <div v-if="loading" class="w-full">
+  <div v-if="pending" class="w-full">
     <ShowPageSkeleton />
   </div>
-  <div v-else class="w-full">
+  <div v-else-if="data" class="w-full">
     <!-- Header -->
     <header class="flex w-full justify-between items-center py-6 px-8">
       <router-link to="/">
@@ -14,32 +14,41 @@
     <!-- Hero Section -->
     <div
       class="relative w-full h-[60vh] bg-cover bg-center bg-no-repeat"
-      :style="{ backgroundImage: `url(${data?.image ?? data?.image?.original})` }"
+      :style="{ backgroundImage: `url(${data.image ?? data.image?.original})` }"
     >
       <div class="absolute inset-0 bg-black/60 bg-gradient-to-t from-background to-transparent" />
       <div class="relative h-full flex flex-col justify-end items-start p-8 md:p-12 lg:p-16">
         <div class="max-w-3xl text-white">
           <div class="flex flex-wrap gap-2 mb-4">
-            <Badge v-for="genre in data?.genres" :key="genre" variant="secondary">{{ genre }}</Badge>
+            <Badge v-for="genre in data.genres" :key="genre" variant="secondary">{{ genre }}</Badge>
           </div>
           <h1 class="text-4xl md:text-6xl font-extrabold tracking-tighter text-balance">
-            {{ data?.name }}
+            {{ data.name }}
           </h1>
           <div class="flex items-center flex-wrap gap-x-4 gap-y-2 mt-4 text-lg text-muted-foreground">
-            <div v-if="data?.rating?.average" class="flex items-center gap-1">
+            <div v-if="data.rating?.average" class="flex items-center gap-1">
               <StarIcon class="h-5 w-5 text-yellow-400" />
               <span>{{ data.rating.average }} / 10</span>
             </div>
-            <div v-if="data?.status" class="flex items-center gap-1">
+            <div v-if="data.status" class="flex items-center gap-1">
               <TvIcon class="h-5 w-5" />
               <span>{{ data.status }}</span>
             </div>
-            <div v-if="data?.premiered" class="flex items-center gap-1">
+            <div v-if="data.premiered" class="flex items-center gap-1">
               <CalendarIcon class="h-5 w-5" />
               <span>{{ new Date(data.premiered).getFullYear() }}</span>
             </div>
           </div>
-          <p class="mt-6 text-base md:text-lg line-clamp-3" v-html="data?.summary" />
+          <ClientOnly>
+            <p class="mt-6 text-base md:text-lg line-clamp-3" v-html="data.summary" />
+            <template #fallback>
+              <div class="mt-6 space-y-2">
+                <div class="h-4 w-full bg-muted-foreground/20 rounded-md animate-pulse" />
+                <div class="h-4 w-full bg-muted-foreground/20 rounded-md animate-pulse" />
+                <div class="h-4 w-5/6 bg-muted-foreground/20 rounded-md animate-pulse" />
+              </div>
+            </template>
+          </ClientOnly>
         </div>
       </div>
     </div>
@@ -51,55 +60,60 @@
         <div
           class="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 lg:gap-8"
         >
-          <Card v-for="season in data?.seasons" :key="season.id" class="flex flex-col">
+          <Card v-for="season in data.seasons" :key="season.id" class="flex flex-col">
             <CardHeader>
               <div class="flex items-center justify-between">
                 <CardTitle>Season {{ season.number }}</CardTitle>
-                <Badge v-if="season.recap.find(r => r.status === 'draft')" variant="secondary">Draft</Badge>
+                <Badge v-if="getDraftRecap(season)" variant="secondary">Draft</Badge>
               </div>
               <CardDescription v-if="season.name">{{ season.name }}</CardDescription>
             </CardHeader>
             <CardContent class="flex-grow">
               <p class="text-sm text-muted-foreground">
-                <span v-if="season.recap && season.recap.length > 0">A recap is available for this season.</span>
+                <span v-if="getPublishedRecap(season)">A recap is available for this season.</span>
+                <span v-else-if="getDraftRecap(season)">A draft is in progress.</span>
                 <span v-else>No recap available for this season yet.</span>
               </p>
             </CardContent>
-            <ClientOnly>
-              <CardFooter class="flex flex-col items-stretch gap-2">
-                <Button v-if="season.recap.find(r => r.status === 'published')" variant="secondary" @click="goToRecap(season.recap.find(r => r.status === 'published').id)">
-                  <EyeIcon class="mr-2 h-4 w-4" />
-                  View Recap
-                </Button>
-                <Button v-if="!user" disabled variant="outline">
-                  <SparklesIcon class="mr-2 h-4 w-4" />
-                  Generate (soon)
-                </Button>
+            <CardFooter class="flex flex-col items-stretch gap-2">
+              <Button
+                v-if="getPublishedRecap(season)"
+                variant="secondary"
+                @click="goToRecap(getPublishedRecap(season).id)"
+              >
+                <EyeIcon class="mr-2 h-4 w-4" />
+                View Recap
+              </Button>
+              
+              <ClientOnly>
                 <template v-if="user">
-                  <div v-if="season.recap && season.recap.length > 0" class="w-full">
-                    <Button class="w-full" @click="goToRecapEditor(data?.id, season.id)">
-                      <PencilIcon class="mr-2 h-4 w-4" />
-                      Edit Recap
-                    </Button>
-                  </div>
-                  <template v-else>
-                    <Button disabled variant="outline">
-                      <SparklesIcon class="mr-2 h-4 w-4" />
-                      Generate (soon)
-                    </Button>
-                    <Button @click="goToRecapEditor(data?.id, season.id)">
-                      <SquaresPlusIcon class="mr-2 h-4 w-4" />
-                      Create Recap
-                    </Button>
-                  </template>
+                  <Button
+                    v-if="getDraftRecap(season) || getPublishedRecap(season)"
+                    class="w-full"
+                    @click="goToRecapEditor(data.id, season.id)"
+                  >
+                    <PencilIcon class="mr-2 h-4 w-4" />
+                    Edit
+                  </Button>
+                  <Button
+                    v-else
+                    class="w-full"
+                    @click="goToRecapEditor(data.id, season.id)"
+                  >
+                    <SquaresPlusIcon class="mr-2 h-4 w-4" />
+                    Create Recap
+                  </Button>
                 </template>
-              </CardFooter>
-              <template #fallback>
-                <div class="p-4">
-                  <SpinLoader class="h-5 w-5 mx-auto" />
-                </div>
-              </template>
-            </ClientOnly>
+                <template #fallback>
+                  <div class="h-10 w-full" />
+                </template>
+              </ClientOnly>
+
+              <Button v-if="!getPublishedRecap(season)" disabled variant="outline">
+                <SparklesIcon class="mr-2 h-4 w-4" />
+                Generate (soon)
+              </Button>
+            </CardFooter>
           </Card>
         </div>
       </div>
@@ -109,6 +123,7 @@
   </div>
 </template>
 <script lang="ts" setup>
+import { ref, type Ref } from 'vue';
 import type { TvMazeShow } from '~/types/tv-maze.types';
 import { CalendarIcon, PencilIcon, SparklesIcon, SquaresPlusIcon, StarIcon, TvIcon, EyeIcon } from '@heroicons/vue/24/outline';
 import { toast } from 'vue-sonner'
@@ -127,26 +142,28 @@ import UserAuthStatus from '~/components/UserAuthStatus.vue';
 import ShowPageSkeleton from '~/components/ShowPageSkeleton.vue';
 
 const user = useSupabaseUser();
-const supabase = useSupabaseClient();
-const loading = ref(true);
-const data: Ref<TvMazeShow | null> = ref(null);
 const route = useRoute();
+
+const { data, pending } = useAsyncData(
+  `show-data-${route.params.slug}`,
+  async () => {
+    const tvMazeId = (route.params.slug as string).split('-').pop();
+    if (!tvMazeId) {
+      console.error('Invalid slug format');
+      return null;
+    }
+    try {
+      const response = await $fetch(`/api/shows/${tvMazeId}`);
+      return response.show as TvMazeShow | null;
+    } catch (e) {
+      toast.error('Failed to fetch show data.');
+      return null;
+    }
+  }
+);
+
 const isRecapOpen = ref(false);
 const selectedSeason = ref(null);
-
-onMounted(async () => {
-  loading.value = true;
-  try {
-    const response = await $fetch(`/api/shows/${route.params.slug}`);
-    data.value = response.show;
-  } catch (e: any) {
-    toast.error('Something went wrong', {
-      description: e.message
-    })
-  } finally {
-    loading.value = false;
-  }
-});
 
 const showRecap = (season: any) => {
   isRecapOpen.value = true;
@@ -163,4 +180,7 @@ const goToRecapEditor = (show?: string, season?: string) => {
 const goToRecap = (recapId: string) => {
   navigateTo(`/recap/${recapId}`);
 };
+
+const getPublishedRecap = (season: any) => (season.recap || []).find((r: any) => r.status === 'published');
+const getDraftRecap = (season: any) => (season.recap || []).find((r: any) => r.status === 'draft');
 </script>
