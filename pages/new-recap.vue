@@ -4,7 +4,7 @@
     <header class="flex items-center justify-between p-4 border-b border-border">
       <div class="flex items-center gap-4">
         <router-link to="/">
-          <Logo class="h-8 w-8" />
+          <Logo variant="white" class="h-8 w-8" />
         </router-link>
         <div>
           <h1 class="text-lg font-semibold">Recap Editor</h1>
@@ -15,13 +15,13 @@
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <Button variant="ghost" @click="goBack">Cancel</Button>
-        <Button variant="outline" :disabled="loading || isSaving" @click="saveDraft">
+        <Button variant="ghost" class="min-w-[90px]" @click="goBack">Cancel</Button>
+        <Button variant="outline" class="min-w-[130px]" :disabled="loading || isSaving" @click="saveDraft">
           <span v-if="isSaving" class="loading loading-spinner h-4 w-4" />
           <DocumentArrowDownIcon v-else class="h-4 w-4" />
           <span class="ml-2">{{ isSaving ? 'Saving...' : 'Save Draft' }}</span>
         </Button>
-        <Button :disabled="loading || isPublishing" @click="publishRecap">
+        <Button class="min-w-[130px]" :disabled="loading || isPublishing" @click="publishRecap">
           <span v-if="isPublishing" class="loading loading-spinner h-4 w-4" />
           <ArrowUpCircleIcon v-else class="h-4 w-4" />
           <span class="ml-2">{{ isPublishing ? 'Publishing...' : 'Publish' }}</span>

@@ -1,9 +1,18 @@
 <template>
   <div class="relative overflow-hidden">
-    <img alt="Synupsis" class="" src="~/assets/svg/logo_dark.svg" />
-    <!--    <div class='bg'></div>-->
+    <img v-if="variant === 'white'" alt="Synupsis" src="~/assets/svg/logo_white.svg" />
+    <img v-else alt="Synupsis" src="~/assets/svg/logo_dark.svg" />
   </div>
 </template>
+
+<script lang="ts" setup>
+defineProps({
+  variant: {
+    type: String as () => 'white' | 'dark',
+    default: 'dark'
+  }
+});
+</script>
 
 <style scoped>
 .bg {
@@ -56,5 +65,3 @@
   }
 }
 </style>
-
-<script lang="ts" setup></script>
