@@ -70,71 +70,31 @@
         <div class="mx-auto max-w-4xl">
           <h4 class="text-3xl font-bold tracking-tight text-white sm:text-4xl">Seasons</h4>
         </div>
-        <ul
+        <div
           class="mx-auto mt-20 grid max-w-2xl grid-cols-1 gap-6 sm:grid-cols-2 lg:mx-0 lg:max-w-none lg:grid-cols-3 lg:gap-8"
-          role="list"
         >
-          <li v-for="season in data?.seasons" :key="season.id">
-            <div v-if="false" class="rounded-2xl bg-gray-800 px-8 py-10">
-              <h3 class="text-base font-semibold leading-7 tracking-tight text-white">
-                Season {{ season.number }}
-              </h3>
-              <p v-if="season.name" class="text-sm leading-6 text-gray-400">{{ season.name }}</p>
-              <div class="flex">
-                <button
-                  class="relative block w-full p-4 text-center text-gray-400 hover:text-gray-300 transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                  type="button"
-                  @click="showRecap(season)"
-                >
-                  <EyeIcon class="mx-auto h-6 w-6" />
-                  <span class="mt-2 block text-sm font-semibold">See recap</span>
-                </button>
-                <button
-                  class="relative block w-full p-4 text-center text-gray-400 hover:text-gray-300 transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                  type="button"
-                >
-                  <PencilSquareIcon class="mx-auto h-6 w-6" />
-                  <span class="mt-2 block text-sm font-semibold">Edit recap</span>
-                </button>
-              </div>
-            </div>
-            <div v-else class="rounded-lg border-2 border-dashed border-gray-300">
-              <div>
-                <div class="bg-white text-gray-900">
-                  <h3 class="text-base font-semibold leading-7 tracking-tight">
-                    Season {{ season.number }}
-                  </h3>
-                  <p v-if="season.name" class="text-sm leading-6 text-gray-400">
-                    {{ season.name }}
-                  </p>
-                </div>
-
-                <p class="text-sm mt-2">No Recap</p>
-                <p class="text-sm text-gray-400">Get started by creating a new recap.</p>
-              </div>
-              <div class="flex gap-2 divide-white">
-                <button
-                  class="relative block w-full px-12 py-6 text-center focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 cursor-not-allowed opacity-50"
-                  disabled
-                  type="button"
-                >
-                  <SparklesIcon class="mx-auto h-12 w-12 text-gray-400" />
-                  <span class="mt-2 block text-sm font-semibold text-gray-300"
-                    >Generate recap (soon)</span
-                  >
-                </button>
-                <button
-                  class="relative block w-full px-12 py-6 text-center text-gray-400 hover:text-gray-300 transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                  type="button"
-                  @click="goToNewRecap(data?.id, season.id)"
-                >
-                  <SquaresPlusIcon class="mx-auto h-12 w-12" />
-                  <span class="mt-2 block text-sm font-semibold">Create a new recap</span>
-                </button>
-              </div>
-            </div>
-          </li>
-        </ul>
+          <Card v-for="season in data?.seasons" :key="season.id" class="flex flex-col">
+            <CardHeader>
+              <CardTitle>Season {{ season.number }}</CardTitle>
+              <CardDescription v-if="season.name">{{ season.name }}</CardDescription>
+            </CardHeader>
+            <CardContent class="flex-grow">
+              <p class="text-sm text-muted-foreground">
+                No recap available for this season yet.
+              </p>
+            </CardContent>
+            <CardFooter class="flex flex-col items-stretch gap-2">
+              <Button disabled variant="outline">
+                <SparklesIcon class="mr-2 h-4 w-4" />
+                Generate (soon)
+              </Button>
+              <Button @click="goToNewRecap(data?.id, season.id)">
+                <SquaresPlusIcon class="mr-2 h-4 w-4" />
+                Create Recap
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
       </div>
     </div>
     <Recap v-model:is-open="isRecapOpen" />
@@ -149,6 +109,15 @@ import type { Database } from '~/types/database.types';
 import type { TvMazeShow } from '~/types/tv-maze.types';
 import { EyeIcon, PencilSquareIcon, SparklesIcon, SquaresPlusIcon } from '@heroicons/vue/24/outline';
 import { toast } from 'vue-sonner'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '~/components/shadcn/card'
+import { Button } from '~/components/shadcn/button'
 
 const supabase = useSupabase();
 const loading = ref(true);
