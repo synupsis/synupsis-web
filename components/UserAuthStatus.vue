@@ -1,7 +1,9 @@
 <template>
   <ClientOnly>
     <div v-if="user" class="flex gap-4 items-center justify-end">
-      <p class="text-sm text-muted-foreground">{{ user.email }}</p>
+      <router-link to="/profile">
+        <p class="text-sm text-muted-foreground hover:text-foreground transition-colors">{{ user.email }}</p>
+      </router-link>
       <Button variant="ghost" @click="logout">Log out</Button>
     </div>
     <div v-else class="flex gap-4 items-center justify-end">
