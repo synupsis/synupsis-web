@@ -1,5 +1,8 @@
 <template>
-  <div class="w-full">
+  <div v-if="loading" class="w-full">
+    <ShowPageSkeleton />
+  </div>
+  <div v-else class="w-full">
     <!-- Header -->
     <header class="flex w-full justify-between items-center py-6 px-8">
       <router-link to="/">
@@ -114,6 +117,7 @@ import { Button } from '~/components/shadcn/button'
 import { Badge } from '~/components/shadcn/badge'
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import UserAuthStatus from '~/components/UserAuthStatus.vue';
+import ShowPageSkeleton from '~/components/ShowPageSkeleton.vue';
 
 const user = useSupabaseUser();
 const supabase = useSupabaseClient();
