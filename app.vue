@@ -3,7 +3,7 @@
     <NuxtRouteAnnouncer />
     <NuxtLoadingIndicator />
     <NuxtPage />
-    <Toaster position="top-right" />
+    <Toaster position="top-center" />
   </div>
 </template>
 

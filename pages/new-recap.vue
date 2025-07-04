@@ -1,79 +1,76 @@
 <template>
-  <div class="flex flex-col w-full justify-center items-center p-4">
-    <div v-if="error" class="text-red-500">
-      <p>{{ error.message }}</p>
-      <Button class="mt-2" @click="goBack">Go Back</Button>
-    </div>
-    <div v-else class="w-full">
-      <div class="w-full mb-4">
-        <div class="flex w-full justify-between items-center">
-          <h3 class="my-4 text-2xl font-semibold">Create a new Recap</h3>
-          <div
-            class="text-gray-400 p-4 hover:text-gray-300 cursor-pointer transition"
-            @click="goBack"
-          >
-            <XMarkIcon class="h-7 w-7" />
-          </div>
-        </div>
-        <div class="text-center flex items-center flex-col">
-          <div v-if="loading" class="flex flex-col items-center gap-2">
-            <div class="skeleton h-6 w-32"></div>
-            <div class="skeleton h-5 w-20"></div>
-          </div>
-          <template v-else>
-            <p class="font-semibold text-xl transition-opacity">{{ showName }}</p>
-            <p>Season {{ seasonNumber }}</p>
-          </template>
+  <div class="h-screen w-full flex flex-col bg-background text-foreground">
+    <!-- Header -->
+    <header class="flex items-center justify-between p-4 border-b border-border">
+      <div class="flex items-center gap-4">
+        <router-link to="/">
+          <Logo class="h-8 w-8" />
+        </router-link>
+        <div>
+          <h1 class="text-lg font-semibold">Recap Editor</h1>
+          <p v-if="!loading" class="text-sm text-muted-foreground">
+            {{ showName }} - Season {{ seasonNumber }}
+          </p>
+          <div v-else class="h-4 bg-muted-foreground/20 rounded-md w-48 animate-pulse" />
         </div>
       </div>
-      <div class="flex justify-center">
-        <RecapCanvas v-model="activeSlideCanvas" :loading="loading" />
+      <div class="flex items-center gap-2">
+        <Button variant="ghost" @click="goBack">Cancel</Button>
+        <Button variant="outline" :disabled="loading || isSaving" @click="saveDraft">
+          <span v-if="isSaving" class="loading loading-spinner h-4 w-4" />
+          <DocumentArrowDownIcon v-else class="h-4 w-4" />
+          <span class="ml-2">{{ isSaving ? 'Saving...' : 'Save Draft' }}</span>
+        </Button>
+        <Button :disabled="loading || isPublishing" @click="publishRecap">
+          <span v-if="isPublishing" class="loading loading-spinner h-4 w-4" />
+          <ArrowUpCircleIcon v-else class="h-4 w-4" />
+          <span class="ml-2">{{ isPublishing ? 'Publishing...' : 'Publish' }}</span>
+        </Button>
       </div>
+    </header>
 
-      <div class="flex justify-center gap-6 py-8 overflow-x-auto">
-        <div v-for="(slide, index) in slides" :key="slide.id" class="relative flex-shrink-0">
-          <div
-            class="btn rounded-full bg-white absolute -right-3 -top-3 cursor-pointer hover:bg-gray-300 transition shadow-lg z-10"
-            @click="removeSlide(slide)"
-          >
-            <TrashIcon class="h-4 w-4 text-black" />
-          </div>
+    <div class="flex flex-1 overflow-hidden">
+      <!-- Sidebar -->
+      <aside class="w-64 p-4 border-r border-border flex flex-col gap-4 overflow-y-auto">
+        <h2 class="text-xl font-semibold tracking-tight">Slides</h2>
+        <div
+          v-for="(slide, index) in slides"
+          :key="slide.id"
+          class="relative group"
+          @click="selectedSlideId = slide.id"
+        >
           <button
-            :class="selectedSlideId === slide.id ? 'outline-white text-gray-300' : 'text-gray-500'"
-            class="px-12 py-6 text-center outline outline-2 w-40 rounded-xl hover:text-gray-300 transition focus:ring-0"
-            type="button"
-            @click="selectedSlideId = slide.id"
+            :class="[
+              'w-full p-4 rounded-lg border-2 text-left',
+              selectedSlideId === slide.id
+                ? 'border-primary'
+                : 'border-border hover:border-primary/50',
+            ]"
           >
-            <p class="text-2xl font-black">{{ index + 1 }}</p>
-            <span class="mt-2 block text-sm font-semibold">Slide #{{ slide.id }}</span>
+            <p class="font-bold">Slide {{ index + 1 }}</p>
+            <p class="text-sm text-muted-foreground">ID: {{ slide.id }}</p>
+          </button>
+          <button
+            class="absolute top-2 right-2 p-1 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+            @click.stop="removeSlide(slide)"
+          >
+            <TrashIcon class="h-4 w-4" />
           </button>
         </div>
+        <Button variant="outline" class="mt-auto" @click="addSlide">
+          <SquaresPlusIcon class="h-4 w-4 mr-2" />
+          Add Slide
+        </Button>
+      </aside>
 
-        <button
-          class="px-6 py-6 text-center text-gray-400 hover:text-gray-300 transition focus:ring-0 flex-shrink-0"
-          type="button"
-          @click="addSlide"
-        >
-          <SquaresPlusIcon class="mx-auto h-12 w-12" />
-          <span class="mt-2 block text-sm font-semibold">Add a new slide</span>
-        </button>
-      </div>
-      <div class="flex justify-end gap-2">
-        <button class="py-2 px-4 btn btn-neutral gap-2" @click="goBack">
-          <XCircleIcon class="h-5 w-5" />
-          <span>Cancel</span>
-        </button>
-        <button class="py-2 px-4 btn btn-secondary" :disabled="loading || isSaving" @click="saveDraft">
-          <span v-if="isSaving" class="loading loading-spinner"></span>
-          <DocumentArrowDownIcon v-else class="h-5 w-5" />
-          <span>{{ isSaving ? 'Saving...' : 'Save Draft' }}</span>
-        </button>
-        <button class="py-2 px-4 btn btn-primary" :disabled="loading || isPublishing" @click="publishRecap">
-          <span v-if="isPublishing" class="loading loading-spinner"></span>
-          <ArrowUpCircleIcon v-else class="h-5 w-5" />
-          <span>{{ isPublishing ? 'Publishing...' : 'Publish Recap' }}</span>
-        </button>
-      </div>
+      <!-- Main Canvas -->
+      <main class="flex-1 flex items-center justify-center p-8 bg-muted/20">
+        <div v-if="error" class="text-destructive">
+          <p>{{ error.message }}</p>
+          <Button class="mt-2" @click="goBack">Go Back</Button>
+        </div>
+        <RecapCanvas v-else v-model="activeSlideCanvas" :loading="loading" />
+      </main>
     </div>
   </div>
 </template>
@@ -85,13 +82,12 @@ import {
   DocumentArrowDownIcon,
   SquaresPlusIcon,
   TrashIcon,
-  XCircleIcon,
-  XMarkIcon
 } from '@heroicons/vue/24/outline';
 import { useRoute, useRouter } from 'vue-router';
 import useSupabase from '~/composables/useSupabase';
 import type { Show, Season } from '~/types/database.types';
 import { toast } from 'vue-sonner'
+import { Button } from '~/components/shadcn/button'
 
 type Slide = {
   id: number;
