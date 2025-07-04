@@ -1,20 +1,31 @@
 <template>
-  <div class="w-full h-full flex justify-center items-center">
-    <div v-if="!readOnly" class="px-4 flex flex-col items-end gap-4">
-      <button class="py-2 px-4 btn btn-outline" @click="addTextbox()" :disabled="isAddingText">
+  <div class="w-full h-full relative">
+    <!-- The canvas container now takes up the full space of its parent from recap-editor.vue -->
+    <div
+      ref="canvasContainerRef"
+      :class="{ skeleton: loading }"
+      class="w-full h-full bg-neutral rounded-3xl overflow-hidden shadow flex items-center justify-center"
+      :style="{ outline: readOnly ? 'none' : '4px solid' }"
+    >
+      <canvas ref="canvasRef"></canvas>
+    </div>
+
+    <!-- The buttons are positioned absolutely, so they don't affect the layout -->
+    <div v-if="!readOnly" class="absolute top-1/2 -translate-y-1/2 right-full mr-4 z-10 flex flex-col items-start gap-4">
+      <button class="py-2 px-4 btn btn-outline bg-background" @click="addTextbox()" :disabled="isAddingText">
         <span v-if="isAddingText" class="loading loading-spinner"></span>
         <span v-else class="flex items-center gap-2">
           <PlusCircleIcon class="h-5 w-5" />
           Add text
         </span>
       </button>
-      <button class="py-2 px-4 btn btn-outline" @click="openBackgroundModal">
+      <button class="py-2 px-4 btn btn-outline bg-background" @click="openBackgroundModal">
         <span class="flex items-center gap-2">
           <PhotoIcon class="h-5 w-5" />
           Choose background
         </span>
       </button>
-      <button class="py-2 px-4 btn btn-outline" @click="clearSlide()">
+      <button class="py-2 px-4 btn btn-outline bg-background" @click="clearSlide()">
         <span class="flex items-center gap-2">
           <ArrowPathRoundedSquareIcon class="h-5 w-5" />
           Reset slide
@@ -22,7 +33,7 @@
       </button>
       <button
         v-if="selectedObject"
-        class="py-2 px-4 btn btn-error btn-outline"
+        class="py-2 px-4 btn btn-error btn-outline bg-background"
         @click="deleteText()"
       >
         <span class="flex items-center gap-2">
@@ -31,24 +42,7 @@
         </span>
       </button>
     </div>
-    <div
-      ref="canvasContainerRef"
-      :class="{ skeleton: loading }"
-      class="w-full h-full bg-neutral rounded-3xl overflow-hidden shadow"
-      :style="{ outline: readOnly ? 'none' : '4px solid' }"
-    >
-      <canvas ref="canvasRef"></canvas>
-    </div>
-    <div v-if="!readOnly" class="px-4">
-      <button
-        class="opacity-0 py-2 px-4 bg-blue-600 hover:bg-blue-500 transition shadow rounded-full flex items-center gap-2"
-      >
-        <span>
-          <PhotoIcon class="h-5 w-5" />
-        </span>
-        Choose background
-      </button>
-    </div>
+
     <RecapBackgroundModal v-if="!readOnly" v-model:is-open="isBackgroundModalOpen" />
   </div>
 </template>
@@ -142,7 +136,10 @@ watch(
           obj.evented = false;
         });
       }
-      canvas?.renderAll();
+      
+      requestAnimationFrame(() => {
+        canvas?.renderAll();
+      });
 
       if (!props.readOnly) {
         canvas.on('object:modified', emitUpdate);
