@@ -62,10 +62,36 @@
             <TrashIcon class="h-4 w-4" />
           </button>
         </div>
-        <Button variant="outline" class="mt-auto" @click="addSlide">
-          <SquaresPlusIcon class="h-4 w-4 mr-2" />
-          Add Slide
-        </Button>
+        <div class="mt-auto space-y-2">
+          <Button variant="outline" class="w-full" @click="addSlide">
+            <SquaresPlusIcon class="h-4 w-4 mr-2" />
+            Add Slide
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger as-child>
+              <Button v-if="existingRecapId" variant="destructive" class="w-full">
+                <TrashIcon class="h-4 w-4 mr-2" />
+                Delete Recap
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete your recap
+                  and remove your data from our servers.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction @click="deleteRecap">
+                  <span v-if="isDeleting" class="loading loading-spinner h-4 w-4" />
+                  <span v-else>Continue</span>
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </aside>
 
       <!-- Main Canvas -->
@@ -93,6 +119,17 @@ import { useRoute, useRouter } from 'vue-router';
 import type { Show, Season } from '~/types/database.types';
 import { toast } from 'vue-sonner'
 import { Button } from '~/components/shadcn/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '~/components/shadcn/alert-dialog'
 
 type Slide = {
   id: number;
@@ -109,6 +146,7 @@ const seasonId = computed(() => route.query.season as string | undefined);
 
 const slides = ref<Slide[]>([]);
 const selectedSlideId = ref(1);
+const existingRecapId = ref<string | null>(null);
 
 // State for change detection
 const initialSlidesState = ref('');
@@ -129,7 +167,7 @@ const {
     const seasonPromise = supabase.from('season').select('id, number').eq('id', seasonId.value).single();
     const recapPromise = supabase
       .from('recap')
-      .select('*, slide(*)')
+      .select('id, slide(*)')
       .eq('season_id', seasonId.value)
       .eq('user_id', user.value.id)
       .maybeSingle();
@@ -140,20 +178,25 @@ const {
     if (seasonResult.error) throw seasonResult.error;
     if (recapResult.error) throw recapResult.error;
 
-    const existingSlides = recapResult.data?.slide;
-    if (existingSlides && existingSlides.length > 0) {
-      slides.value = existingSlides
-        .sort((a, b) => a.order - b.order)
-        .map((slide, index) => ({
-          id: index + 1,
-          canvas: JSON.stringify(slide.canvas_data)
-        }));
+    const existingRecap = recapResult.data;
+    if (existingRecap) {
+      existingRecapId.value = existingRecap.id;
+      const existingSlides = existingRecap.slide;
+      if (existingSlides && existingSlides.length > 0) {
+        slides.value = existingSlides
+          .sort((a, b) => a.order - b.order)
+          .map((slide, index) => ({
+            id: index + 1,
+            canvas: JSON.stringify(slide.canvas_data)
+          }));
+      } else {
+        slides.value = [{ id: 1, canvas: '' }];
+      }
     } else {
       slides.value = [{ id: 1, canvas: '' }];
     }
     selectedSlideId.value = 1;
     
-    // Capture the initial state after loading
     initialSlidesState.value = JSON.stringify(slides.value);
     isDirty.value = false;
 
@@ -207,13 +250,14 @@ const removeSlide = (slideToRemove: Slide) => {
 
 const isSaving = ref(false);
 const isPublishing = ref(false);
+const isDeleting = ref(false);
 
 const saveDraft = async () => {
   if (!isDirty.value) return;
   isSaving.value = true;
 
   try {
-    await $fetch('/api/recap/save-draft', {
+    const { recapId } = await $fetch('/api/recap/save-draft', {
       method: 'POST',
       body: {
         showId: showId.value,
@@ -221,10 +265,10 @@ const saveDraft = async () => {
         slides: slides.value
       }
     });
+    existingRecapId.value = recapId;
     toast.success('Success', {
       description: 'Draft saved successfully!'
     })
-    // Update the initial state to the new saved state
     initialSlidesState.value = JSON.stringify(slides.value);
     isDirty.value = false;
   } catch (e: any) {
@@ -260,6 +304,28 @@ const publishRecap = async () => {
     })
   } finally {
     isPublishing.value = false;
+  }
+};
+
+const deleteRecap = async () => {
+  if (!existingRecapId.value) return;
+  isDeleting.value = true;
+
+  try {
+    await $fetch('/api/recap/delete', {
+      method: 'POST',
+      body: { recapId: existingRecapId.value }
+    });
+    toast.success('Success', {
+      description: 'Recap deleted successfully.'
+    });
+    goBack();
+  } catch (e: any) {
+    toast.error('Error', {
+      description: e.data?.message || 'Failed to delete recap.'
+    });
+  } finally {
+    isDeleting.value = false;
   }
 };
 </script>
