@@ -148,7 +148,7 @@ const showRecap = (season: any) => {
 
 const goToNewRecap = (show?: string, season?: string) => {
   navigateTo({
-    path: '/new-recap',
+    path: '/recap-editor',
     query: { show, season }
   });
 };
