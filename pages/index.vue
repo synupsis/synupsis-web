@@ -5,12 +5,21 @@
         class="relative flex w-full h-[600px] flex-col items-center justify-center overflow-hidden rounded-lg lg:w-full md:w-full"
       >
         <div class="absolute top-5 right-5 text-right w-full z-20">
-          <SpinLoader v-if="user === undefined" class="h-5 w-5" />
-          <div v-else-if="user === null" class="flex gap-4 items-center justify-end">
-            <Button variant="ghost" @click="goToLogin">Log in</Button>
-            <Button @click="goToSignup">Sign up</Button>
-          </div>
-          <div v-else>{{ user.email }}</div>
+          <template v-if="user === undefined">
+            <SpinLoader class="h-5 w-5" />
+          </template>
+          <template v-else-if="user === null">
+            <div class="flex gap-4 items-center justify-end">
+              <Button variant="ghost" @click="goToLogin">Log in</Button>
+              <Button @click="goToSignup">Sign up</Button>
+            </div>
+          </template>
+          <template v-else>
+            <div class="flex gap-4 items-center justify-end">
+              <p>{{ user.email }}</p>
+              <Button variant="ghost" @click="logout">Log out</Button>
+            </div>
+          </template>
         </div>
         <Logo class="z-10 h-56 w-56" />
         <div class="absolute w-full p-2 flex flex-col items-center mt-[400px]">
@@ -74,7 +83,6 @@ import { useDebounceFn } from '@vueuse/core';
 import type { Show } from '~/types/database.types';
 import Ripple from '~/components/ui/Ripple.vue';
 import VanishingInput from '~/components/ui/VanishingInput.vue';
-import RippleButton from '~/components/ui/RippleButton.vue';
 import CardSpotlight from '~/components/ui/CardSpotlight.vue';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import BlurReveal from '~/components/ui/BlurReveal.vue';
@@ -89,6 +97,7 @@ interface SearchResult {
 const { slugify } = useUtils();
 const user = useSupabaseUser();
 const router = useRouter();
+const supabase = useSupabase();
 
 const searchInput = ref('');
 const searchResults = ref<SearchResult[]>([]);
@@ -159,5 +168,10 @@ function goToLogin() {
 
 function goToSignup() {
   router.push('/signup');
+}
+
+async function logout() {
+  await supabase.auth.signOut();
+  navigateTo('/');
 }
 </script>

@@ -1,33 +1,34 @@
 <template>
   <div class="w-full flex justify-center">
     <div class="px-4 flex flex-col items-end gap-4">
-      <button class="py-2 px-4 btn btn-outline" @click="addTextbox()">
-        <span>
+      <button class="py-2 px-4 btn btn-outline" @click="addTextbox()" :disabled="isAddingText">
+        <span v-if="isAddingText" class="loading loading-spinner"></span>
+        <span v-else class="flex items-center gap-2">
           <PlusCircleIcon class="h-5 w-5" />
+          Add text
         </span>
-        Add text
       </button>
       <button class="py-2 px-4 btn btn-outline" @click="openBackgroundModal">
-        <span>
+        <span class="flex items-center gap-2">
           <PhotoIcon class="h-5 w-5" />
+          Choose background
         </span>
-        Choose background
       </button>
       <button class="py-2 px-4 btn btn-outline" @click="clearSlide()">
-        <span>
+        <span class="flex items-center gap-2">
           <ArrowPathRoundedSquareIcon class="h-5 w-5" />
+          Reset slide
         </span>
-        Reset slide
       </button>
       <button
         v-if="selectedObject"
         class="py-2 px-4 btn btn-error btn-outline"
         @click="deleteText()"
       >
-        <span>
+        <span class="flex items-center gap-2">
           <TrashIcon class="h-5 w-5" />
+          Delete
         </span>
-        Delete
       </button>
     </div>
     <div
@@ -52,9 +53,8 @@
 
 <script lang="ts" setup>
 import { onMounted, ref, watch } from 'vue';
-import { type Canvas as CanvasType, Canvas } from 'fabric';
+import * as fabric from 'fabric';
 import { RoundedTextbox } from '~/utils/RoundedTextbox';
-
 import {
   ArrowPathRoundedSquareIcon,
   PhotoIcon,
@@ -63,11 +63,7 @@ import {
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
-  image: {
-    type: String,
-    default: ''
-  },
-  json: {
+  modelValue: {
     type: String,
     default: ''
   },
@@ -77,58 +73,69 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['update:json']);
+const emit = defineEmits(['update:modelValue']);
 
 const isBackgroundModalOpen = ref(false);
-const selectedObject = ref(null);
+const isAddingText = ref(false);
+const selectedObject = ref<fabric.Object | null>(null);
 
-const canvasRef = ref(undefined);
-let canvas: CanvasType | null = null;
+const canvasRef = ref<HTMLCanvasElement | undefined>(undefined);
+let canvas: fabric.Canvas | null = null;
+let isInternalUpdate = false;
 
-const emitCanvasState = () => {
-  canvas?.renderAll();
-  emit('update:json', JSON.stringify(canvas?.toJSON()));
+const emitUpdate = () => {
+  if (!canvas) return;
+  isInternalUpdate = true;
+  const json = JSON.stringify(canvas.toJSON());
+  emit('update:modelValue', json);
 };
 
+watch(
+  () => props.modelValue,
+  newJson => {
+    if (isInternalUpdate) {
+      isInternalUpdate = false;
+      return;
+    }
+    if (!canvas) return;
+    canvas.loadFromJSON(newJson || '{}', () => {
+      canvas?.renderAll();
+    });
+  },
+  { immediate: true }
+);
+
 onMounted(() => {
-  canvas = new Canvas(canvasRef.value);
+  // @ts-ignore
+  fabric.classRegistry.setClass(RoundedTextbox);
+  if (!canvasRef.value) return;
 
-  canvas.on('object:modified', () => {
-    emitCanvasState();
-  });
+  canvas = new fabric.Canvas(canvasRef.value);
 
-  canvas.on('object:added', () => {
-    emitCanvasState();
-  });
+  canvas.on('object:modified', emitUpdate);
+  canvas.on('object:removed', emitUpdate);
 
   canvas.on('mouse:down', e => {
-    if (e.target) {
-      selectedObject.value = e.target;
-    } else {
-      selectedObject.value = null;
-    }
+    selectedObject.value = e.target ?? null;
   });
+
+  // Load initial value
+  if (props.modelValue) {
+    canvas.loadFromJSON(props.modelValue, () => {
+      canvas?.renderAll();
+    });
+  }
 });
 
 onUnmounted(() => {
   canvas?.dispose();
 });
 
-watch(
-  () => props.json,
-  json => {
-    if (!canvas) return;
-    canvas.clear();
-    canvas.loadFromJSON(json, canvas.renderAll.bind(canvas));
-  }
-);
-
 const deleteText = () => {
-  if (selectedObject.value && canvas) {
+  if (canvas && canvas.getActiveObject()) {
     canvas.remove(canvas.getActiveObject());
-    selectedObject.value = null;
-    canvas.renderAll();
-    emitCanvasState();
+    canvas.discardActiveObject();
+    // The 'object:removed' event will handle the emit.
   }
 };
 
@@ -139,29 +146,37 @@ const openBackgroundModal = () => {
 const clearSlide = () => {
   if (!canvas) return;
   canvas.clear();
-  emitCanvasState();
+  emitUpdate(); // Emit the empty state
 };
 
-const addTextbox = () => {
-  if (!canvas) return;
+const TEXTBOX_CONFIG = {
+  fontSize: 32,
+  fontFamily: '"Fredoka One", cursive',
+  opacity: 1,
+  textAlign: 'center',
+  backgroundColor: '#fff',
+  padding: 20,
+  fill: '#000',
+  objectCaching: false,
+  editable: true
+};
 
-  const textbox = new RoundedTextbox('Votre texte ici', {
-    width: 200,
-    fontSize: 20,
-    fontFamily: 'Arial',
-    opacity: 1,
-    textAlign: 'left',
-    backgroundColor: '#fff',
-    padding: 15,
-    fill: '#000',
-    objectCaching: false,
-    editable: true
-  });
-
-  canvas.add(textbox);
-  canvas.setActiveObject(textbox);
-  canvas.centerObject(textbox);
-  textbox.enterEditing();
-  emitCanvasState();
+const addTextbox = async () => {
+  if (!canvas || isAddingText.value) return;
+  isAddingText.value = true;
+  try {
+    await document.fonts.load('1em "Fredoka One"');
+    const textbox = new RoundedTextbox('Votre texte ici', TEXTBOX_CONFIG);
+    canvas.add(textbox);
+    canvas.setActiveObject(textbox);
+    canvas.centerObject(textbox);
+    textbox.enterEditing();
+    emitUpdate(); // Explicitly emit the update
+  } catch (error) {
+    console.error('Failed to load font and add textbox:', error);
+  } finally {
+    isAddingText.value = false;
+  }
 };
 </script>
+

@@ -44,7 +44,6 @@
 
 <script lang="ts" setup>
 import { ref } from 'vue';
-import Input from '~/components/ui/Input.vue';
 import useSupabase from '~/composables/useSupabase';
 
 const supabase = useSupabase();

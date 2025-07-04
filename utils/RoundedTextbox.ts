@@ -1,32 +1,52 @@
-import * as fabric from 'fabric';
+import { Textbox } from 'fabric';
 
-export class RoundedTextbox extends fabric.Textbox {
+// @ts-ignore
+export class RoundedTextbox extends Textbox {
   static override type = 'RoundedTextbox';
-  backgroundPadding: number;
 
-  constructor(text: string, options: fabric.ITextboxOptions & { backgroundPadding?: number }) {
+  private static readonly RADIUS = 12;
+  private static readonly MIN_WIDTH = 50;
+
+  constructor(text: string, options: fabric.ITextboxOptions) {
     super(text, options);
-    this.backgroundPadding = options.backgroundPadding || 0;
+    this._initEventListeners();
+    this._adjustDimensions();
   }
 
-  // toObject(propertiesToInclude?: string[]) {
-  //   return super.toObject([...propertiesToInclude, 'backgroundPadding']);
-  // }
+  private _initEventListeners() {
+    this.on('changed', this._adjustDimensions);
+    this.on('editing:exited', this._adjustDimensions);
+  }
+
+  private _adjustDimensions() {
+    const textWidth = this.calcTextWidth();
+    const newWidth = Math.max(RoundedTextbox.MIN_WIDTH, textWidth + this.padding * 2);
+
+    const textHeight = this.calcTextHeight();
+    const newHeight = textHeight + this.padding * 2;
+
+    this.set('width', newWidth);
+    this.set('height', newHeight);
+
+    this.setCoords();
+  }
+
+  toObject(propertiesToInclude: string[] = []) {
+    return super.toObject([...propertiesToInclude, 'padding']);
+  }
 
   protected override _renderBackground(ctx: CanvasRenderingContext2D) {
     if (!this.backgroundColor) {
       return;
     }
-    const dim = this._getNonTransformedDimensions();
-    const w = dim.x + 2 * this.padding;
-    const h = dim.y + 2 * this.padding;
-
     ctx.save();
     ctx.fillStyle = this.backgroundColor.toString();
 
-    const x = -this.width / 2 - this.padding;
-    const y = -this.height / 2 - this.padding;
-    const radius = 10;
+    const x = -this.width / 2;
+    const y = -this.height / 2;
+    const w = this.width;
+    const h = this.height;
+    const radius = RoundedTextbox.RADIUS;
 
     ctx.beginPath();
     ctx.moveTo(x + radius, y);
@@ -43,6 +63,3 @@ export class RoundedTextbox extends fabric.Textbox {
     ctx.restore();
   }
 }
-
-fabric.classRegistry.setClass(RoundedTextbox, 'RoundedTextbox');
-fabric.classRegistry.setSVGClass(RoundedTextbox, 'RoundedTextbox');

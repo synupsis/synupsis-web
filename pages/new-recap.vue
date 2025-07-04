@@ -30,12 +30,7 @@
         </div>
       </div>
       <div class="flex justify-center">
-        <RecapCanvas
-          :image="showImage"
-          :json="selectedSlide?.canvas"
-          :loading="loading"
-          @update:json="updateSlideCanvas"
-        />
+        <RecapCanvas v-model="activeSlideCanvas" :loading="loading" />
       </div>
 
       <div class="flex justify-center gap-6 py-8 overflow-x-auto">
@@ -50,7 +45,7 @@
             :class="selectedSlideId === slide.id ? 'outline-white text-gray-300' : 'text-gray-500'"
             class="px-12 py-6 text-center outline outline-2 w-40 rounded-xl hover:text-gray-300 transition focus:ring-0"
             type="button"
-            @click="selectSlide(slide)"
+            @click="selectedSlideId = slide.id"
           >
             <p class="text-2xl font-black">{{ index + 1 }}</p>
             <span class="mt-2 block text-sm font-semibold">Slide #{{ slide.id }}</span>
@@ -71,7 +66,12 @@
           <XCircleIcon class="h-5 w-5" />
           <span>Cancel</span>
         </button>
-        <button class="py-2 px-4 btn btn-primary" :disabled="isPublishing" @click="publishRecap">
+        <button class="py-2 px-4 btn btn-secondary" :disabled="loading || isSaving" @click="saveDraft">
+          <span v-if="isSaving" class="loading loading-spinner"></span>
+          <DocumentArrowDownIcon v-else class="h-5 w-5" />
+          <span>{{ isSaving ? 'Saving...' : 'Save Draft' }}</span>
+        </button>
+        <button class="py-2 px-4 btn btn-primary" :disabled="loading || isPublishing" @click="publishRecap">
           <span v-if="isPublishing" class="loading loading-spinner"></span>
           <ArrowUpCircleIcon v-else class="h-5 w-5" />
           <span>{{ isPublishing ? 'Publishing...' : 'Publish Recap' }}</span>
@@ -97,6 +97,7 @@
 import { ref, computed } from 'vue';
 import {
   ArrowUpCircleIcon,
+  DocumentArrowDownIcon,
   SquaresPlusIcon,
   TrashIcon,
   XCircleIcon,
@@ -148,7 +149,6 @@ const {
 );
 
 const showName = computed(() => pageData.value?.show?.name);
-const showImage = computed(() => pageData.value?.show?.image);
 const seasonNumber = computed(() => pageData.value?.season?.number);
 
 const slides = ref<Slide[]>([
@@ -156,9 +156,18 @@ const slides = ref<Slide[]>([
   { id: 2, canvas: '' }
 ]);
 const selectedSlideId = ref(1);
-const selectedSlide = computed(
-  () => slides.value.find(s => s.id === selectedSlideId.value) ?? slides.value[0]
-);
+
+const activeSlideCanvas = computed({
+  get() {
+    return slides.value.find(s => s.id === selectedSlideId.value)?.canvas ?? '';
+  },
+  set(newValue) {
+    const slideIndex = slides.value.findIndex(s => s.id === selectedSlideId.value);
+    if (slideIndex !== -1) {
+      slides.value[slideIndex].canvas = newValue;
+    }
+  }
+});
 
 const goBack = () => router.back();
 
@@ -169,7 +178,7 @@ const addSlide = () => {
 };
 
 const removeSlide = (slideToRemove: Slide) => {
-  if (slides.value.length <= 1) return; // Prevent removing the last slide
+  if (slides.value.length <= 1) return;
   if (selectedSlideId.value === slideToRemove.id) {
     const currentIndex = slides.value.findIndex(s => s.id === slideToRemove.id);
     selectedSlideId.value = slides.value[currentIndex - 1]?.id ?? slides.value[0]?.id;
@@ -177,37 +186,56 @@ const removeSlide = (slideToRemove: Slide) => {
   slides.value = slides.value.filter(s => s.id !== slideToRemove.id);
 };
 
-const selectSlide = (slide: Slide) => {
-  selectedSlideId.value = slide.id;
-};
-
-const updateSlideCanvas = (canvas: string) => {
-  if (selectedSlide.value) {
-    selectedSlide.value.canvas = canvas;
-  }
-};
-
 const publicationError = ref('');
 const publicationSuccess = ref('');
+const isSaving = ref(false);
+const isPublishing = ref(false);
 
-const { pending: isPublishing, execute: publishRecap } = useFetch('/api/recap/create', {
-  method: 'POST',
-  body: {
-    showId: showId.value,
-    seasonId: seasonId.value,
-    slides
-  },
-  immediate: false,
-  onResponse({ response }) {
-    if (response.ok) {
-      publicationSuccess.value = 'Recap published successfully!';
-      setTimeout(() => {
-        router.push(`/shows/${pageData.value?.show?.name}-${showId.value}`);
-      }, 2000);
-    }
-  },
-  onResponseError({ response }) {
-    publicationError.value = response._data?.message || 'Failed to publish recap.';
+const saveDraft = async () => {
+  isSaving.value = true;
+  publicationError.value = '';
+  publicationSuccess.value = '';
+
+  try {
+    await $fetch('/api/recap/save-draft', {
+      method: 'POST',
+      body: {
+        showId: showId.value,
+        seasonId: seasonId.value,
+        slides: slides.value
+      }
+    });
+    publicationSuccess.value = 'Draft saved successfully!';
+  } catch (e: any) {
+    publicationError.value = e.data?.message || 'Failed to save draft.';
+  } finally {
+    isSaving.value = false;
   }
-});
+};
+
+const publishRecap = async () => {
+  isPublishing.value = true;
+  publicationError.value = '';
+  publicationSuccess.value = '';
+
+  try {
+    await $fetch('/api/recap/create', {
+      method: 'POST',
+      body: {
+        showId: showId.value,
+        seasonId: seasonId.value,
+        slides: slides.value
+      }
+    });
+    publicationSuccess.value = 'Recap published successfully!';
+    setTimeout(() => {
+      router.push(`/shows/${pageData.value?.show?.name}-${showId.value}`);
+    }, 2000);
+  } catch (e: any) {
+    publicationError.value = e.data?.message || 'Failed to publish recap.';
+  } finally {
+    isPublishing.value = false;
+  }
+};
 </script>
+
