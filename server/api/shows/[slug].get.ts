@@ -6,7 +6,7 @@ import axios from 'axios';
 async function getShowFromDb(supabase: SupabaseClient<Database>, tvMazeId: string) {
   const { data: existingShow, error } = await supabase
     .from('show')
-    .select('*, seasons:season(*)')
+    .select('*, seasons:season(*, recap(*))')
     .eq('tv_maze_id', tvMazeId)
     .maybeSingle();
 

@@ -45,7 +45,10 @@
               <router-link class="underline" to="/pwdforgot">Forgot password?</router-link>
             </div>
 
-            <Button :disabled="!email || !password" class="w-full" type="submit">Login</Button>
+            <Button :disabled="!email || !password || isLoading" class="w-full" type="submit">
+              <span v-if="isLoading" class="loading loading-spinner h-4 w-4" />
+              <span v-else>Login</span>
+            </Button>
 
             <p class="text-center text-sm">
               No account yet?
@@ -60,16 +63,17 @@
 
 <script lang="ts" setup>
 import Checkbox from '~/components/ui/Checkbox.vue';
-import useSupabase from '~/composables/useSupabase';
 import { toast } from 'vue-sonner'
 
-const supabase = useSupabase();
+const supabase = useSupabaseClient();
 
 const email = ref('');
 const password = ref('');
+const isLoading = ref(false);
 
 
 const login = async () => {
+  isLoading.value = true;
   let { data, error: loginError } = await supabase.auth.signInWithPassword({
     email: email.value,
     password: password.value
@@ -78,6 +82,7 @@ const login = async () => {
     toast.error('Error', {
       description: loginError.message
     })
+    isLoading.value = false;
     return;
   }
   navigateTo('/');

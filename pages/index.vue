@@ -5,25 +5,11 @@
         class="relative flex w-full h-[600px] flex-col items-center justify-center overflow-hidden rounded-lg lg:w-full md:w-full"
       >
         <div class="absolute top-5 right-5 text-right w-full z-20">
-          <template v-if="user === undefined">
-            <SpinLoader class="h-5 w-5" />
-          </template>
-          <template v-else-if="user === null">
-            <div class="flex gap-4 items-center justify-end">
-              <Button variant="ghost" @click="goToLogin">Log in</Button>
-              <Button @click="goToSignup">Sign up</Button>
-            </div>
-          </template>
-          <template v-else>
-            <div class="flex gap-4 items-center justify-end">
-              <p>{{ user.email }}</p>
-              <Button variant="ghost" @click="logout">Log out</Button>
-            </div>
-          </template>
+          <UserAuthStatus />
         </div>
         <Logo class="z-10 h-56 w-56" />
         <div class="absolute w-full p-2 flex flex-col items-center mt-[400px]">
-          <img alt="Synupsis" class="w-80" src="~/assets/svg/logo_text.svg" />
+          <img alt="Synupsis" class="w-80" src="/svg/logo_text.svg" />
           <div class="h-6">
             <p class="italic text-pretty">{{ randomTagline }}</p>
           </div>
@@ -87,6 +73,7 @@ import CardSpotlight from '~/components/ui/CardSpotlight.vue';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import BlurReveal from '~/components/ui/BlurReveal.vue';
 import Logo from '~/components/Logo.vue';
+import UserAuthStatus from '~/components/UserAuthStatus.vue';
 
 interface SearchResult {
   id: number;
@@ -95,9 +82,7 @@ interface SearchResult {
 }
 
 const { slugify } = useUtils();
-const user = useSupabaseUser();
 const router = useRouter();
-const supabase = useSupabase();
 
 const searchInput = ref('');
 const searchResults = ref<SearchResult[]>([]);
@@ -160,18 +145,5 @@ watch(searchInput, debouncedSearch);
 function goToShow(show: SearchResult) {
   const slug = slugify(show.name);
   router.push(`/shows/${slug}-${show.id}`);
-}
-
-function goToLogin() {
-  router.push('/login');
-}
-
-function goToSignup() {
-  router.push('/signup');
-}
-
-async function logout() {
-  await supabase.auth.signOut();
-  navigateTo('/');
 }
 </script>

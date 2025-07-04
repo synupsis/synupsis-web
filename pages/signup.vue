@@ -48,11 +48,13 @@
             </div>
 
             <Button
-              :disabled="!email || !password || !username"
+              :disabled="!email || !password || !username || isLoading"
               class="w-full"
               type="submit"
-              >Register</Button
             >
+              <span v-if="isLoading" class="loading loading-spinner h-4 w-4" />
+              <span v-else>Register</span>
+            </Button>
 
             <p class="text-center text-sm">
               Already have an account?
@@ -66,16 +68,24 @@
 </template>
 
 <script lang="ts" setup>
-import useSupabase from '~/composables/useSupabase';
 import { toast } from 'vue-sonner'
 
-const supabase = useSupabase();
+const supabase = useSupabaseClient();
 
 const email = ref('');
 const password = ref('');
 const username = ref('');
+const isLoading = ref(false);
 
 const register = async () => {
+  if (password.value.length < 8) {
+    toast.error('Password too short', {
+      description: 'Your password must be at least 8 characters long.'
+    });
+    return;
+  }
+
+  isLoading.value = true;
   let { data, error: signUpError } = await supabase.auth.signUp({
     email: email.value,
     password: password.value,
@@ -87,6 +97,7 @@ const register = async () => {
     toast.error('Error', {
       description: signUpError.message
     })
+    isLoading.value = false;
     return;
   } else {
     navigateTo({

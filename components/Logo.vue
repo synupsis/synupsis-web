@@ -1,7 +1,7 @@
 <template>
   <div class="relative overflow-hidden">
-    <img v-if="variant === 'white'" alt="Synupsis" src="~/assets/svg/logo_white.svg" />
-    <img v-else alt="Synupsis" src="~/assets/svg/logo_dark.svg" />
+    <img v-if="variant === 'white'" alt="Synupsis" src="/svg/logo_white.svg" />
+    <img v-else alt="Synupsis" src="/svg/logo_dark.svg" />
   </div>
 </template>
 

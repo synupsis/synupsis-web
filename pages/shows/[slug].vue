@@ -1,11 +1,12 @@
 <template>
   <div class="w-full">
     <!-- Header -->
-    <div class="flex w-full justify-center py-6">
+    <header class="flex w-full justify-between items-center py-6 px-8">
       <router-link to="/">
         <Logo class="h-24 w-24" />
       </router-link>
-    </div>
+      <UserAuthStatus />
+    </header>
 
     <!-- Hero Section -->
     <div
@@ -54,19 +55,41 @@
             </CardHeader>
             <CardContent class="flex-grow">
               <p class="text-sm text-muted-foreground">
-                No recap available for this season yet.
+                <span v-if="season.recap && season.recap.length > 0">A recap is available for this season.</span>
+                <span v-else>No recap available for this season yet.</span>
               </p>
             </CardContent>
-            <CardFooter class="flex flex-col items-stretch gap-2">
-              <Button disabled variant="outline">
-                <SparklesIcon class="mr-2 h-4 w-4" />
-                Generate (soon)
-              </Button>
-              <Button @click="goToNewRecap(data?.id, season.id)">
-                <SquaresPlusIcon class="mr-2 h-4 w-4" />
-                Create Recap
-              </Button>
-            </CardFooter>
+            <ClientOnly>
+              <CardFooter class="flex flex-col items-stretch gap-2">
+                <Button v-if="!user" disabled variant="outline">
+                  <SparklesIcon class="mr-2 h-4 w-4" />
+                  Generate (soon)
+                </Button>
+                <template v-if="user">
+                  <div v-if="season.recap && season.recap.length > 0">
+                    <Button @click="goToNewRecap(data?.id, season.id)">
+                      <PencilIcon class="mr-2 h-4 w-4" />
+                      Edit Recap
+                    </Button>
+                  </div>
+                  <template v-else>
+                    <Button disabled variant="outline">
+                      <SparklesIcon class="mr-2 h-4 w-4" />
+                      Generate (soon)
+                    </Button>
+                    <Button @click="goToNewRecap(data?.id, season.id)">
+                      <SquaresPlusIcon class="mr-2 h-4 w-4" />
+                      Create Recap
+                    </Button>
+                  </template>
+                </template>
+              </CardFooter>
+              <template #fallback>
+                <div class="p-4">
+                  <SpinLoader class="h-5 w-5 mx-auto" />
+                </div>
+              </template>
+            </ClientOnly>
           </Card>
         </div>
       </div>
@@ -76,9 +99,8 @@
   </div>
 </template>
 <script lang="ts" setup>
-import useSupabase from '~/composables/useSupabase';
 import type { TvMazeShow } from '~/types/tv-maze.types';
-import { CalendarIcon, SparklesIcon, SquaresPlusIcon, StarIcon, TvIcon } from '@heroicons/vue/24/outline';
+import { CalendarIcon, PencilIcon, SparklesIcon, SquaresPlusIcon, StarIcon, TvIcon } from '@heroicons/vue/24/outline';
 import { toast } from 'vue-sonner'
 import {
   Card,
@@ -90,8 +112,11 @@ import {
 } from '~/components/shadcn/card'
 import { Button } from '~/components/shadcn/button'
 import { Badge } from '~/components/shadcn/badge'
+import SpinLoader from '~/components/ui/SpinLoader.vue';
+import UserAuthStatus from '~/components/UserAuthStatus.vue';
 
-const supabase = useSupabase();
+const user = useSupabaseUser();
+const supabase = useSupabaseClient();
 const loading = ref(true);
 const data: Ref<TvMazeShow | null> = ref(null);
 const route = useRoute();

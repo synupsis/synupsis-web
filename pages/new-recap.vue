@@ -16,10 +16,11 @@
       </div>
       <div class="flex items-center gap-2">
         <Button variant="ghost" class="min-w-[90px]" @click="goBack">Cancel</Button>
-        <Button variant="outline" class="min-w-[130px]" :disabled="loading || isSaving" @click="saveDraft">
+        <Button variant="outline" class="min-w-[130px]" :disabled="loading || isSaving || isSaved" @click="saveDraft">
           <span v-if="isSaving" class="loading loading-spinner h-4 w-4" />
-          <DocumentArrowDownIcon v-else class="h-4 w-4" />
-          <span class="ml-2">{{ isSaving ? 'Saving...' : 'Save Draft' }}</span>
+          <DocumentArrowDownIcon v-else-if="!isSaved" class="h-4 w-4" />
+          <span v-if="isSaved">Saved</span>
+          <span v-else class="ml-2">{{ isSaving ? 'Saving...' : 'Save Draft' }}</span>
         </Button>
         <Button class="min-w-[130px]" :disabled="loading || isPublishing" @click="publishRecap">
           <span v-if="isPublishing" class="loading loading-spinner h-4 w-4" />
@@ -76,7 +77,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import {
   ArrowUpCircleIcon,
   DocumentArrowDownIcon,
@@ -84,7 +85,6 @@ import {
   TrashIcon,
 } from '@heroicons/vue/24/outline';
 import { useRoute, useRouter } from 'vue-router';
-import useSupabase from '~/composables/useSupabase';
 import type { Show, Season } from '~/types/database.types';
 import { toast } from 'vue-sonner'
 import { Button } from '~/components/shadcn/button'
@@ -96,7 +96,7 @@ type Slide = {
 
 const route = useRoute();
 const router = useRouter();
-const supabase = useSupabase();
+const supabase = useSupabaseClient();
 
 const showId = computed(() => route.query.show as string | undefined);
 const seasonId = computed(() => route.query.season as string | undefined);
@@ -170,9 +170,15 @@ const removeSlide = (slideToRemove: Slide) => {
 
 const isSaving = ref(false);
 const isPublishing = ref(false);
+const isSaved = ref(false);
+
+watch(slides, () => {
+  isSaved.value = false;
+}, { deep: true });
 
 const saveDraft = async () => {
   isSaving.value = true;
+  isSaved.value = false;
 
   try {
     await $fetch('/api/recap/save-draft', {
@@ -186,6 +192,7 @@ const saveDraft = async () => {
     toast.success('Success', {
       description: 'Draft saved successfully!'
     })
+    isSaved.value = true;
   } catch (e: any) {
     toast.error('Error', {
       description: e.data?.message || 'Failed to save draft.'

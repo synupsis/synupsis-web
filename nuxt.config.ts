@@ -11,19 +11,19 @@ export default defineNuxtConfig({
     }
   },
 
-  runtimeConfig: {
-    public: {
-      supabaseUrl: process.env.SUPABASE_URL,
-      supabaseAnonKey: process.env.SUPABASE_ANON_KEY
-    }
-  },
-
   typescript: {
     typeCheck: false
   },
 
   supabase: {
-    redirect: false
+    url: process.env.SUPABASE_URL,
+    key: process.env.SUPABASE_ANON_KEY,
+    redirect: true,
+    redirectOptions: {
+      login: '/login',
+      callback: '/email-confirmation',
+      exclude: ['/', '/signup', '/pwdforgot', '/email-confirmation', '/shows/*'],
+    },
   },
 
   compatibilityDate: '2024-08-15',

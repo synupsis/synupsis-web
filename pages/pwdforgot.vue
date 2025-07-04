@@ -32,10 +32,9 @@
 
 <script lang="ts" setup>
 import { ref } from 'vue';
-import useSupabase from '~/composables/useSupabase';
 import { toast } from 'vue-sonner'
 
-const supabase = useSupabase();
+const supabase = useSupabaseClient();
 const email = ref('');
 
 const sendResetInstructions = async () => {
