@@ -1,77 +1,51 @@
 <template>
-  <div>
-    <div class="flex w-full justify-center py-10">
+  <div class="w-full">
+    <!-- Header -->
+    <div class="flex w-full justify-center py-6">
       <router-link to="/">
-        <Logo class="h-32 w-32" />
+        <Logo class="h-24 w-24" />
       </router-link>
     </div>
-    <div class="py-10">
-      <div class="mx-auto max-w-7xl px-6 lg:px-8">
-        <div
-          class="mx-auto grid max-w-2xl grid-cols-1 items-start gap-x-8 gap-y-16 sm:gap-y-24 lg:mx-0 lg:max-w-none lg:grid-cols-2"
-        >
-          <div class="lg:pr-4">
-            <div
-              :class="{ 'animate-pulse': loading }"
-              class="relative overflow-hidden rounded-3xl bg-gray-900 px-6 pb-9 pt-[364px] shadow-2xl sm:px-12 lg:max-w-lg lg:px-8 lg:pb-8 xl:px-10 xl:pb-10"
-            >
-              <img
-                v-if="data?.image?.medium"
-                :src="data?.image?.medium"
-                alt=""
-                class="absolute inset-0 h-full w-full object-cover brightness-125 saturate-0"
-              />
-              <div class="absolute inset-0 bg-gray-800 mix-blend-multiply" />
-              <div
-                aria-hidden="true"
-                class="absolute left-1/2 top-1/2 -ml-16 -translate-x-1/2 -translate-y-1/2 transform-gpu blur-3xl"
-              >
-                <div
-                  class="aspect-[1097/845] w-[68.5625rem] bg-gradient-to-tr from-[#ff4694] to-[#776fff] opacity-40"
-                  style="
-                    clip-path: polygon(
-                      74.1% 44.1%,
-                      100% 61.6%,
-                      97.5% 26.9%,
-                      85.5% 0.1%,
-                      80.7% 2%,
-                      72.5% 32.5%,
-                      60.2% 62.4%,
-                      52.4% 68.1%,
-                      47.5% 58.3%,
-                      45.2% 34.5%,
-                      27.5% 76.7%,
-                      0.1% 64.9%,
-                      17.9% 100%,
-                      27.6% 76.8%,
-                      76.1% 97.7%,
-                      74.1% 44.1%
-                    );
-                  "
-                />
-              </div>
+
+    <!-- Hero Section -->
+    <div
+      class="relative w-full h-[60vh] bg-cover bg-center bg-no-repeat"
+      :style="{ backgroundImage: `url(${data?.image ?? data?.image?.original})` }"
+    >
+      <div class="absolute inset-0 bg-black/60 bg-gradient-to-t from-background to-transparent" />
+      <div class="relative h-full flex flex-col justify-end items-start p-8 md:p-12 lg:p-16">
+        <div class="max-w-3xl text-white">
+          <div class="flex flex-wrap gap-2 mb-4">
+            <Badge v-for="genre in data?.genres" :key="genre" variant="secondary">{{ genre }}</Badge>
+          </div>
+          <h1 class="text-4xl md:text-6xl font-extrabold tracking-tighter text-balance">
+            {{ data?.name }}
+          </h1>
+          <div class="flex items-center flex-wrap gap-x-4 gap-y-2 mt-4 text-lg text-muted-foreground">
+            <div v-if="data?.rating?.average" class="flex items-center gap-1">
+              <StarIcon class="h-5 w-5 text-yellow-400" />
+              <span>{{ data.rating.average }} / 10</span>
+            </div>
+            <div v-if="data?.status" class="flex items-center gap-1">
+              <TvIcon class="h-5 w-5" />
+              <span>{{ data.status }}</span>
+            </div>
+            <div v-if="data?.premiered" class="flex items-center gap-1">
+              <CalendarIcon class="h-5 w-5" />
+              <span>{{ new Date(data.premiered).getFullYear() }}</span>
             </div>
           </div>
-          <div>
-            <div class="text-base leading-7 text-white lg:max-w-lg">
-              <h1 class="text-balance mb-4 text-5xl font-extrabold leading-none tracking-tighter">
-                {{ data?.name }}
-              </h1>
-              <div class="max-w-xl">
-                <p class="line-clamp-6" v-html="data?.summary"></p>
-              </div>
-            </div>
-          </div>
+          <p class="mt-6 text-base md:text-lg line-clamp-3" v-html="data?.summary" />
         </div>
       </div>
     </div>
-    <div class="py-10">
-      <div class="mx-auto max-w-7xl px-6 text-center lg:px-8">
-        <div class="mx-auto max-w-4xl">
-          <h4 class="text-3xl font-bold tracking-tight text-white sm:text-4xl">Seasons</h4>
-        </div>
+
+    <!-- Seasons Section -->
+    <div class="py-16">
+      <div class="mx-auto max-w-7xl px-6 lg:px-8">
+        <h2 class="text-3xl font-bold tracking-tight text-white sm:text-4xl mb-10">Seasons</h2>
         <div
-          class="mx-auto mt-20 grid max-w-2xl grid-cols-1 gap-6 sm:grid-cols-2 lg:mx-0 lg:max-w-none lg:grid-cols-3 lg:gap-8"
+          class="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 lg:gap-8"
         >
           <Card v-for="season in data?.seasons" :key="season.id" class="flex flex-col">
             <CardHeader>
@@ -97,17 +71,14 @@
         </div>
       </div>
     </div>
+
     <Recap v-model:is-open="isRecapOpen" />
   </div>
 </template>
 <script lang="ts" setup>
-import InteractiveHoverButton from '~/components/ui/InteractiveHoverButton.vue';
-import RecapBackgroundModal from '~/components/RecapBackgroundModal.vue';
-import RecapCanvas from '~/components/RecapCanvas.vue';
 import useSupabase from '~/composables/useSupabase';
-import type { Database } from '~/types/database.types';
 import type { TvMazeShow } from '~/types/tv-maze.types';
-import { EyeIcon, PencilSquareIcon, SparklesIcon, SquaresPlusIcon } from '@heroicons/vue/24/outline';
+import { CalendarIcon, SparklesIcon, SquaresPlusIcon, StarIcon, TvIcon } from '@heroicons/vue/24/outline';
 import { toast } from 'vue-sonner'
 import {
   Card,
@@ -118,6 +89,7 @@ import {
   CardTitle,
 } from '~/components/shadcn/card'
 import { Button } from '~/components/shadcn/button'
+import { Badge } from '~/components/shadcn/badge'
 
 const supabase = useSupabase();
 const loading = ref(true);
