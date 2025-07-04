@@ -97,9 +97,13 @@ type Slide = {
 const route = useRoute();
 const router = useRouter();
 const supabase = useSupabaseClient();
+const user = useSupabaseUser();
 
 const showId = computed(() => route.query.show as string | undefined);
 const seasonId = computed(() => route.query.season as string | undefined);
+
+const slides = ref<Slide[]>([]);
+const selectedSlideId = ref(1);
 
 const {
   data: pageData,
@@ -108,17 +112,46 @@ const {
 } = useAsyncData(
   `new-recap-data-${showId.value}-${seasonId.value}`,
   async () => {
-    if (!showId.value || !seasonId.value) {
-      throw new Error('Show ID and Season ID are required.');
+    if (!showId.value || !seasonId.value || !user.value) {
+      throw new Error('Show ID, Season ID, and User are required.');
     }
 
-    const [showResult, seasonResult] = await Promise.all([
-      supabase.from('show').select('id, name, image').eq('id', showId.value).single(),
-      supabase.from('season').select('id, number').eq('id', seasonId.value).single()
-    ]);
+    // Fetch show and season info
+    const showPromise = supabase.from('show').select('id, name, image').eq('id', showId.value).single();
+    const seasonPromise = supabase.from('season').select('id, number').eq('id', seasonId.value).single();
+
+    // Fetch existing recap and its slides
+    const recapPromise = supabase
+      .from('recap')
+      .select('*, slide(*)')
+      .eq('season_id', seasonId.value)
+      .eq('user_id', user.value.id)
+      .maybeSingle();
+
+    const [showResult, seasonResult, recapResult] = await Promise.all([showPromise, seasonPromise, recapPromise]);
 
     if (showResult.error) throw showResult.error;
     if (seasonResult.error) throw seasonResult.error;
+    if (recapResult.error) throw recapResult.error;
+
+    // Populate slides from existing recap or create new ones
+    const existingSlides = recapResult.data?.slide;
+    if (existingSlides && existingSlides.length > 0) {
+      slides.value = existingSlides
+        .sort((a, b) => a.order - b.order)
+        .map((slide, index) => ({
+          id: index + 1, // Simple numeric ID for the frontend
+          canvas: JSON.stringify(slide.canvas_data)
+        }));
+      selectedSlideId.value = 1;
+    } else {
+      // Default to two empty slides if no draft is found
+      slides.value = [
+        { id: 1, canvas: '' },
+        { id: 2, canvas: '' }
+      ];
+      selectedSlideId.value = 1;
+    }
 
     return {
       show: showResult.data as Show,
@@ -132,12 +165,6 @@ const {
 
 const showName = computed(() => pageData.value?.show?.name);
 const seasonNumber = computed(() => pageData.value?.season?.number);
-
-const slides = ref<Slide[]>([
-  { id: 1, canvas: '' },
-  { id: 2, canvas: '' }
-]);
-const selectedSlideId = ref(1);
 
 const activeSlideCanvas = computed({
   get() {

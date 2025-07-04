@@ -45,7 +45,8 @@ export default defineEventHandler(async event => {
   // 3. Insert new slides
   const slideData = slides.map((slide: any, index: number) => ({
     recap_id: recap.id,
-    canvas_data: slide.canvas,
+    // Parse the canvas JSON string from the client into an object for the JSONB column
+    canvas_data: JSON.parse(slide.canvas || '{}'),
     order: index
   }));
 

@@ -69,8 +69,8 @@
                   Generate (soon)
                 </Button>
                 <template v-if="user">
-                  <div v-if="season.recap && season.recap.length > 0">
-                    <Button @click="goToNewRecap(data?.id, season.id)">
+                  <div v-if="season.recap && season.recap.length > 0" class="w-full">
+                    <Button class="w-full" @click="goToNewRecap(data?.id, season.id)">
                       <PencilIcon class="mr-2 h-4 w-4" />
                       Edit Recap
                     </Button>

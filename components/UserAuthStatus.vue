@@ -9,7 +9,7 @@
       <Button @click="goToSignup">Sign up</Button>
     </div>
     <template #fallback>
-      <div class="w-24 h-9 flex justify-end items-center">
+      <div class="w-full h-9 flex justify-end items-center">
         <SpinLoader class="h-5 w-5" />
       </div>
     </template>
