@@ -16,11 +16,15 @@
       </div>
       <div class="flex items-center gap-2">
         <Button variant="ghost" class="min-w-[90px]" @click="goBack">Cancel</Button>
-        <Button variant="outline" class="min-w-[130px]" :disabled="loading || isSaving || isSaved" @click="saveDraft">
+        <Button variant="outline" class="min-w-[130px]" :disabled="loading || isSaving || !isDirty" @click="saveDraft">
           <span v-if="isSaving" class="loading loading-spinner h-4 w-4" />
-          <DocumentArrowDownIcon v-else-if="!isSaved" class="h-4 w-4" />
-          <span v-if="isSaved">Saved</span>
-          <span v-else class="ml-2">{{ isSaving ? 'Saving...' : 'Save Draft' }}</span>
+          <CheckCircleIcon v-else-if="!isDirty" class="h-4 w-4 text-green-500" />
+          <DocumentArrowDownIcon v-else class="h-4 w-4" />
+          <span class="ml-2">
+            <template v-if="isSaving">Saving...</template>
+            <template v-else-if="!isDirty">Saved</template>
+            <template v-else>Save Draft</template>
+          </span>
         </Button>
         <Button class="min-w-[130px]" :disabled="loading || isPublishing" @click="publishRecap">
           <span v-if="isPublishing" class="loading loading-spinner h-4 w-4" />
@@ -83,6 +87,7 @@ import {
   DocumentArrowDownIcon,
   SquaresPlusIcon,
   TrashIcon,
+  CheckCircleIcon,
 } from '@heroicons/vue/24/outline';
 import { useRoute, useRouter } from 'vue-router';
 import type { Show, Season } from '~/types/database.types';
@@ -105,6 +110,10 @@ const seasonId = computed(() => route.query.season as string | undefined);
 const slides = ref<Slide[]>([]);
 const selectedSlideId = ref(1);
 
+// State for change detection
+const initialSlidesState = ref('');
+const isDirty = ref(false);
+
 const {
   data: pageData,
   pending: loading,
@@ -116,11 +125,8 @@ const {
       throw new Error('Show ID, Season ID, and User are required.');
     }
 
-    // Fetch show and season info
     const showPromise = supabase.from('show').select('id, name, image').eq('id', showId.value).single();
     const seasonPromise = supabase.from('season').select('id, number').eq('id', seasonId.value).single();
-
-    // Fetch existing recap and its slides
     const recapPromise = supabase
       .from('recap')
       .select('*, slide(*)')
@@ -134,24 +140,22 @@ const {
     if (seasonResult.error) throw seasonResult.error;
     if (recapResult.error) throw recapResult.error;
 
-    // Populate slides from existing recap or create new ones
     const existingSlides = recapResult.data?.slide;
     if (existingSlides && existingSlides.length > 0) {
       slides.value = existingSlides
         .sort((a, b) => a.order - b.order)
         .map((slide, index) => ({
-          id: index + 1, // Simple numeric ID for the frontend
+          id: index + 1,
           canvas: JSON.stringify(slide.canvas_data)
         }));
-      selectedSlideId.value = 1;
     } else {
-      // Default to two empty slides if no draft is found
-      slides.value = [
-        { id: 1, canvas: '' },
-        { id: 2, canvas: '' }
-      ];
-      selectedSlideId.value = 1;
+      slides.value = [{ id: 1, canvas: '' }];
     }
+    selectedSlideId.value = 1;
+    
+    // Capture the initial state after loading
+    initialSlidesState.value = JSON.stringify(slides.value);
+    isDirty.value = false;
 
     return {
       show: showResult.data as Show,
@@ -162,6 +166,12 @@ const {
     watch: [showId, seasonId]
   }
 );
+
+// Watch for any changes in the slides to update the dirty state
+watch(slides, (newSlides) => {
+  isDirty.value = JSON.stringify(newSlides) !== initialSlidesState.value;
+}, { deep: true });
+
 
 const showName = computed(() => pageData.value?.show?.name);
 const seasonNumber = computed(() => pageData.value?.season?.number);
@@ -197,15 +207,10 @@ const removeSlide = (slideToRemove: Slide) => {
 
 const isSaving = ref(false);
 const isPublishing = ref(false);
-const isSaved = ref(false);
-
-watch(slides, () => {
-  isSaved.value = false;
-}, { deep: true });
 
 const saveDraft = async () => {
+  if (!isDirty.value) return;
   isSaving.value = true;
-  isSaved.value = false;
 
   try {
     await $fetch('/api/recap/save-draft', {
@@ -219,7 +224,9 @@ const saveDraft = async () => {
     toast.success('Success', {
       description: 'Draft saved successfully!'
     })
-    isSaved.value = true;
+    // Update the initial state to the new saved state
+    initialSlidesState.value = JSON.stringify(slides.value);
+    isDirty.value = false;
   } catch (e: any) {
     toast.error('Error', {
       description: e.data?.message || 'Failed to save draft.'
