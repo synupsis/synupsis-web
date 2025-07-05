@@ -12,38 +12,39 @@
 
     <!-- The buttons are positioned absolutely, so they don't affect the layout -->
     <div v-if="!readOnly" class="absolute top-1/2 -translate-y-1/2 right-full mr-4 z-10 flex flex-col items-start gap-4">
-      <button class="py-2 px-4 btn btn-outline bg-background" @click="addTextbox()" :disabled="isAddingText">
+      <Button class="py-2 px-4" variant="outline" @click="addTextbox()" :disabled="isAddingText">
         <span v-if="isAddingText" class="loading loading-spinner"></span>
         <span v-else class="flex items-center gap-2">
           <PlusCircleIcon class="h-5 w-5" />
           Add text
         </span>
-      </button>
-      <button class="py-2 px-4 btn btn-outline bg-background" @click="openBackgroundModal">
+      </Button>
+      <Button class="py-2 px-4" variant="outline" @click="openBackgroundModal">
         <span class="flex items-center gap-2">
           <PhotoIcon class="h-5 w-5" />
           Choose background
         </span>
-      </button>
-      <button class="py-2 px-4 btn btn-outline bg-background" @click="clearSlide()">
+      </Button>
+      <Button class="py-2 px-4" variant="outline" @click="clearSlide()">
         <span class="flex items-center gap-2">
           <ArrowPathRoundedSquareIcon class="h-5 w-5" />
           Reset slide
         </span>
-      </button>
-      <button
+      </Button>
+      <Button
         v-if="selectedObject"
-        class="py-2 px-4 btn btn-error btn-outline bg-background"
+        class="py-2 px-4"
+        variant="destructive"
         @click="deleteText()"
       >
         <span class="flex items-center gap-2">
           <TrashIcon class="h-5 w-5" />
           Delete
         </span>
-      </button>
+      </Button>
     </div>
 
-    <RecapBackgroundModal v-if="!readOnly" v-model:is-open="isBackgroundModalOpen" />
+    <RecapBackgroundModal v-model:is-open="isBackgroundModalOpen" />
   </div>
 </template>
 
@@ -57,6 +58,8 @@ import {
   PlusCircleIcon,
   TrashIcon
 } from '@heroicons/vue/24/outline';
+
+import { Button } from '~/components/shadcn/button';
 
 const props = defineProps({
   modelValue: {

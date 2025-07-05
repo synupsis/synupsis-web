@@ -3,7 +3,7 @@ import type { HTMLAttributes } from 'vue'
 import { reactiveOmit } from '@vueuse/core'
 import { AlertDialogAction, type AlertDialogActionProps } from 'reka-ui'
 import { cn } from '~/lib/utils'
-import { buttonVariants } from '~/components/ui/button'
+import { buttonVariants } from '~/components/shadcn/button'
 
 const props = defineProps<AlertDialogActionProps & { class?: HTMLAttributes['class'] }>()
 

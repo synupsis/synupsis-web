@@ -1,7 +1,12 @@
 <template>
-  <div>
-    <Modal v-model:is-open="isModalOpen">
-      <p class="font-semibold text-xl pb-4">Background available</p>
+  <AlertDialog :open="isOpen" @update:open="emit('update:isOpen', $event)">
+    <AlertDialogContent>
+      <AlertDialogHeader>
+        <AlertDialogTitle>Choose a background</AlertDialogTitle>
+        <AlertDialogDescription>
+          Select a background for your slide.
+        </AlertDialogDescription>
+      </AlertDialogHeader>
       <div class="flex flex-wrap gap-2">
         <div
           v-for="n in 5"
@@ -10,11 +15,25 @@
           bg #{{ n }}
         </div>
       </div>
-    </Modal>
-  </div>
+      <AlertDialogFooter>
+        <AlertDialogCancel>Cancel</AlertDialogCancel>
+        <AlertDialogAction>Continue</AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>
 </template>
+
 <script lang="ts" setup>
-import Modal from '~/components/ui/Modal.vue';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '~/components/shadcn/alert-dialog'
 
 const props = defineProps({
   isOpen: {
@@ -24,11 +43,4 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['update:isOpen']);
-
-const isModalOpen = computed({
-  get: () => props.isOpen,
-  set: val => {
-    emit('update:isOpen', val);
-  }
-});
 </script>
