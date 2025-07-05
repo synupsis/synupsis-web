@@ -111,7 +111,12 @@
             v-else
             class="relative aspect-[9/19.5] h-full max-w-full bg-background rounded-3xl shadow-lg"
           >
-            <RecapCanvas :key="selectedSlideId" v-model="activeSlideCanvas" :loading="loading" />
+            <RecapCanvas
+              :key="selectedSlideId"
+              v-model="activeSlideCanvas"
+              :loading="loading"
+              :season-id="seasonId"
+            />
           </div>
         </main>
       </div>

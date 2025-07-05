@@ -44,7 +44,12 @@
       </Button>
     </div>
 
-    <RecapBackgroundModal v-model:is-open="isBackgroundModalOpen" />
+    <RecapBackgroundModal
+      v-if="seasonId"
+      v-model:is-open="isBackgroundModalOpen"
+      :season-id="seasonId"
+      @select-image="setBackgroundImage"
+    />
   </div>
 </template>
 
@@ -73,6 +78,10 @@ const props = defineProps({
   readOnly: {
     type: Boolean,
     default: false
+  },
+  seasonId: {
+    type: String,
+    default: null
   }
 });
 
@@ -89,6 +98,18 @@ let isInternalUpdate = false;
 
 const originalWidth = 390;
 const originalHeight = 844;
+
+const setBackgroundImage = (imageUrl: string) => {
+  if (!canvas) return;
+  fabric.Image.fromURL(imageUrl, (img) => {
+    if (!canvas) return;
+    canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+      scaleX: canvas.width / (img.width ?? 1),
+      scaleY: canvas.height / (img.height ?? 1),
+    });
+    emitUpdate();
+  }, { crossOrigin: 'anonymous' });
+};
 
 const emitUpdate = () => {
   if (props.readOnly || !canvas) return;

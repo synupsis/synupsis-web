@@ -2,7 +2,7 @@
 import type { WithClassAsProps } from './interface'
 import { ArrowLeft } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/shadcn/button'
 import { useCarousel } from './useCarousel'
 
 const props = defineProps<WithClassAsProps>()
