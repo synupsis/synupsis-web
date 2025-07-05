@@ -5,14 +5,9 @@
         <ChevronLeftIcon class="h-4 w-4 sm:mr-2" />
         <span class="hidden sm:inline">Back to {{ data.show.name }}</span>
       </Button>
-      <div class="flex items-center gap-4">
-        <Button variant="secondary" @click="toggleRenderer">
-          Use {{ rendererType === 'fabric' ? 'Konva' : 'Fabric' }}
-        </Button>
-        <div class="text-right">
-          <h1 class="text-md sm:text-lg font-semibold">{{ data.show.name }}</h1>
-          <p class="text-xs sm:text-sm text-muted-foreground">Season {{ data.season.number }}</p>
-        </div>
+      <div class="text-right">
+        <h1 class="text-md sm:text-lg font-semibold">{{ data.show.name }}</h1>
+        <p class="text-xs sm:text-sm text-muted-foreground">Season {{ data.season.number }}</p>
       </div>
     </header>
 
@@ -30,14 +25,7 @@
           <CarouselItem v-for="(slide, index) in data.slides" :key="slide.id" class="h-full">
             <div class="p-4 h-full flex items-center justify-center">
               <div class="relative aspect-[9/19.5] h-full bg-neutral rounded-3xl overflow-hidden shadow-lg mx-auto">
-                <RecapCanvas
-                  v-if="rendererType === 'fabric'"
-                  :ref="el => (canvasRefs[index] = el)"
-                  :model-value="JSON.stringify(slide.canvas_data)"
-                  :read-only="true"
-                />
                 <RecapCanvasKonva
-                  v-else
                   :ref="el => (canvasRefs[index] = el)"
                   :model-value="JSON.stringify(slide.canvas_data)"
                   :read-only="true"
@@ -66,17 +54,11 @@ import {
 import { Button } from '~/components/shadcn/button'
 import { ChevronLeftIcon } from '@heroicons/vue/24/outline'
 import SpinLoader from '~/components/ui/SpinLoader.vue';
-import RecapCanvas from '~/components/RecapCanvas.vue';
 import RecapCanvasKonva from '~/components/RecapCanvasKonva.client.vue';
 
 const route = useRoute();
 const router = useRouter();
 const recapId = route.params.id as string;
-
-const rendererType = ref<'fabric' | 'konva'>('konva');
-const toggleRenderer = () => {
-  rendererType.value = rendererType.value === 'fabric' ? 'konva' : 'fabric';
-};
 
 const { data, pending, error } = useFetch(`/api/recap/${recapId}`, {
   lazy: true,
@@ -88,7 +70,7 @@ const goBack = () => {
 
 // Logic for redrawing canvas on slide change
 const api = ref<CarouselApi | null>(null);
-const canvasRefs = ref<(InstanceType<typeof RecapCanvas> | InstanceType<typeof RecapCanvasKonva>)[]>([]);
+const canvasRefs = ref<InstanceType<typeof RecapCanvasKonva>[]>([]);
 
 function setApi(val: CarouselApi) {
   api.value = val;

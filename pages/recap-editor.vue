@@ -21,9 +21,6 @@
           </div>
         </div>
         <div class="flex items-center gap-2">
-          <Button variant="secondary" @click="toggleEditor">
-            Switch to {{ editorType === 'fabric' ? 'Konva' : 'Fabric' }}
-          </Button>
           <Button variant="ghost" class="min-w-[90px]" @click="goBack">Cancel</Button>
           <Button variant="outline" class="min-w-[130px]" :disabled="loading || isSaving || !isDirty" @click="saveDraft">
             <span v-if="isSaving" class="loading loading-spinner h-4 w-4" />
@@ -114,15 +111,7 @@
             v-else
             class="relative aspect-[9/19.5] h-full max-w-full bg-background rounded-3xl shadow-lg"
           >
-            <RecapCanvas
-              v-if="editorType === 'fabric'"
-              :key="selectedSlideId"
-              v-model="activeSlideCanvas"
-              :loading="loading"
-              :season-id="seasonId"
-            />
             <RecapCanvasKonva
-              v-if="editorType === 'konva'"
               :key="selectedSlideId"
               v-model="activeSlideCanvas"
               :loading="loading"
@@ -214,11 +203,6 @@ const route = useRoute();
 const router = useRouter();
 const supabase = useSupabaseClient();
 const user = useSupabaseUser();
-
-const editorType = ref<'fabric' | 'konva'>('konva');
-const toggleEditor = () => {
-  editorType.value = editorType.value === 'fabric' ? 'konva' : 'fabric';
-};
 
 const showId = computed(() => route.query.show as string | undefined);
 const seasonId = computed(() => route.query.season as string | undefined);
