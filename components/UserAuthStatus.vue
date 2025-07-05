@@ -3,11 +3,12 @@
     <div v-if="user" class="flex gap-4 items-center justify-end">
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
-          <Button variant="ghost" class="relative h-8 w-8 rounded-full">
+          <Button variant="ghost" class="flex items-center gap-2">
             <Avatar class="h-8 w-8">
               <AvatarImage v-if="user.user_metadata.avatar_url" :src="user.user_metadata.avatar_url" :alt="user.user_metadata.username" />
               <AvatarFallback>{{ user.user_metadata.username.charAt(0) }}</AvatarFallback>
             </Avatar>
+            <span>{{ user.user_metadata.username }}</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
