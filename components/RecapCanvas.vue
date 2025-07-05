@@ -22,7 +22,7 @@
       <Button class="py-2 px-4" variant="outline" @click="openBackgroundModal">
         <span class="flex items-center gap-2">
           <PhotoIcon class="h-5 w-5" />
-          Choose background
+          Add Image
         </span>
       </Button>
       <Button class="py-2 px-4" variant="outline" @click="clearSlide()">
@@ -48,7 +48,7 @@
       v-if="seasonId"
       v-model:is-open="isBackgroundModalOpen"
       :season-id="seasonId"
-      @select-image="setBackgroundImage"
+      @select-image="addImageToCanvas"
     />
   </div>
 </template>
@@ -63,8 +63,8 @@ import {
   PlusCircleIcon,
   TrashIcon
 } from '@heroicons/vue/24/outline';
-
 import { Button } from '~/components/shadcn/button';
+import { toast } from 'vue-sonner';
 
 const props = defineProps({
   modelValue: {
@@ -99,22 +99,58 @@ let isInternalUpdate = false;
 const originalWidth = 390;
 const originalHeight = 844;
 
-const setBackgroundImage = (imageUrl: string) => {
+const addImageToCanvas = async (imageUrl: string) => {
   if (!canvas) return;
-  fabric.Image.fromURL(imageUrl, (img) => {
-    if (!canvas) return;
-    canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
-      scaleX: canvas.width / (img.width ?? 1),
-      scaleY: canvas.height / (img.height ?? 1),
-    });
-    emitUpdate();
-  }, { crossOrigin: 'anonymous' });
+
+  const proxiedUrl = `/api/images/proxy?url=${encodeURIComponent(imageUrl)}`;
+
+  try {
+    const response = await fetch(proxiedUrl);
+    if (!response.ok) throw new Error(`Proxy fetch failed: ${response.statusText}`);
+    
+    const imageBlob = await response.blob();
+    const objectURL = URL.createObjectURL(imageBlob);
+
+    const imageElement = new Image();
+    imageElement.src = objectURL;
+    
+    imageElement.onload = () => {
+      if (!canvas) {
+        URL.revokeObjectURL(objectURL);
+        return;
+      }
+      
+      const fabricImage = new fabric.Image(imageElement);
+      
+      // @ts-ignore - Add custom property to store the permanent URL
+      fabricImage.originalUrl = imageUrl;
+      
+      const scale = originalWidth / (fabricImage.width ?? 1);
+      fabricImage.scale(scale);
+
+      canvas.add(fabricImage);
+      fabricImage.sendToBack(); // This is the correct method
+      canvas.renderAll();
+      
+      emitUpdate();
+      toast.success('Image added to canvas!');
+      URL.revokeObjectURL(objectURL);
+    };
+
+    imageElement.onerror = () => {
+      toast.error('Failed to load image', { description: 'The image element could not be loaded.' });
+      URL.revokeObjectURL(objectURL);
+    };
+
+  } catch (error) {
+    toast.error('Failed to load image', { description: 'Could not fetch or process the image.' });
+  }
 };
 
 const emitUpdate = () => {
   if (props.readOnly || !canvas) return;
   isInternalUpdate = true;
-  const json = JSON.stringify(canvas.toJSON());
+  const json = JSON.stringify(canvas.toJSON(['originalUrl']));
   emit('update:modelValue', json);
 };
 
@@ -138,6 +174,70 @@ const scaleAndPositionCanvas = () => {
   canvas.renderAll();
 };
 
+const reloadImagesFromPermanentUrl = () => {
+  if (!canvas) return;
+  
+  const images = canvas.getObjects('image');
+  images.forEach((img) => {
+    // @ts-ignore
+    const originalUrl = img.originalUrl;
+    if (originalUrl) {
+      (async (imageObject) => {
+        try {
+          const proxiedUrl = `/api/images/proxy?url=${encodeURIComponent(originalUrl)}`;
+          const response = await fetch(proxiedUrl);
+          if (!response.ok) throw new Error('Proxy fetch failed');
+          
+          const imageBlob = await response.blob();
+          const objectURL = URL.createObjectURL(imageBlob);
+          
+          imageObject.setSrc(objectURL, () => {
+            canvas?.renderAll();
+            URL.revokeObjectURL(objectURL);
+          });
+        } catch (error) {
+          console.error('Failed to reload image:', originalUrl, error);
+        }
+      })(img);
+    }
+  });
+};
+
+const loadCanvasFromJSON = (json: string) => {
+  if (!canvas) return;
+
+  // Pre-process the JSON to prevent loading invalid blob URLs
+  const data = JSON.parse(json || '{}');
+  if (data.objects) {
+    data.objects.forEach((obj: any) => {
+      if (obj.type === 'image' && obj.originalUrl) {
+        obj.src = ''; // Erase the dead blob URL
+      }
+    });
+  }
+
+  canvas.loadFromJSON(data, () => {
+    scaleAndPositionCanvas();
+    reloadImagesFromPermanentUrl(); // Now, reload the images from their permanent URLs
+    
+    if (props.readOnly) {
+      canvas?.forEachObject(obj => {
+        obj.selectable = false;
+        obj.evented = false;
+      });
+    }
+    
+    requestAnimationFrame(() => {
+      canvas?.renderAll();
+    });
+
+    if (!props.readOnly) {
+      canvas.on('object:modified', emitUpdate);
+      canvas.on('object:removed',emitUpdate);
+    }
+  });
+};
+
 watch(
   () => props.modelValue,
   newJson => {
@@ -151,25 +251,8 @@ watch(
       canvas.off('object:modified', emitUpdate);
       canvas.off('object:removed',emitUpdate);
     }
-
-    canvas.loadFromJSON(newJson || '{}', () => {
-      scaleAndPositionCanvas();
-      if (props.readOnly) {
-        canvas?.forEachObject(obj => {
-          obj.selectable = false;
-          obj.evented = false;
-        });
-      }
-      
-      requestAnimationFrame(() => {
-        canvas?.renderAll();
-      });
-
-      if (!props.readOnly) {
-        canvas.on('object:modified', emitUpdate);
-        canvas.on('object:removed', emitUpdate);
-      }
-    });
+    
+    loadCanvasFromJSON(newJson);
   },
   { immediate: true }
 );
@@ -195,15 +278,7 @@ onMounted(() => {
   }
 
   if (props.modelValue) {
-    canvas.loadFromJSON(props.modelValue, () => {
-      if (props.readOnly) {
-        canvas?.forEachObject(obj => {
-          obj.selectable = false;
-          obj.evented = false;
-        });
-      }
-      scaleAndPositionCanvas();
-    });
+    loadCanvasFromJSON(props.modelValue);
   } else {
     scaleAndPositionCanvas();
   }
@@ -233,7 +308,9 @@ const openBackgroundModal = () => {
 const clearSlide = () => {
   if (props.readOnly || !canvas) return;
   canvas.clear();
+  canvas.renderAll();
   emitUpdate();
+  toast.info('Slide has been cleared.');
 };
 
 const TEXTBOX_CONFIG = {
