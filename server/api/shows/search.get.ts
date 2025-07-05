@@ -27,7 +27,7 @@ export default defineEventHandler(async event => {
         image: show.image?.medium ?? null
       }));
 
-    return { shows };
+    return shows;
   } catch (error: unknown) {
     console.error('Error searching for shows:', error);
     throw createError({

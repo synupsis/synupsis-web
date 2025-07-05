@@ -124,6 +124,7 @@
               v-model="activeSlideCanvas"
               :loading="loading"
               :season-id="seasonId"
+              :selected-element-id="selectedElement?.id"
               @select-element="handleSelectElement"
             />
           </div>
@@ -132,7 +133,10 @@
         <!-- Inspector Panel (Right) -->
         <InspectorPanel
           :selected-element="selectedElement"
+          :elements="currentSlideElements"
           @update="handleUpdateElement"
+          @select-by-id="handleSelectElementById"
+          @deselect="selectedElement = null"
         />
       </div>
       <!-- Loading Skeleton -->
@@ -234,6 +238,7 @@ const selectedSlideId = ref<number | null>(null);
 const existingRecapId = ref<string | null>(null);
 const recapStatus = ref<'draft' | 'published' | null>(null);
 const selectedElement = ref<any>(null);
+const isInitialized = ref(false);
 
 // State for change detection
 const initialSlidesState = ref('');
@@ -246,11 +251,8 @@ const {
 } = useAsyncData(
   `recap-editor-data-${showId.value}-${seasonId.value}-${user.value?.id}`,
   async () => {
-    // Gracefully wait for the user object to be available on client-side hydration
-    if (!user.value) return null;
-    
-    if (!showId.value || !seasonId.value) {
-      throw new Error('Show ID and Season ID are required.');
+    if (!user.value || !showId.value || !seasonId.value) {
+      return null;
     }
 
     const showPromise = supabase.from('show').select('id, name, image').eq('id', showId.value).single();
@@ -268,7 +270,28 @@ const {
     if (seasonResult.error) throw seasonResult.error;
     if (recapResult.error) throw recapResult.error;
 
-    const existingRecap = recapResult.data;
+    return {
+      show: showResult.data as Show,
+      season: seasonResult.data as Season,
+      recap: recapResult.data
+    };
+  },
+  {
+    watch: [showId, seasonId, user]
+  }
+);
+
+// Reset initialization state when a new fetch is pending
+watch(loading, (isLoading) => {
+  if (isLoading) {
+    isInitialized.value = false;
+  }
+});
+
+// This effect syncs the fetched data with the local component state ONCE.
+watchEffect(() => {
+  if (pageData.value && !isInitialized.value) {
+    const existingRecap = pageData.value.recap;
     if (existingRecap) {
       existingRecapId.value = existingRecap.id;
       recapStatus.value = existingRecap.status as 'draft' | 'published' | null;
@@ -276,30 +299,31 @@ const {
       if (existingSlides && existingSlides.length > 0) {
         slides.value = existingSlides
           .sort((a, b) => a.order - b.order)
-          .map((slide, index) => ({
-            id: index + 1,
+          .map((slide) => ({
+            id: slide.id, // Use the real ID from the database
             canvas: JSON.stringify(slide.canvas_data)
           }));
       } else {
-        slides.value = [{ id: 1, canvas: '' }];
+        slides.value = [{ id: Date.now(), canvas: '' }];
       }
     } else {
-      slides.value = [{ id: 1, canvas: '' }];
+      // Reset if there's no recap
+      existingRecapId.value = null;
+      recapStatus.value = null;
+      slides.value = [{ id: Date.now(), canvas: '' }];
     }
-    selectedSlideId.value = slides.value[0]?.id ?? null;
     
+    if (slides.value.length > 0) {
+      selectedSlideId.value = slides.value[0].id;
+    } else {
+      selectedSlideId.value = null;
+    }
+
     initialSlidesState.value = JSON.stringify(slides.value);
     isDirty.value = false;
-
-    return {
-      show: showResult.data as Show,
-      season: seasonResult.data as Season
-    };
-  },
-  {
-    watch: [showId, seasonId, user]
+    isInitialized.value = true; // Lock the effect
   }
-);
+});
 
 // Watch for any changes in the slides to update the dirty state
 watch(slides, (newSlides) => {
@@ -328,9 +352,32 @@ const activeSlideCanvas = computed({
   }
 });
 
+const currentSlideElements = computed(() => {
+  if (!activeSlideCanvas.value) return [];
+  try {
+    const canvasData = JSON.parse(activeSlideCanvas.value);
+    return canvasData.children?.[0]?.children || [];
+  } catch {
+    return [];
+  }
+});
+
 const handleSelectElement = (element: any) => {
   selectedElement.value = element;
 };
+
+const handleSelectElementById = (elementId: string) => {
+  const element = currentSlideElements.value.find((el: any) => el.attrs.id === elementId);
+  if (element) {
+    // Reconstruct the element object to match the structure expected by the inspector
+    const textChild = element.children.find((c: any) => c.className === 'Text');
+    selectedElement.value = {
+      ...element.attrs,
+      text: textChild?.attrs,
+    };
+  }
+};
+
 
 const handleUpdateElement = (updatedElement: any) => {
   if (!activeSlideCanvas.value) return;
@@ -365,8 +412,8 @@ const handleUpdateElement = (updatedElement: any) => {
 const goBack = () => router.back();
 
 const addSlide = () => {
-  const newId = (slides.value.at(-1)?.id ?? 0) + 1;
-  slides.value.push({ id: newId, canvas: '' });
+  const newId = Date.now(); // Use a timestamp for a guaranteed unique ID
+  slides.value = [...slides.value, { id: newId, canvas: '' }];
   selectedSlideId.value = newId;
 };
 

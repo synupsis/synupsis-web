@@ -26,10 +26,12 @@
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      
     </div>
     <div v-else class="flex gap-4 items-center justify-end">
       <Button variant="ghost" @click="goToLogin">Log in</Button>
       <Button @click="goToSignup">Sign up</Button>
+      
     </div>
     <template #fallback>
       <div class="w-full h-9 flex justify-end items-center">

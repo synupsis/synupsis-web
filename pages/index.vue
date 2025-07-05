@@ -1,188 +1,146 @@
 <template>
-  <div>
-    <div class="w-full flex flex-col items-center gap-4 sm:justify-center">
-      <div
-        class="relative flex w-full h-[600px] flex-col items-center justify-center overflow-hidden rounded-lg lg:w-full md:w-full"
-      >
-        <div class="absolute top-5 right-5 text-right w-full z-20">
-          <UserAuthStatus />
-        </div>
-        <Logo class="z-10 h-56 w-56" />
-        <div class="absolute w-full p-2 flex flex-col items-center mt-[400px]">
-          <img alt="Synupsis" class="w-80" src="/svg/logo_text.svg" />
-          <div class="h-6">
-            <p class="italic text-pretty">{{ randomTagline }}</p>
-          </div>
-          <VanishingInput
-            v-model="searchInput"
-            :loading="isLoading"
-            :placeholders="placeholders"
-            class="mt-8"
-            @submit="handleSearchSubmit"
-          />
-        </div>
-        <Ripple
-          circle-class="border-[hsl(var(--primary))] bg-[#0000]/25 dark:bg-[#fff]/25 rounded-[50px]"
-          class="bg-white/5 [mask-image:linear-gradient(to_bottom,white,transparent)]"
-        />
-      </div>
-      <div v-if="searchResults.length" class="w-full text-left px-12">
-        <ClientOnly>
-          <Carousel
-            class="w-full"
-            :opts="{
-              align: 'start',
-              dragFree: true
-            }"
-          >
-            <CarouselContent class="-ml-4">
-              <CarouselItem
-                v-for="(show, index) in searchResults"
-                :key="show.id"
-                class="pl-4 basis-1/3 sm:basis-1/4 md:basis-1/5 lg:basis-1/6"
-              >
-                <BlurReveal :delay="0.1 * index" :duration="0.5">
-                  <div
-                    class="flex h-full flex-col items-center gap-2 py-1 opacity-70 transition-opacity hover:opacity-100 cursor-pointer"
-                    @click="goToShow(show)"
-                  >
-                    <div class="relative w-full rounded-lg overflow-hidden aspect-[2/3]">
-                      <img
-                        v-if="show.image"
-                        :src="show.image"
-                        :alt="show.name"
-                        class="w-full h-full object-cover"
-                      />
-                      <div
-                        v-else
-                        class="w-full h-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center"
-                      >
-                        <PhotoIcon class="w-8 h-8 text-gray-400" />
-                      </div>
-                    </div>
-                    <p class="text-pretty text-sm sm:text-base text-center font-bold">
-                      {{ show.name }}
-                    </p>
-                    <p class="text-xs sm:text-sm text-gray-400">{{ show.secondary }}</p>
-                  </div>
-                </BlurReveal>
-              </CarouselItem>
-            </CarouselContent>
-            <CarouselPrevious />
-            <CarouselNext />
-          </Carousel>
-        </ClientOnly>
-      </div>
-      <div v-if="searchError" class="flex h-[500px] flex-col gap-4 lg:h-[250px] lg:flex-row">
-        <CardSpotlight
-          class="flex-col items-center justify-center whitespace-nowrap shadow-2xl px-14"
-          gradient-color="#363636"
-        >
-          <p class="text-4xl text-red-400">Oops. There was an error.</p>
-          <p>{{ searchError }}</p>
-        </CardSpotlight>
-      </div>
+  <div class="w-full min-h-screen flex flex-col">
+    <!-- Background -->
+    <div class="absolute inset-0 z-0 opacity-20">
+      <img v-if="featuredShows && featuredShows.length > 0" :src="featuredShows[0].image?.original" class="w-full h-full object-cover" alt="Featured show background" />
+      <div class="absolute inset-0 bg-gradient-to-t from-background via-background to-transparent" />
     </div>
+
+    <!-- Header -->
+    <header class="relative z-10 flex w-full justify-between items-center py-6 px-8">
+      <Logo />
+      <UserAuthStatus />
+    </header>
+
+    <!-- Main Content -->
+    <main class="relative z-10 flex flex-1 flex-col items-center justify-center text-center p-4">
+      <h1 class="text-5xl md:text-7xl font-extrabold tracking-tighter">Never lose track again.</h1>
+      <p class="mt-4 max-w-2xl text-lg text-muted-foreground">
+        All the recaps for your favorite shows, right at your fingertips.
+      </p>
+
+      <!-- Search Bar -->
+      <div class="relative w-full max-w-xl mt-12">
+        <VanishingInput
+          v-model="searchQuery"
+          :placeholders="['Search for Breaking Bad...', 'Find Game of Thrones recaps', 'What happened in Stranger Things?']"
+          :loading="isSearching"
+          class="w-full h-14 text-lg"
+        />
+        
+        <!-- Search Results -->
+        <div v-if="isSearching" class="absolute top-full mt-2 w-full bg-secondary rounded-lg shadow-lg p-4 z-20">
+          <SpinLoader class="h-8 w-8 mx-auto" />
+        </div>
+      </div>
+    </main>
+
+    <!-- Results/Featured Section -->
+    <section class="relative z-10 w-full py-16">
+      <div class="mx-auto max-w-7xl px-6 lg:px-8">
+        <Transition name="fade" mode="out-in">
+          <!-- Search Results -->
+          <div v-if="searchQuery.length > 1" class="animate-fade-in">
+            <h2 class="text-3xl font-bold tracking-tight text-white sm:text-4xl mb-10">Search Results</h2>
+            <div v-if="isSearching" class="flex justify-center">
+              <SpinLoader class="h-12 w-12" />
+            </div>
+            <Carousel v-else-if="searchResults.length > 0" class="w-full">
+              <CarouselContent class="-ml-4">
+                <CarouselItem v-for="show in searchResults" :key="show.id" class="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5">
+                  <BlurReveal>
+                    <router-link :to="`/shows/${slugify(show.name)}-${show.id}`" class="group">
+                      <div class="aspect-[2/3] w-full overflow-hidden rounded-lg">
+                        <img :src="show.image?.medium ?? show.image" :alt="show.name" class="w-full h-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105" />
+                      </div>
+                    </router-link>
+                  </BlurReveal>
+                </CarouselItem>
+              </CarouselContent>
+              <CarouselPrevious />
+              <CarouselNext />
+            </Carousel>
+            <p v-else class="text-muted-foreground text-center">No results found for "{{ searchQuery }}".</p>
+          </div>
+
+          <!-- Featured Shows -->
+          <div v-else class="animate-fade-in">
+            <h2 class="text-3xl font-bold tracking-tight text-white sm:text-4xl mb-10">Trending Now</h2>
+            <Carousel v-if="featuredShows" class="w-full">
+               <CarouselContent class="-ml-4">
+                <CarouselItem v-for="show in featuredShows" :key="show.id" class="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5">
+                  <BlurReveal>
+                    <router-link :to="`/shows/${slugify(show.name)}-${show.id}`" class="group">
+                      <div class="aspect-[2/3] w-full overflow-hidden rounded-lg">
+                        <img :src="show.image?.medium ?? show.image" :alt="show.name" class="w-full h-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105" />
+                      </div>
+                    </router-link>
+                  </BlurReveal>
+                </CarouselItem>
+              </CarouselContent>
+              <CarouselPrevious />
+              <CarouselNext />
+            </Carousel>
+            <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              <div v-for="i in 5" :key="i" class="aspect-[2/3] w-full bg-muted rounded-lg animate-pulse" />
+            </div>
+          </div>
+        </Transition>
+      </div>
+    </section>
   </div>
 </template>
 
-<script lang="ts" setup>
+<script setup lang="ts">
 import { ref, watch } from 'vue';
-import { ChevronRightIcon } from '@heroicons/vue/16/solid';
 import { useDebounceFn } from '@vueuse/core';
-import type { Show } from '~/types/database.types';
-import Ripple from '~/components/ui/Ripple.vue';
 import VanishingInput from '~/components/ui/VanishingInput.vue';
-import CardSpotlight from '~/components/ui/CardSpotlight.vue';
+import UserAuthStatus from '~/components/UserAuthStatus.vue';
+import SpinLoader from '~/components/ui/SpinLoader.vue';
 import BlurReveal from '~/components/ui/BlurReveal.vue';
 import Logo from '~/components/Logo.vue';
-import UserAuthStatus from '~/components/UserAuthStatus.vue';
-import { PhotoIcon } from '@heroicons/vue/16/solid';
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
   CarouselNext,
-  CarouselPrevious
+  CarouselPrevious,
 } from '~/components/shadcn/carousel';
+import type { TvMazeShow } from '~/types/tv-maze.types';
 
-interface SearchResult {
-  id: number;
-  name: string;
-  secondary: string;
-  image: string | null;
-}
+const searchQuery = ref('');
+const searchResults = ref<TvMazeShow[]>([]);
+const isSearching = ref(false);
 
-const { slugify } = useUtils();
-const router = useRouter();
+const { data: featuredShows } = useFetch<TvMazeShow[]>('/api/shows/trending');
 
-const searchInput = ref('');
-const searchResults = ref<SearchResult[]>([]);
-const searchError = ref<string | null>(null);
+const slugify = (text: string) => {
+  return text
+    .toString()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w-]+/g, '')
+    .replace(/--+/g, '-')
+    .replace(/^-+/, '')
+    .replace(/-+$/, '');
+};
 
-const placeholders = ['Breaking Bad', 'Lost', 'How I Met Your Mother', 'Friends', 'Severance'];
-const randomTagline = useState('random-tagline', () => {
-  const taglines = [
-    "Short memory, but don't worry.",
-    'Quick Summaries for Every Show.',
-    'Never Forget What Happened.',
-    'Binge the Summary, Savor the Show.',
-    'Your Series, Briefly.',
-    'All Shows, Short and Sweet.',
-    'Every Series Summarized.',
-    'Your Shortcut to Storylines.',
-    'Summing Up Stories'
-  ];
-  return taglines[Math.floor(Math.random() * taglines.length)];
-});
-
-const isLoading = ref(false)
-
-const { execute: executeSearch } = useLazyFetch(() => `/api/shows/search`, {
-  query: { q: searchInput },
-  immediate: false,
-  watch: false, // We will trigger this manually
-  onResponse({ response }) {
-    if (response.ok) {
-      searchResults.value = response._data.shows.map((show: Show) => ({
-        id: show.id,
-        name: show.name,
-        image: show.image,
-        secondary: `${new Date(show.premiered).getFullYear()} - ${
-          show.ended ? new Date(show.ended).getFullYear() : 'Present'
-        }`
-      }));
-      searchError.value = null;
-    }
-    isLoading.value = false
-  },
-  onResponseError({ response }) {
-    console.error('Error searching shows:', response._data?.message || 'Unknown error');
-    searchError.value = 'Failed to search for shows.';
+const searchShows = useDebounceFn(async () => {
+  if (searchQuery.value.length < 2) {
     searchResults.value = [];
-    isLoading.value = false
+    return;
   }
-});
-
-const debouncedSearch = useDebounceFn(() => {
-  if (searchInput.value.length > 2) {
-    isLoading.value = true
-    executeSearch();
-  } else {
+  isSearching.value = true;
+  try {
+    const results = await $fetch<TvMazeShow[]>(`/api/shows/search?q=${searchQuery.value}`);
+    searchResults.value = results;
+  } catch (error) {
+    console.error('Search error:', error);
     searchResults.value = [];
+  } finally {
+    isSearching.value = false;
   }
 }, 300);
 
-watch(searchInput, debouncedSearch);
-
-function goToShow(show: SearchResult) {
-  const slug = slugify(show.name);
-  router.push(`/shows/${slug}-${show.id}`);
-}
-
-function handleSearchSubmit() {
-  if (searchResults.value.length > 0) {
-    goToShow(searchResults.value[0]);
-  }
-}
+watch(searchQuery, searchShows);
 </script>

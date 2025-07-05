@@ -99,7 +99,6 @@ export default defineEventHandler(async (event) => {
       );
 
       if (missingSeasons.length > 0) {
-        console.log(`Syncing ${missingSeasons.length} new season(s) for show ${tvMazeId}.`);
         const seasonsToInsert = missingSeasons.map(s => ({
           tv_maze_id: s.id,
           name: s.name,

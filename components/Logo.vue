@@ -1,67 +1,13 @@
 <template>
-  <div class="relative overflow-hidden">
-    <img v-if="variant === 'white'" alt="Synupsis" src="/svg/logo_white.svg" />
-    <img v-else alt="Synupsis" src="/svg/logo_dark.svg" />
-  </div>
+  <router-link to="/" class="flex items-center gap-4">
+    <ClientOnly>
+      <img :src="logoUrl" alt="Synupsis Logo" class="h-16 w-auto" />
+      <img :src="logoTextUrl" alt="Synupsis" class="h-10 w-auto" />
+    </ClientOnly>
+  </router-link>
 </template>
 
-<script lang="ts" setup>
-defineProps({
-  variant: {
-    type: String as () => 'white' | 'dark',
-    default: 'dark'
-  }
-});
+<script setup lang="ts">
+import logoUrl from '~/assets/svg/logo_dark.svg';
+import logoTextUrl from '~/assets/svg/logo_text.svg';
 </script>
-
-<style scoped>
-.bg {
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  right: -50%;
-  bottom: -50%;
-  width: 200%;
-  height: 200%;
-  background: transparent url('http://assets.iceable.com/img/noise-transparent.png') repeat 0 0;
-  animation: bg-animation 0.2s infinite;
-  opacity: 0.9;
-  visibility: visible;
-}
-
-@keyframes bg-animation {
-  0% {
-    transform: translate(0, 0);
-  }
-  10% {
-    transform: translate(-5%, -5%);
-  }
-  20% {
-    transform: translate(-10%, 5%);
-  }
-  30% {
-    transform: translate(5%, -10%);
-  }
-  40% {
-    transform: translate(-5%, 15%);
-  }
-  50% {
-    transform: translate(-10%, 5%);
-  }
-  60% {
-    transform: translate(15%, 0);
-  }
-  70% {
-    transform: translate(0, 10%);
-  }
-  80% {
-    transform: translate(-15%, 0);
-  }
-  90% {
-    transform: translate(10%, 5%);
-  }
-  100% {
-    transform: translate(5%, 0);
-  }
-}
-</style>

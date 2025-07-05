@@ -1,7 +1,10 @@
 <template>
   <aside class="w-80 p-4 border-l border-border flex flex-col gap-4 overflow-y-auto">
     <h2 class="text-xl font-semibold tracking-tight">Inspector</h2>
+    
+    <!-- Property Editor -->
     <div v-if="selectedElement" class="space-y-4">
+      <Button variant="outline" @click="$emit('deselect')">Back to Layers</Button>
       <div>
         <label class="text-sm font-medium">Text Content</label>
         <textarea
@@ -53,18 +56,36 @@
         </div>
       </div>
     </div>
-    <div v-else class="text-muted-foreground text-sm text-center mt-8">
-      Select an element on the canvas to edit its properties.
+
+    <!-- Layer List -->
+    <div v-else class="space-y-2">
+      <p class="text-sm text-muted-foreground">Layers</p>
+      <div v-if="elements.length > 0" class="space-y-1">
+        <button
+          v-for="element in elements"
+          :key="element.attrs.id"
+          @click="$emit('select-by-id', element.attrs.id)"
+          class="w-full text-left p-2 rounded-md hover:bg-muted"
+        >
+          {{ element.attrs.name || 'Unnamed Layer' }}
+        </button>
+      </div>
+      <div v-else class="text-muted-foreground text-xs text-center mt-8">
+        This slide is empty.
+      </div>
     </div>
   </aside>
 </template>
 
 <script setup lang="ts">
+import { Button } from '~/components/shadcn/button';
+
 const props = defineProps<{
   selectedElement: any;
+  elements: any[];
 }>();
 
-const emit = defineEmits(['update']);
+const emit = defineEmits(['update:selectedElement', 'update', 'select-by-id', 'deselect']);
 
 const update = (key: string, value: any) => {
   const newAttrs = { ...props.selectedElement };

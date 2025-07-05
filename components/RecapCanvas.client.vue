@@ -85,6 +85,7 @@ import {
 import { Button } from '~/components/shadcn/button';
 import { toast } from 'vue-sonner';
 import RecapImageModal from '~/components/RecapImageModal.vue';
+import { hexToRgb } from '~/lib/utils';
 
 const props = defineProps({
   modelValue: {
@@ -102,10 +103,21 @@ const props = defineProps({
   seasonId: {
     type: String,
     default: null
+  },
+  selectedElementId: {
+    type: String,
+    default: null
   }
 });
 
 const emit = defineEmits(['update:modelValue', 'select-element']);
+
+watch(() => props.selectedElementId, (newId) => {
+  if (newId) {
+    selectedShapeName.value = newId;
+    updateTransformer();
+  }
+});
 
 const isBackgroundModalOpen = ref(false);
 const isAddingText = ref(false);
@@ -257,14 +269,14 @@ const addTextbox = () => {
     text: 'Votre texte ici',
     fontSize: 32,
     fontFamily: '"Fredoka One", cursive',
-    fill: '#000',
+    fill: hexToRgb('#000'),
     padding: 10, // Reduced padding
   };
   const text = new Konva.Text(textConfig);
   const rectConfig = {
     width: text.width(),
     height: text.height(),
-    fill: '#fff',
+    fill: hexToRgb('#fff'),
     cornerRadius: 10, // Rounded corners
   };
   groupItems.value.push({

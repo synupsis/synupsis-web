@@ -1,53 +1,67 @@
 <template>
   <div class="w-full min-h-screen bg-background text-foreground">
+    <!-- Header -->
     <header class="flex w-full justify-between items-center py-6 px-8 border-b">
       <router-link to="/">
         <img src="/svg/logo_text.svg" alt="Synupsis Logo" class="h-8" />
       </router-link>
       <UserAuthStatus />
     </header>
-    <main class="p-8">
-      <div class="container mx-auto py-10">
-        <h1 class="text-3xl font-bold mb-4">Admin - User Management</h1>
-        <ClientOnly>
-          <div v-if="pending" class="border rounded-md p-4">
-            <div class="h-12 bg-muted/40 rounded-md animate-pulse mb-4" />
-            <div class="space-y-2">
-              <div v-for="i in 5" :key="i" class="h-10 bg-muted/40 rounded-md animate-pulse" />
-            </div>
+
+    <!-- Main Content -->
+    <main class="p-4 sm:p-8">
+      <div class="max-w-7xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8">Admin Panel</h1>
+
+        <!-- Stats Section -->
+        <section class="mb-12">
+          <h2 class="text-2xl font-semibold mb-4">Content Overview</h2>
+          <div v-if="stats" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader><CardTitle>Total Shows</CardTitle></CardHeader>
+              <CardContent><p class="text-4xl font-bold">{{ stats.shows }}</p></CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle>Total Seasons</CardTitle></CardHeader>
+              <CardContent><p class="text-4xl font-bold">{{ stats.seasons }}</p></CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle>Published Recaps</CardTitle></CardHeader>
+              <CardContent><p class="text-4xl font-bold">{{ stats.recaps.published }}</p></CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle>Draft Recaps</CardTitle></CardHeader>
+              <CardContent><p class="text-4xl font-bold">{{ stats.recaps.drafts }}</p></CardContent>
+            </Card>
           </div>
-          <DataTable v-else :columns="columns" :data="users" @refresh="fetchUsers" />
-        </ClientOnly>
+          <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card v-for="i in 4" :key="i" class="h-36 animate-pulse bg-muted" />
+          </div>
+        </section>
+
+        <!-- Users Section -->
+        <section>
+          <h2 class="text-2xl font-semibold mb-4">User Management</h2>
+          <div v-if="users">
+            <DataTable :columns="columns" :data="users" :refresh="refreshUsers" />
+          </div>
+          <div v-else class="w-full h-64 bg-muted rounded-lg animate-pulse" />
+        </section>
       </div>
     </main>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue';
-import DataTable from '~/components/admin/DataTable.vue';
-import { columns } from '~/components/admin/columns';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/shadcn/card';
 import UserAuthStatus from '~/components/UserAuthStatus.vue';
-import Logo from '~/components/Logo.vue';
+import { columns } from '~/components/admin/columns';
+import DataTable from '~/components/admin/DataTable.vue';
 
 definePageMeta({
   middleware: 'admin'
 });
 
-const supabase = useSupabaseClient();
-const users = ref([]);
-const pending = ref(true);
-
-async function fetchUsers() {
-  pending.value = true;
-  const { data, error } = await supabase.from('user_profiles').select('*');
-  if (error) {
-    console.error('Error fetching users:', error);
-  } else {
-    users.value = data;
-  }
-  pending.value = false;
-}
-
-onMounted(fetchUsers);
+const { data: stats } = useFetch('/api/admin/content-stats');
+const { data: users, refresh: refreshUsers } = useFetch('/api/admin/users');
 </script>

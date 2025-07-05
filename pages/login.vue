@@ -54,6 +54,22 @@
               No account yet?
               <router-link class="underline" to="/signup">Register</router-link>
             </p>
+
+            <div class="relative my-4">
+              <div class="absolute inset-0 flex items-center">
+                <span class="w-full border-t" />
+              </div>
+              <div class="relative flex justify-center text-xs uppercase">
+                <span class="bg-background px-2 text-muted-foreground">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+
+            <Button variant="outline" class="w-full" @click="loginWithGoogle">
+              <svg class="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512"><path fill="currentColor" d="M488 261.8C488 403.3 381.5 512 244 512 109.8 512 0 402.2 0 261.8S109.8 11.8 244 11.8c70.3 0 129.8 27.8 174.3 71.9l-64.4 64.4c-23.5-22.3-56.8-36.8-99.9-36.8-83.2 0-151.3 67.8-151.3 151.3s68.1 151.3 151.3 151.3c97.3 0 131.3-71.5 135-112.2H244v-77.2h244z"></path></svg>
+              Google
+            </Button>
           </form>
         </div>
       </div>
@@ -86,5 +102,16 @@ const login = async () => {
     return;
   }
   navigateTo('/');
+};
+
+const loginWithGoogle = async () => {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+  });
+  if (error) {
+    toast.error('Error', {
+      description: error.message
+    });
+  }
 };
 </script>

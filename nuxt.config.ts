@@ -30,7 +30,8 @@ export default defineNuxtConfig({
   modules: [
     '@nuxtjs/supabase',
     'nuxt-headlessui',
-    'shadcn-nuxt'
+    'shadcn-nuxt',
+    '@nuxtjs/color-mode'
   ],
   shadcn: {
     /**

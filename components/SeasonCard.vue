@@ -2,7 +2,9 @@
   <Card class="flex flex-col group overflow-hidden border-2" :class="{ 'border-primary shadow-lg shadow-primary/20': isLatest, 'border-transparent': !isLatest }">
     <div class="relative w-full aspect-[2/3]">
       <!-- Image -->
-      <img :src="season.image?.original ?? 'https://via.placeholder.com/300x450'" :alt="`Poster for Season ${season.number}`" class="w-full h-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105" />
+      <img v-if="season.image?.original" :src="season.image.original" :alt="`Poster for Season ${season.number}`" class="w-full h-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105" />
+      <!-- Placeholder Gradient -->
+      <div v-else class="w-full h-full bg-gradient-to-t from-black via-gray-800 to-gray-900" />
       
       <!-- Gradient Overlay -->
       <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />

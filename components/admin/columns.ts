@@ -1,74 +1,83 @@
-"use client"
+'use client'
 
-import { h } from "vue"
-import type { ColumnDef } from "@tanstack/vue-table"
-import { ArrowUpDown, MoreHorizontal } from "lucide-vue-next"
-import { toast } from "vue-sonner"
-
-import { Button } from "~/components/shadcn/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "~/components/shadcn/dropdown-menu"
+import type { ColumnDef } from '@tanstack/vue-table'
+import { h } from 'vue'
+import { toast } from 'vue-sonner'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '~/components/shadcn/dropdown-menu'
+import { Button } from '~/components/shadcn/button'
+import { MoreHorizontalIcon } from 'lucide-vue-next'
 
 export interface User {
   id: string
+  user_id: string
+  role: 'admin' | 'user'
   email: string
-  role: "user" | "admin"
+}
+
+async function updateUserRole(userId: string, newRole: 'admin' | 'user', refresh: () => void) {
+  try {
+    await $fetch('/api/admin/user/update-role', {
+      method: 'POST',
+      body: { userId, newRole },
+    })
+    toast.success(`User role updated to ${newRole}.`)
+    refresh()
+  } catch (e: any) {
+    toast.error('Failed to update role', { description: e.data?.message })
+  }
+}
+
+async function deleteUser(userId: string, refresh: () => void) {
+  try {
+    await $fetch('/api/admin/user/delete', {
+      method: 'POST',
+      body: { userId },
+    })
+    toast.success('User deleted successfully.')
+    refresh()
+  } catch (e: any) {
+    toast.error('Failed to delete user', { description: e.data?.message })
+  }
 }
 
 export const columns: ColumnDef<User>[] = [
   {
-    accessorKey: "email",
-    header: ({ column }) => {
-      return h(Button, {
-        variant: "ghost",
-        onClick: () => column.toggleSorting(column.getIsSorted() === "asc"),
-      }, () => ["Email", h(ArrowUpDown, { class: "ml-2 h-4 w-4" })])
-    },
+    accessorKey: 'email',
+    header: 'Email',
   },
   {
-    accessorKey: "role",
-    header: "Role",
+    accessorKey: 'role',
+    header: 'Role',
   },
   {
-    id: "actions",
+    id: 'actions',
     cell: ({ row, table }) => {
       const user = row.original
-      const supabase = useSupabaseClient();
+      const { refresh } = table.options.meta as any
 
-      const setRole = async (role: "user" | "admin") => {
-        const { error } = await supabase.from('profile').update({ role }).eq('id', user.id);
-        if (error) {
-          toast.error("Failed to update role", { description: error.message });
-        } else {
-          toast.success("Role updated successfully");
-          (table.options.meta as any)?.refresh();
-        }
-      };
-
-      return h("div", { class: "relative" }, h(DropdownMenu, {}, {
-        default: () => [
-          h(DropdownMenuTrigger, {}, () => h(Button, { variant: "ghost", class: "h-8 w-8 p-0" }, () => [
-            h("span", { class: "sr-only" }, "Open menu"),
-            h(MoreHorizontal, { class: "h-4 w-4" }),
-          ])),
-          h(DropdownMenuContent, { align: "end" }, {
-            default: () => [
-              h(DropdownMenuLabel, {}, () => "Actions"),
-              h(DropdownMenuItem, { onClick: () => navigator.clipboard.writeText(user.id) }, () => "Copy user ID"),
-              h(DropdownMenuSeparator),
-              h(DropdownMenuItem, { onClick: () => setRole("admin") }, () => "Make admin"),
-              h(DropdownMenuItem, { onClick: () => setRole("user") }, () => "Make user"),
-            ]
-          }),
-        ]
-      }))
+      return h(DropdownMenu, null, () => [
+        h(DropdownMenuTrigger, { asChild: true }, () =>
+          h(Button, { variant: 'ghost', class: 'w-8 h-8 p-0' }, () =>
+            h(MoreHorizontalIcon, { class: 'w-4 h-4' })
+          )
+        ),
+        h(DropdownMenuContent, { align: 'end' }, () => [
+          h(DropdownMenuLabel, null, () => 'Actions'),
+          h(DropdownMenuItem, { onClick: () => navigator.clipboard.writeText(user.user_id) }, () => 'Copy User ID'),
+          h(DropdownMenuSeparator),
+          h(DropdownMenuItem, {
+            onClick: () => updateUserRole(user.user_id, user.role === 'admin' ? 'user' : 'admin', refresh),
+          }, () => `Set as ${user.role === 'admin' ? 'user' : 'admin'}`),
+          h(DropdownMenuItem, {
+            class: 'text-destructive',
+            onClick: () => {
+              if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+                deleteUser(user.user_id, refresh)
+              }
+            },
+          }, () => 'Delete User'),
+        ])
+      ])
     },
   },
 ]
-

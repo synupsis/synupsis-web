@@ -14,8 +14,8 @@ export default defineEventHandler(async event => {
     .select(`
       id,
       status,
-      show:show_id (name),
-      season:season_id (number, image),
+      show:show_id ( name ),
+      season:season_id ( number, image ),
       slides:slide (
         id,
         order,

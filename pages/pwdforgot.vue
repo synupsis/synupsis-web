@@ -9,12 +9,17 @@
       <Card>
         <CardHeader class="text-center">
           <CardTitle>Forgot Your Password?</CardTitle>
-          <CardDescription>
+          <CardDescription v-if="!emailSent">
             No problem. Enter your email address and we'll send you a link to reset it.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form @submit.prevent="sendResetInstructions">
+          <div v-if="emailSent" class="text-center space-y-4">
+            <CircleCheckIcon class="h-16 w-16 text-green-500 mx-auto" />
+            <p>A password reset link has been sent to <span class="font-bold">{{ email }}</span>.</p>
+            <p class="text-sm text-muted-foreground">Please check your inbox and follow the instructions.</p>
+          </div>
+          <form v-else @submit.prevent="sendResetInstructions">
             <div class="space-y-2">
               <label for="email" class="font-semibold">Email Address</label>
               <Input
@@ -29,6 +34,7 @@
         </CardContent>
         <CardFooter class="flex flex-col gap-4">
           <Button
+            v-if="!emailSent"
             class="w-full"
             :disabled="!email || isLoading"
             @click="sendResetInstructions"
@@ -59,25 +65,25 @@ import {
   CardTitle,
 } from '~/components/shadcn/card'
 import SpinLoader from '~/components/ui/SpinLoader.vue';
+import { CircleCheckIcon } from 'lucide-vue-next';
 
 const supabase = useSupabaseClient();
 const email = ref('');
 const isLoading = ref(false);
+const emailSent = ref(false);
 
 const sendResetInstructions = async () => {
   if (!email.value) return;
   isLoading.value = true;
   try {
     const { error } = await supabase.auth.resetPasswordForEmail(email.value, {
-      redirectTo: `${window.location.origin}/password-reset` // This should be a valid page in your app
+      redirectTo: `${window.location.origin}/password-reset`
     });
 
     if (error) {
       toast.error('Error', { description: error.message });
     } else {
-      toast.success('Check your email', {
-        description: 'A password reset link has been sent to your email address.'
-      });
+      emailSent.value = true;
     }
   } catch (e: any) {
     toast.error('An unexpected error occurred', { description: e.message });
