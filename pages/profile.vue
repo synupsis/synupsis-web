@@ -2,7 +2,7 @@
   <div class="w-full min-h-screen bg-background text-foreground">
     <header class="flex w-full justify-between items-center py-6 px-8 border-b">
       <router-link to="/">
-        <Logo class="h-24 w-24" />
+        <img src="/svg/logo_text.svg" alt="Synupsis Logo" class="h-8" />
       </router-link>
       <UserAuthStatus />
     </header>

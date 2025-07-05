@@ -2,7 +2,7 @@
   <div class="w-full animate-pulse">
     <!-- Header Skeleton -->
     <div class="flex w-full justify-between items-center py-6 px-8">
-      <div class="h-24 w-24 bg-muted rounded-full" />
+      <div class="h-8 w-32 bg-muted rounded-md" />
       <div class="h-9 w-24 bg-muted rounded-md" />
     </div>
 
