@@ -4715,6 +4715,11 @@ knitwork@^1.0.0, knitwork@^1.2.0:
   resolved "https://registry.yarnpkg.com/knitwork/-/knitwork-1.2.0.tgz#3cc92e76249aeb35449cfbed3f31c6df8444db3f"
   integrity sha512-xYSH7AvuQ6nXkq42x0v5S8/Iry+cfulBz/DJQzhIyESdLD7425jXsPy4vn5cCXU+HhRN2kVw51Vd1K6/By4BQg==
 
+konva@^9.3.20:
+  version "9.3.20"
+  resolved "https://registry.yarnpkg.com/konva/-/konva-9.3.20.tgz#0920a267284c320c4e6d903202656cf436e37f77"
+  integrity sha512-7XPD/YtgfzC8b1c7z0hhY5TF1IO/pBYNa29zMTA2PeBaqI0n5YplUeo4JRuRcljeAF8lWtW65jePZZF7064c8w==
+
 kuler@^2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/kuler/-/kuler-2.0.0.tgz#e2c570a3800388fb44407e851531c1d670b061b3"
@@ -7620,6 +7625,11 @@ vue-eslint-parser@^9.4.3:
     esquery "^1.4.0"
     lodash "^4.17.21"
     semver "^7.3.6"
+
+vue-konva@^3.2.1:
+  version "3.2.1"
+  resolved "https://registry.yarnpkg.com/vue-konva/-/vue-konva-3.2.1.tgz#5ca0142c6f6fb6dee6133c909e97f49d2d65f869"
+  integrity sha512-gLF+VYnlrBfwtaN3NkgzzEqlj9nyCll80VZv2DdvLUM3cisUsdcRJJuMwGTBJOTebcnn6MB22r33IFd2m+m/ig==
 
 vue-router@^4.2.5, vue-router@^4.5.1:
   version "4.5.1"
