@@ -15,14 +15,17 @@
             @dragend="handleDragEnd"
             @transformend="handleTransformEnd"
           />
-          <v-text
-            v-for="item in textItems"
+          <v-group
+            v-for="item in groupItems"
             :key="item.id"
             :config="item"
             @dragend="handleDragEnd"
             @transformend="handleTransformEnd"
             @dblclick="handleDblClick"
-          />
+          >
+            <v-rect :config="item.rect" />
+            <v-text :config="item.text" />
+          </v-group>
           <v-transformer ref="transformerRef" />
         </v-layer>
       </v-stage>
@@ -121,9 +124,8 @@ const stageConfig = ref({
   scaleY: 1,
 });
 
-// Treat images as objects, just like text
 const imageItems = ref<any[]>([]);
-const textItems = ref<any[]>([]);
+const groupItems = ref<any[]>([]);
 const selectedShapeName = ref('');
 
 const addImageToCanvas = (imageUrl: string) => {
@@ -139,7 +141,7 @@ const addImageToCanvas = (imageUrl: string) => {
       draggable: !props.readOnly,
       name: `image-${Date.now()}`,
       id: `image-${Date.now()}`,
-      src: proxiedUrl, // Save the proxied URL
+      src: proxiedUrl,
     });
     nextTick(() => {
       emitUpdate();
@@ -169,7 +171,7 @@ const scaleAndPositionCanvas = () => {
 
 const loadCanvasFromJSON = (json: string) => {
   if (!json) {
-    textItems.value = [];
+    groupItems.value = [];
     imageItems.value = [];
     return;
   }
@@ -178,18 +180,22 @@ const loadCanvasFromJSON = (json: string) => {
   const layer = data.children?.[0];
   if (!layer) return;
 
-  const textNodeConfigs = layer.children?.filter((c: any) => c.className === 'Text').map((c: any) => c.attrs) || [];
+  const groupNodes = layer.children?.filter((c: any) => c.className === 'Group') || [];
   const imageNodeConfigs = layer.children?.filter((c: any) => c.className === 'Image').map((c: any) => c.attrs) || [];
 
   if (props.readOnly) {
-    textNodeConfigs.forEach(config => config.draggable = false);
+    groupNodes.forEach(group => group.attrs.draggable = false);
     imageNodeConfigs.forEach(config => config.draggable = false);
   }
 
   transformerRef.value?.getNode().nodes([]);
-  textItems.value = textNodeConfigs;
+  groupItems.value = groupNodes.map((groupNode: any) => ({
+    ...groupNode.attrs,
+    id: groupNode.attrs.id || `group-${Date.now()}`,
+    rect: groupNode.children.find((c: any) => c.className === 'Rect').attrs,
+    text: groupNode.children.find((c: any) => c.className === 'Text').attrs,
+  }));
 
-  // Asynchronously load images
   const loadedImages: any[] = [];
   let imagesToLoad = imageNodeConfigs.length;
   if (imagesToLoad === 0) {
@@ -210,7 +216,6 @@ const loadCanvasFromJSON = (json: string) => {
     });
   });
 };
-
 
 watch(() => props.modelValue, (newJson) => {
   if (isInternalUpdate) {
@@ -246,18 +251,30 @@ const openBackgroundModal = () => {
 
 const addTextbox = () => {
   if (props.readOnly) return;
-  const newText = {
-    x: 50,
-    y: 50,
+  const id = `group-${Date.now()}`;
+  const textConfig = {
     text: 'Votre texte ici',
     fontSize: 32,
     fontFamily: '"Fredoka One", cursive',
     fill: '#000',
-    draggable: !props.readOnly,
-    name: `text-${Date.now()}`,
-    id: `text-${Date.now()}`
+    padding: 20,
   };
-  textItems.value.push(newText);
+  const text = new Konva.Text(textConfig);
+  const rectConfig = {
+    width: text.width(),
+    height: text.height(),
+    fill: '#fff',
+    cornerRadius: 20,
+  };
+  groupItems.value.push({
+    id,
+    name: id,
+    x: 50,
+    y: 50,
+    draggable: !props.readOnly,
+    rect: rectConfig,
+    text: textConfig,
+  });
   nextTick(() => {
     emitUpdate();
   });
@@ -267,7 +284,7 @@ const deleteSelectedObject = () => {
   if (props.readOnly || !selectedShapeName.value) return;
 
   const isImage = selectedShapeName.value.startsWith('image-');
-  const items = isImage ? imageItems : textItems;
+  const items = isImage ? imageItems : groupItems;
   
   const index = items.value.findIndex(item => item.name === selectedShapeName.value);
   if (index > -1) {
@@ -283,7 +300,7 @@ const deleteSelectedObject = () => {
 const clearSlide = () => {
   if (props.readOnly) return;
   imageItems.value = [];
-  textItems.value = [];
+  groupItems.value = [];
   nextTick(() => {
     emitUpdate();
   });
@@ -293,26 +310,26 @@ const clearSlide = () => {
 const handleStageMouseDown = (e: any) => {
   if (props.readOnly) return;
 
+  // Clicked on stage to deselect
   if (e.target === e.target.getStage()) {
     selectedShapeName.value = '';
     updateTransformer();
     return;
   }
 
-  const clickedOnTransformer = e.target.getParent().className === 'Transformer';
+  // Clicked on transformer
+  const clickedOnTransformer = e.target.getParent() && e.target.getParent().className === 'Transformer';
   if (clickedOnTransformer) {
     return;
   }
 
-  const name = e.target.name();
-  const allItems = [...textItems.value, ...imageItems.value];
-  const item = allItems.find(i => i.name === name);
-  
-  if (item) {
-    selectedShapeName.value = name;
-  } else {
-    selectedShapeName.value = '';
+  // Find the clicked shape
+  let shape = e.target;
+  if (shape.className === 'Text' || shape.className === 'Rect') {
+    shape = shape.getParent();
   }
+  
+  selectedShapeName.value = shape.name();
   updateTransformer();
 };
 
@@ -330,7 +347,7 @@ const updateTransformer = () => {
 const handleDragEnd = (e: any) => {
   const name = e.target.name();
   const isImage = name.startsWith('image-');
-  const items = isImage ? imageItems : textItems;
+  const items = isImage ? imageItems : groupItems;
   const index = items.value.findIndex(item => item.name === name);
   if (index > -1) {
     items.value[index].x = e.target.x();
@@ -342,7 +359,7 @@ const handleDragEnd = (e: any) => {
 const handleTransformEnd = (e: any) => {
   const name = e.target.name();
   const isImage = name.startsWith('image-');
-  const items = isImage ? imageItems : textItems;
+  const items = isImage ? imageItems : groupItems;
   const index = items.value.findIndex(item => item.name === name);
   if (index > -1) {
     const node = e.target;
@@ -357,8 +374,10 @@ const handleTransformEnd = (e: any) => {
 
 const handleDblClick = (e: any) => {
   if (props.readOnly || e.target.className !== 'Text') return;
+  const group = e.target.getParent();
   const textNode = e.target;
-  textNode.hide();
+  
+  group.hide();
   transformerRef.value.getNode().hide();
 
   const textPosition = textNode.absolutePosition();
@@ -391,7 +410,7 @@ const handleDblClick = (e: any) => {
   textarea.style.transformOrigin = 'left top';
   textarea.style.textAlign = textNode.align();
   textarea.style.color = textNode.fill();
-  const rotation = textNode.rotation();
+  const rotation = group.rotation();
   let transform = '';
   if (rotation) {
     transform += 'rotateZ(' + rotation + 'deg)';
@@ -405,7 +424,7 @@ const handleDblClick = (e: any) => {
   function removeTextarea() {
     textarea.parentNode?.removeChild(textarea);
     window.removeEventListener('click', handleOutsideClick);
-    textNode.show();
+    group.show();
     transformerRef.value.getNode().show();
     transformerRef.value.getNode().forceUpdate();
   }
@@ -424,7 +443,13 @@ const handleDblClick = (e: any) => {
 
   textarea.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && !e.shiftKey) {
-      textNode.text(textarea.value);
+      const index = groupItems.value.findIndex(item => item.name === group.name());
+      if (index > -1) {
+        groupItems.value[index].text.text = textarea.value;
+        const text = new Konva.Text(groupItems.value[index].text);
+        groupItems.value[index].rect.width = text.width();
+        groupItems.value[index].rect.height = text.height();
+      }
       removeTextarea();
       emitUpdate();
     }
@@ -434,7 +459,7 @@ const handleDblClick = (e: any) => {
   });
 
   textarea.addEventListener('keydown', () => {
-    const scale = textNode.getAbsoluteScale().x;
+    const scale = group.getAbsoluteScale().x;
     setTextareaWidth(textNode.width() * scale);
     textarea.style.height = 'auto';
     textarea.style.height = textarea.scrollHeight + textNode.fontSize() + 'px';
@@ -442,7 +467,13 @@ const handleDblClick = (e: any) => {
 
   function handleOutsideClick(e: any) {
     if (e.target !== textarea) {
-      textNode.text(textarea.value);
+      const index = groupItems.value.findIndex(item => item.name === group.name());
+      if (index > -1) {
+        groupItems.value[index].text.text = textarea.value;
+        const text = new Konva.Text(groupItems.value[index].text);
+        groupItems.value[index].rect.width = text.width();
+        groupItems.value[index].rect.height = text.height();
+      }
       removeTextarea();
       emitUpdate();
     }
