@@ -24,9 +24,9 @@
           <Button variant="ghost" class="min-w-[90px]" @click="goBack">Cancel</Button>
           <Button variant="outline" class="min-w-[130px]" :disabled="loading || isSaving || !isDirty" @click="saveDraft">
             <span v-if="isSaving" class="loading loading-spinner h-4 w-4" />
-            <CheckCircleIcon v-else-if="!isDirty" class="h-4 w-4 text-green-500" />
-            <DocumentArrowDownIcon v-else class="h-4 w-4" />
-            <span class="ml-2">
+            <CheckCircleIcon v-else-if="!isDirty" class="h-4 w-4 text-green-500 mr-2" />
+            <DocumentArrowDownIcon v-else class="h-4 w-4 mr-2" />
+            <span>
               <template v-if="isSaving">Saving...</template>
               <template v-else-if="!isDirty">Saved</template>
               <template v-else>{{ recapStatus === 'published' ? 'Save' : 'Save Draft' }}</template>
@@ -34,8 +34,14 @@
           </Button>
           <Button v-if="recapStatus !== 'published'" class="min-w-[130px]" :disabled="loading || isPublishing" @click="publishRecap">
             <span v-if="isPublishing" class="loading loading-spinner h-4 w-4" />
-            <ArrowUpCircleIcon v-else class="h-4 w-4" />
-            <span class="ml-2">{{ isPublishing ? 'Publishing...' : 'Publish' }}</span>
+            <ArrowUpCircleIcon v-else class="h-4 w-4 mr-2" />
+            <span>{{ isPublishing ? 'Publishing...' : 'Publish' }}</span>
+          </Button>
+          <Button v-if="recapStatus === 'published' && existingRecapId" variant="outline" as-child>
+            <router-link :to="`/recap/${existingRecapId}`">
+              <EyeIcon class="h-4 w-4 mr-2" />
+              View
+            </router-link>
           </Button>
         </div>
       </header>
@@ -111,7 +117,7 @@
             v-else
             class="relative aspect-[9/19.5] h-full max-w-full bg-background rounded-3xl shadow-lg"
           >
-            <RecapCanvasKonva
+            <RecapCanvas
               :key="selectedSlideId"
               v-model="activeSlideCanvas"
               :loading="loading"
@@ -175,6 +181,7 @@ import {
   SquaresPlusIcon,
   TrashIcon,
   CheckCircleIcon,
+  EyeIcon,
 } from '@heroicons/vue/24/outline';
 import { useRoute, useRouter } from 'vue-router';
 import type { Show, Season } from '~/types/database.types';
@@ -192,7 +199,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '~/components/shadcn/alert-dialog'
-import RecapCanvasKonva from "~/components/RecapCanvasKonva.client.vue";
+import RecapCanvas from "~/components/RecapCanvas.client.vue";
 
 type Slide = {
   id: number;

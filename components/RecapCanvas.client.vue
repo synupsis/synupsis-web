@@ -64,7 +64,7 @@
       </Button>
     </div>
 
-    <RecapBackgroundModal
+    <RecapImageModal
       v-if="seasonId"
       v-model:is-open="isBackgroundModalOpen"
       :season-id="seasonId"
@@ -84,6 +84,7 @@ import {
 } from '@heroicons/vue/24/outline';
 import { Button } from '~/components/shadcn/button';
 import { toast } from 'vue-sonner';
+import RecapImageModal from '~/components/RecapImageModal.vue';
 
 const props = defineProps({
   modelValue: {

@@ -2,7 +2,7 @@
   <AlertDialog :open="isOpen" @update:open="emit('update:isOpen', $event)">
     <AlertDialogContent class="max-w-3xl">
       <AlertDialogHeader>
-        <AlertDialogTitle>Choose a background</AlertDialogTitle>
+        <DialogTitle>Select Image</DialogTitle>
         <AlertDialogDescription>
           Select a background for your slide from the episode images below.
         </AlertDialogDescription>

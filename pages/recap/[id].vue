@@ -25,7 +25,7 @@
           <CarouselItem v-for="(slide, index) in data.slides" :key="slide.id" class="h-full">
             <div class="p-4 h-full flex items-center justify-center">
               <div class="relative aspect-[9/19.5] h-full bg-neutral rounded-3xl overflow-hidden shadow-lg mx-auto">
-                <RecapCanvasKonva
+                <RecapCanvas
                   :ref="el => (canvasRefs[index] = el)"
                   :model-value="JSON.stringify(slide.canvas_data)"
                   :read-only="true"
@@ -54,7 +54,7 @@ import {
 import { Button } from '~/components/shadcn/button'
 import { ChevronLeftIcon } from '@heroicons/vue/24/outline'
 import SpinLoader from '~/components/ui/SpinLoader.vue';
-import RecapCanvasKonva from '~/components/RecapCanvasKonva.client.vue';
+import RecapCanvas from '~/components/RecapCanvas.client.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -70,7 +70,7 @@ const goBack = () => {
 
 // Logic for redrawing canvas on slide change
 const api = ref<CarouselApi | null>(null);
-const canvasRefs = ref<InstanceType<typeof RecapCanvasKonva>[]>([]);
+const canvasRefs = ref<InstanceType<typeof RecapCanvas>[]>([]);
 
 function setApi(val: CarouselApi) {
   api.value = val;
