@@ -32,7 +32,7 @@
           </Card>
 
           <!-- Recaps Section -->
-          <div class="md:col-span-2 space-y-8">
+          <div v-if="isAdmin" class="md:col-span-2 space-y-8">
             <div v-if="pending">
               <SpinLoader class="h-8 w-8 mx-auto" />
             </div>
@@ -92,7 +92,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed } from 'vue';
+import { computed, ref, watchEffect } from 'vue';
 import {
   Card,
   CardContent,
@@ -109,6 +109,18 @@ import { PencilIcon, EyeIcon } from '@heroicons/vue/24/outline';
 const user = useSupabaseUser();
 const supabase = useSupabaseClient();
 const router = useRouter();
+const isAdmin = ref(false);
+
+watchEffect(async () => {
+  if (user.value) {
+    const { data } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('user_id', user.value.id)
+      .single();
+    isAdmin.value = data?.role === 'admin';
+  }
+});
 
 const { data: recaps, pending, error } = useFetch('/api/user/recaps');
 

@@ -201,6 +201,10 @@ import {
 } from '~/components/shadcn/alert-dialog'
 import RecapCanvas from "~/components/RecapCanvas.client.vue";
 
+definePageMeta({
+  middleware: 'admin'
+});
+
 type Slide = {
   id: number;
   canvas: string;

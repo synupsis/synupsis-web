@@ -86,7 +86,7 @@
               </Button>
               
               <ClientOnly>
-                <template v-if="user">
+                <template v-if="user && isAdmin">
                   <Button
                     v-if="getDraftRecap(season) || getPublishedRecap(season)"
                     class="w-full"
@@ -123,7 +123,7 @@
   </div>
 </template>
 <script lang="ts" setup>
-import { ref, type Ref } from 'vue';
+import { ref, type Ref, watchEffect } from 'vue';
 import type { TvMazeShow } from '~/types/tv-maze.types';
 import { CalendarIcon, PencilIcon, SparklesIcon, SquaresPlusIcon, StarIcon, TvIcon, EyeIcon } from '@heroicons/vue/24/outline';
 import { toast } from 'vue-sonner'
@@ -143,6 +143,19 @@ import ShowPageSkeleton from '~/components/ShowPageSkeleton.vue';
 
 const user = useSupabaseUser();
 const route = useRoute();
+const supabase = useSupabaseClient();
+const isAdmin = ref(false);
+
+watchEffect(async () => {
+  if (user.value) {
+    const { data } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('user_id', user.value.id)
+      .single();
+    isAdmin.value = data?.role === 'admin';
+  }
+});
 
 const { data, pending } = useAsyncData(
   `show-data-${route.params.slug}`,
