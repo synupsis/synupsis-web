@@ -18,6 +18,7 @@
             :loading="isLoading"
             :placeholders="placeholders"
             class="mt-8"
+            @submit="handleSearchSubmit"
           />
         </div>
         <Ripple
@@ -70,7 +71,6 @@ import type { Show } from '~/types/database.types';
 import Ripple from '~/components/ui/Ripple.vue';
 import VanishingInput from '~/components/ui/VanishingInput.vue';
 import CardSpotlight from '~/components/ui/CardSpotlight.vue';
-import SpinLoader from '~/components/ui/SpinLoader.vue';
 import BlurReveal from '~/components/ui/BlurReveal.vue';
 import Logo from '~/components/Logo.vue';
 import UserAuthStatus from '~/components/UserAuthStatus.vue';
@@ -145,5 +145,11 @@ watch(searchInput, debouncedSearch);
 function goToShow(show: SearchResult) {
   const slug = slugify(show.name);
   router.push(`/shows/${slug}-${show.id}`);
+}
+
+function handleSearchSubmit() {
+  if (searchResults.value.length > 0) {
+    goToShow(searchResults.value[0]);
+  }
 }
 </script>
