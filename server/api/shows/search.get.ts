@@ -23,7 +23,8 @@ export default defineEventHandler(async event => {
         id: show.id,
         name: show.name,
         premiered: show.premiered,
-        ended: show.ended
+        ended: show.ended,
+        image: show.image?.medium ?? null
       }));
 
     return { shows };
