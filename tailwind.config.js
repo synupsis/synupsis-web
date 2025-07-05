@@ -1,7 +1,6 @@
 /* eslint-disable linebreak-style */
 /** @type {import('tailwindcss').Config} */
 import animate from 'tailwindcss-animate';
-import { setupInspiraUI } from '@inspira-ui/plugins';
 
 export default {
   darkMode: ['selector', 'class'],
@@ -67,8 +66,5 @@ export default {
   		}
   	}
   },
-  daisyui: {
-    themes: ['light', 'dark', 'synthwave', 'night']
-  },
-  plugins: [require('@tailwindcss/forms'), require('daisyui'), animate, setupInspiraUI, require("tailwindcss-animate")]
+  plugins: [require('@tailwindcss/forms'), animate, require("tailwindcss-animate")]
 };

@@ -105,7 +105,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['update:modelValue']);
+const emit = defineEmits(['update:modelValue', 'select-element']);
 
 const isBackgroundModalOpen = ref(false);
 const isAddingText = ref(false);
@@ -315,6 +315,7 @@ const handleStageMouseDown = (e: any) => {
   if (e.target === e.target.getStage()) {
     selectedShapeName.value = '';
     updateTransformer();
+    emit('select-element', null);
     return;
   }
 
@@ -332,6 +333,7 @@ const handleStageMouseDown = (e: any) => {
   
   selectedShapeName.value = shape.name();
   updateTransformer();
+  emit('select-element', shape.attrs);
 };
 
 const updateTransformer = () => {

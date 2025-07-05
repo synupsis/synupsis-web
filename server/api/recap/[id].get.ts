@@ -15,7 +15,7 @@ export default defineEventHandler(async event => {
       id,
       status,
       show:show_id (name),
-      season:season_id (number),
+      season:season_id (number, image),
       slides:slide (
         id,
         order,
@@ -23,7 +23,6 @@ export default defineEventHandler(async event => {
       )
     `)
     .eq('id', recapId)
-    .eq('status', 'published') // Ensure we only fetch published recaps
     .order('order', { foreignTable: 'slide', ascending: true })
     .single();
 
@@ -33,7 +32,7 @@ export default defineEventHandler(async event => {
   }
 
   if (!recap) {
-    throw createError({ statusCode: 404, statusMessage: 'Published recap not found' });
+    throw createError({ statusCode: 404, statusMessage: 'Recap not found' });
   }
 
   return recap;

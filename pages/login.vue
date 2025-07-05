@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full h-screen bg-gray-900 text-white">
+  <div class="w-full h-screen bg-background text-white">
     <div class="flex h-full">
       <div class="hidden lg:flex w-1/2 h-full">
         <video class="h-full w-full object-cover" autoplay loop muted>

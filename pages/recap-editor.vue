@@ -48,33 +48,35 @@
 
       <!-- Wrapper to prevent hydration mismatch -->
       <div v-if="!loading && pageData" class="flex flex-1 overflow-hidden">
-        <!-- Sidebar -->
+        <!-- Slides Sorter (Left) -->
         <aside class="w-64 p-4 border-r border-border flex flex-col gap-4 overflow-y-auto">
           <h2 class="text-xl font-semibold tracking-tight">Slides</h2>
-          <div
-            v-for="(slide, index) in slides"
-            :key="slide.id"
-            class="relative group"
-            @click="selectedSlideId = slide.id"
-          >
-            <button
-              :class="[
-                'w-full p-4 rounded-lg border-2 text-left',
-                selectedSlideId === slide.id
-                  ? 'border-primary'
-                  : 'border-border hover:border-primary/50',
-              ]"
-            >
-              <p class="font-bold">Slide {{ index + 1 }}</p>
-              <p class="text-sm text-muted-foreground">ID: {{ slide.id }}</p>
-            </button>
-            <button
-              class="absolute top-2 right-2 p-1 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-              @click.stop="removeSlide(slide)"
-            >
-              <TrashIcon class="h-4 w-4" />
-            </button>
-          </div>
+          <draggable v-model="slides" item-key="id" class="space-y-2">
+            <template #item="{ element: slide, index }">
+              <div
+                class="relative group"
+                @click="selectedSlideId = slide.id"
+              >
+                <button
+                  :class="[
+                    'w-full p-4 rounded-lg border-2 text-left',
+                    selectedSlideId === slide.id
+                      ? 'border-primary'
+                      : 'border-border hover:border-primary/50',
+                  ]"
+                >
+                  <p class="font-bold">Slide {{ index + 1 }}</p>
+                  <p class="text-sm text-muted-foreground">ID: {{ slide.id }}</p>
+                </button>
+                <button
+                  class="absolute top-2 right-2 p-1 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                  @click.stop="removeSlide(slide)"
+                >
+                  <TrashIcon class="h-4 w-4" />
+                </button>
+              </div>
+            </template>
+          </draggable>
           <div class="mt-auto space-y-2">
             <Button variant="outline" class="w-full" @click="addSlide">
               <SquaresPlusIcon class="h-4 w-4 mr-2" />
@@ -107,7 +109,7 @@
           </div>
         </aside>
 
-        <!-- Main Canvas -->
+        <!-- Main Canvas (Center) -->
         <main class="flex-1 flex items-center justify-center p-4 sm:p-8 bg-muted/20 overflow-hidden">
           <div v-if="error" class="text-destructive">
             <p>{{ error.message }}</p>
@@ -122,9 +124,16 @@
               v-model="activeSlideCanvas"
               :loading="loading"
               :season-id="seasonId"
+              @select-element="handleSelectElement"
             />
           </div>
         </main>
+
+        <!-- Inspector Panel (Right) -->
+        <InspectorPanel
+          :selected-element="selectedElement"
+          @update="handleUpdateElement"
+        />
       </div>
       <!-- Loading Skeleton -->
       <div v-else class="flex flex-1 overflow-hidden">
@@ -183,6 +192,9 @@ import {
   CheckCircleIcon,
   EyeIcon,
 } from '@heroicons/vue/24/outline';
+import draggable from 'vuedraggable';
+import InspectorPanel from '~/components/InspectorPanel.vue';
+import RecapCanvas from "~/components/RecapCanvas.client.vue";
 import { useRoute, useRouter } from 'vue-router';
 import type { Show, Season } from '~/types/database.types';
 import { toast } from 'vue-sonner'
@@ -199,7 +211,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '~/components/shadcn/alert-dialog'
-import RecapCanvas from "~/components/RecapCanvas.client.vue";
 
 definePageMeta({
   middleware: 'admin'
@@ -222,6 +233,7 @@ const slides = ref<Slide[]>([]);
 const selectedSlideId = ref<number | null>(null);
 const existingRecapId = ref<string | null>(null);
 const recapStatus = ref<'draft' | 'published' | null>(null);
+const selectedElement = ref<any>(null);
 
 // State for change detection
 const initialSlidesState = ref('');
@@ -315,6 +327,40 @@ const activeSlideCanvas = computed({
     }
   }
 });
+
+const handleSelectElement = (element: any) => {
+  selectedElement.value = element;
+};
+
+const handleUpdateElement = (updatedElement: any) => {
+  if (!activeSlideCanvas.value) return;
+
+  try {
+    const canvasData = JSON.parse(activeSlideCanvas.value);
+    const layer = canvasData.children?.[0];
+    if (!layer) return;
+
+    const elementIndex = layer.children.findIndex((c: any) => c.attrs.id === updatedElement.id);
+    if (elementIndex !== -1) {
+      // This is a deep update, so we need to be careful
+      const newCanvasData = {
+        ...canvasData,
+        children: [
+          {
+            ...layer,
+            children: layer.children.map((child: any, index: number) =>
+              index === elementIndex ? { ...child, attrs: updatedElement } : child
+            ),
+          },
+        ],
+      };
+      activeSlideCanvas.value = JSON.stringify(newCanvasData);
+      selectedElement.value = updatedElement;
+    }
+  } catch (e) {
+    console.error("Failed to parse or update canvas JSON", e);
+  }
+};
 
 const goBack = () => router.back();
 

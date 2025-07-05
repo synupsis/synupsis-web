@@ -44,5 +44,19 @@
         </div>
       </div>
     </div>
+
+    <!-- Cast Skeleton -->
+    <div class="py-16">
+      <div class="mx-auto max-w-7xl px-6 lg:px-8">
+        <div class="h-10 w-48 bg-muted rounded-md mb-10" />
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-8">
+          <div v-for="i in 6" :key="i" class="flex flex-col items-center text-center">
+            <div class="w-32 h-32 bg-muted-foreground/20 rounded-full mb-4" />
+            <div class="h-6 w-3/4 bg-muted-foreground/20 rounded-md" />
+            <div class="h-4 w-1/2 bg-muted-foreground/20 rounded-md mt-2" />
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
