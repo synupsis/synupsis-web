@@ -257,14 +257,14 @@ const addTextbox = () => {
     fontSize: 32,
     fontFamily: '"Fredoka One", cursive',
     fill: '#000',
-    padding: 20,
+    padding: 10, // Reduced padding
   };
   const text = new Konva.Text(textConfig);
   const rectConfig = {
     width: text.width(),
     height: text.height(),
     fill: '#fff',
-    cornerRadius: 20,
+    cornerRadius: 10, // Rounded corners
   };
   groupItems.value.push({
     id,
@@ -380,8 +380,9 @@ const handleDblClick = (e: any) => {
   group.hide();
   transformerRef.value.getNode().hide();
 
-  const textPosition = textNode.absolutePosition();
+  const textPosition = group.absolutePosition();
   const stageBox = stageRef.value.getNode().container().getBoundingClientRect();
+  const scale = stageRef.value.getNode().scaleX();
 
   const areaPosition = {
     x: stageBox.left + textPosition.x,
@@ -395,14 +396,12 @@ const handleDblClick = (e: any) => {
   textarea.style.position = 'absolute';
   textarea.style.top = areaPosition.y + 'px';
   textarea.style.left = areaPosition.x + 'px';
-  textarea.style.width = textNode.width() - textNode.padding() * 2 + 'px';
-  textarea.style.height = textNode.height() - textNode.padding() * 2 + 5 + 'px';
-  textarea.style.fontSize = textNode.fontSize() + 'px';
   textarea.style.border = 'none';
-  textarea.style.padding = '0px';
+  textarea.style.padding = textNode.padding() * scale + 'px';
   textarea.style.margin = '0px';
   textarea.style.overflow = 'hidden';
-  textarea.style.background = 'none';
+  textarea.style.background = '#fff';
+  textarea.style.borderRadius = '10px';
   textarea.style.outline = 'none';
   textarea.style.resize = 'none';
   textarea.style.lineHeight = textNode.lineHeight();
@@ -410,15 +409,29 @@ const handleDblClick = (e: any) => {
   textarea.style.transformOrigin = 'left top';
   textarea.style.textAlign = textNode.align();
   textarea.style.color = textNode.fill();
+  textarea.style.fontSize = textNode.fontSize() * scale + 'px';
+  
   const rotation = group.rotation();
   let transform = '';
   if (rotation) {
     transform += 'rotateZ(' + rotation + 'deg)';
   }
-
   textarea.style.transform = transform;
-  textarea.style.height = 'auto';
-  textarea.style.height = textarea.scrollHeight + 3 + 'px';
+
+  const resizeTextarea = () => {
+    const text = new Konva.Text({
+      text: textarea.value,
+      fontSize: textNode.fontSize(),
+      fontFamily: textNode.fontFamily(),
+      padding: textNode.padding(),
+    });
+    const groupScaleX = group.scaleX();
+    const groupScaleY = group.scaleY();
+    textarea.style.width = text.width() * groupScaleX * scale + 'px';
+    textarea.style.height = text.height() * groupScaleY * scale + 'px';
+  };
+
+  resizeTextarea();
   textarea.focus();
 
   function removeTextarea() {
@@ -428,42 +441,6 @@ const handleDblClick = (e: any) => {
     transformerRef.value.getNode().show();
     transformerRef.value.getNode().forceUpdate();
   }
-
-  function setTextareaWidth(newWidth: number) {
-    if (!newWidth) {
-      newWidth = textNode.placeholder.length * textNode.fontSize();
-    }
-    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-    const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
-    if (isSafari || isFirefox) {
-      newWidth = Math.ceil(newWidth);
-    }
-    textarea.style.width = newWidth + 'px';
-  }
-
-  textarea.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      const index = groupItems.value.findIndex(item => item.name === group.name());
-      if (index > -1) {
-        groupItems.value[index].text.text = textarea.value;
-        const text = new Konva.Text(groupItems.value[index].text);
-        groupItems.value[index].rect.width = text.width();
-        groupItems.value[index].rect.height = text.height();
-      }
-      removeTextarea();
-      emitUpdate();
-    }
-    if (e.key === 'Escape') {
-      removeTextarea();
-    }
-  });
-
-  textarea.addEventListener('keydown', () => {
-    const scale = group.getAbsoluteScale().x;
-    setTextareaWidth(textNode.width() * scale);
-    textarea.style.height = 'auto';
-    textarea.style.height = textarea.scrollHeight + textNode.fontSize() + 'px';
-  });
 
   function handleOutsideClick(e: any) {
     if (e.target !== textarea) {
@@ -478,6 +455,18 @@ const handleDblClick = (e: any) => {
       emitUpdate();
     }
   }
+
+  textarea.addEventListener('input', resizeTextarea);
+
+  textarea.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      handleOutsideClick({ target: null });
+    }
+    if (e.key === 'Escape') {
+      removeTextarea();
+    }
+  });
+
   setTimeout(() => {
     window.addEventListener('click', handleOutsideClick);
   });
