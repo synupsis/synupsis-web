@@ -3,9 +3,16 @@
     <div v-if="user" class="flex gap-4 items-center justify-end">
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
-          <Button variant="ghost">{{ user.email }}</Button>
+          <Button variant="ghost" class="relative h-8 w-8 rounded-full">
+            <Avatar class="h-8 w-8">
+              <AvatarImage v-if="user.user_metadata.avatar_url" :src="user.user_metadata.avatar_url" :alt="user.user_metadata.username" />
+              <AvatarFallback>{{ user.user_metadata.username.charAt(0) }}</AvatarFallback>
+            </Avatar>
+          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuLabel>{{ user.user_metadata.username }}</DropdownMenuLabel>
+          <DropdownMenuSeparator />
           <DropdownMenuItem @click="router.push('/profile')">
             Profile
           </DropdownMenuItem>
@@ -38,9 +45,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '~/components/shadcn/dropdown-menu'
+import { Avatar, AvatarFallback, AvatarImage } from '~/components/shadcn/avatar'
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 
 const user = useSupabaseUser();
@@ -51,7 +60,7 @@ const isAdmin = ref(false);
 watchEffect(async () => {
   if (user.value) {
     const { data } = await supabase
-      .from('profile')
+      .from('user_profiles')
       .select('role')
       .eq('user_id', user.value.id)
       .single();
