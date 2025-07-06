@@ -7,7 +7,7 @@
     <!-- Header -->
     <header class="flex w-full justify-between items-center py-6 px-8">
       <router-link to="/">
-        <img src="/svg/logo_text.svg" alt="Synupsis Logo" class="h-8" />
+        <img src="/svg/logo_text.svg" alt="Synupsis Logo" class="h-8 hover:opacity-70 transition-opacity" />
       </router-link>
       <UserAuthStatus />
     </header>
