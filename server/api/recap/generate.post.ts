@@ -1,6 +1,7 @@
 import { serverSupabaseClient } from '#supabase/server';
 import type { Database } from '~/types/database.types';
 import OpenAI from 'openai';
+import axios from 'axios';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -26,38 +27,60 @@ export default defineEventHandler(async (event) => {
     // Not throwing an error, will use fallback in createPrompt
   }
 
-  // 1. Get Show and Season details from our database
-  const { data: showData, error: showError } = await supabase
+  // Fetch show's trakt_id and season's number
+  const { data: showDataFromDb, error: showErrorFromDb } = await supabase
     .from('show')
-    .select('name')
+    .select('name, trakt_id') // Assuming trakt_id exists
     .eq('id', showId)
     .single();
 
-  if (showError || !showData) {
-    console.error('Failed to find show in DB:', showError);
-    throw createError({ statusCode: 404, statusMessage: 'Show not found in database.' });
+  if (showErrorFromDb || !showDataFromDb || !showDataFromDb.trakt_id) {
+    console.error('Failed to find show in DB or show is missing trakt_id:', showErrorFromDb);
+    throw createError({ statusCode: 404, statusMessage: 'Show not found in database or is missing Trakt ID.' });
   }
-  const showName = showData.name;
+  const showName = showDataFromDb.name;
+  const traktShowId = showDataFromDb.trakt_id;
 
-  const { data: seasonData, error: seasonError } = await supabase
+  const { data: seasonDataFromDb, error: seasonErrorFromDb } = await supabase
     .from('season')
-    .select('tv_maze_id')
+    .select('number') // Assuming 'number' column exists for season number
     .eq('id', seasonId)
     .single();
 
-  if (seasonError || !seasonData || !seasonData.tv_maze_id) {
-    console.error('Failed to find season in DB or season is missing tv_maze_id:', seasonError);
-    throw createError({ statusCode: 404, statusMessage: 'Season not found in database or is missing TVMaze ID.' });
+  if (seasonErrorFromDb || !seasonDataFromDb || !seasonDataFromDb.number) {
+    console.error('Failed to find season in DB or season is missing number:', seasonErrorFromDb);
+    throw createError({ statusCode: 404, statusMessage: 'Season not found in database or is missing season number.' });
   }
-  const tvMazeSeasonId = seasonData.tv_maze_id;
+  const seasonNumber = seasonDataFromDb.number;
 
-  // 2. Fetch season details from TVMaze
+  // 2. Fetch season details from Trakt
   let seasonDetails: any;
   try {
-    seasonDetails = await $fetch(`https://api.tvmaze.com/seasons/${tvMazeSeasonId}?embed=episodes`);
+    const clientId = process.env.TRAKT_CLIENT_ID;
+    const traktUrl = `https://api.trakt.tv/shows/${traktShowId}/seasons/${seasonNumber}?extended=full,episodes`;
+    const headers = {
+      'Content-Type': 'application/json',
+      'trakt-api-version': '2',
+      'trakt-api-key': clientId
+    };
+    const response = await axios.get(traktUrl, { headers });
+    const traktSeason = response.data;
+
+    // Map Trakt response to expected structure for createPrompt
+    seasonDetails = {
+      number: traktSeason.number,
+      summary: traktSeason.overview,
+      _embedded: {
+        episodes: traktSeason.episodes.map((ep: any) => ({
+          number: ep.number,
+          name: ep.title,
+          summary: ep.overview,
+        })),
+      },
+    };
   } catch (e) {
-    console.error('Failed to fetch season details from TVMaze:', e);
-    throw createError({ statusCode: 500, statusMessage: 'Failed to fetch season data.' });
+    console.error('Failed to fetch season details from Trakt:', e);
+    throw createError({ statusCode: 500, statusMessage: 'Failed to fetch season data from Trakt.' });
   }
 
   const { data: { user } } = await supabase.auth.getUser();

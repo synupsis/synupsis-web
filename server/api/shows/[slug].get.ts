@@ -1,6 +1,5 @@
 import { serverSupabaseClient, SupabaseClient } from '#supabase/server';
 import type { Database } from '~/types/database.types';
-import type { TvMazeShow } from '~/types/tv-maze.types';
 import axios from 'axios';
 
 // Type definitions for clarity
@@ -12,33 +11,50 @@ type ShowWithSeasons = Database['public']['Tables']['show']['Row'] & {
 };
 
 // Fetches the show and its relations from our local database
-async function getShowFromDb(supabase: SupabaseClient<Database>, tvMazeId: string) {
+async function getShowFromDb(supabase: SupabaseClient<Database>, traktId: string) {
   const { data, error } = await supabase
     .from('show')
     .select('*, seasons:season(*, recap(*))')
-    .eq('tv_maze_id', tvMazeId)
+    .eq('trakt_id', traktId)
     .maybeSingle();
   if (error) throw createError({ statusCode: 500, statusMessage: `DB Error: ${error.message}` });
   return data as ShowWithSeasons | null;
 }
 
 // Creates the show and all its seasons in our database
-async function createShowInDb(supabase: SupabaseClient<Database>, tvMazeShow: TvMazeShow) {
-  const { id: tvMazeId, name, genres, image, summary, _embedded } = tvMazeShow;
+async function createShowInDb(supabase: SupabaseClient<Database>, traktShow: any) {
+  const { ids, title, genres, overview, images } = traktShow;
 
   const { data: show, error: showError } = await supabase
     .from('show')
-    .insert({ tv_maze_id: tvMazeId, name, language: 'en', genres, image: image?.original, summary })
+    .insert({
+      trakt_id: ids.trakt,
+      name: title,
+      language: 'en',
+      genres,
+      image: images?.poster?.full,
+      summary: overview
+    })
     .select('id')
     .single();
   if (showError || !show) throw createError({ statusCode: 500, statusMessage: `Failed to create show: ${showError?.message}` });
 
-  const seasonsToInsert = _embedded.seasons.map(s => ({
-    tv_maze_id: s.id,
-    name: s.name,
+  // Fetch seasons from Trakt for the newly created show
+  const clientId = process.env.TRAKT_CLIENT_ID;
+  const seasonsUrl = `https://api.trakt.tv/shows/${ids.trakt}/seasons?extended=full`;
+  const headers = {
+    'Content-Type': 'application/json',
+    'trakt-api-version': '2',
+    'trakt-api-key': clientId
+  };
+  const { data: traktSeasons } = await axios.get(seasonsUrl, { headers });
+
+  const seasonsToInsert = traktSeasons.map((s: any) => ({
+    trakt_id: s.ids.trakt,
+    name: s.title,
     number: s.number,
     show_id: show.id,
-    image: s.image?.original,
+    image: s.images?.poster?.full,
   }));
   const { error: seasonsError } = await supabase.from('season').insert(seasonsToInsert);
   if (seasonsError) {
@@ -46,30 +62,30 @@ async function createShowInDb(supabase: SupabaseClient<Database>, tvMazeShow: Tv
     throw createError({ statusCode: 500, statusMessage: `Failed to create seasons: ${seasonsError.message}` });
   }
 
-  return getShowFromDb(supabase, tvMazeId.toString());
+  return getShowFromDb(supabase, ids.trakt.toString());
 }
 
-// Merges the rich data from TVMaze with our local DB data
-function mergeShowData(tvMazeShow: TvMazeShow, dbShow: ShowWithSeasons | null): any {
-  if (!dbShow) return tvMazeShow;
+// Merges the rich data from Trakt with our local DB data
+function mergeShowData(traktShow: any, dbShow: ShowWithSeasons | null): any {
+  if (!dbShow) return traktShow;
 
-  const dbSeasonsByTvMazeId = new Map(dbShow.seasons.map(s => [s.tv_maze_id, s]));
+  const dbSeasonsByTraktId = new Map(dbShow.seasons.map(s => [s.trakt_id, s]));
 
-  const seasons = tvMazeShow._embedded.seasons.map(tvMazeSeason => {
-    const dbSeason = dbSeasonsByTvMazeId.get(tvMazeSeason.id);
+  const seasons = traktShow.seasons.map((traktSeason: any) => {
+    const dbSeason = dbSeasonsByTraktId.get(traktSeason.ids.trakt);
     return {
-      ...tvMazeSeason,
-      id: dbSeason?.id ?? tvMazeSeason.id,
+      ...traktSeason,
+      id: dbSeason?.id ?? traktSeason.ids.trakt,
       recap: dbSeason?.recap ?? [],
     };
   });
 
   return {
-    ...tvMazeShow,
+    ...traktShow,
     id: dbShow.id,
-    image: tvMazeShow.image,
+    image: traktShow.images?.poster?.full,
     seasons,
-    _embedded: { cast: tvMazeShow._embedded.cast },
+    _embedded: { cast: traktShow._embedded.cast }, // Assuming cast is added to _embedded
   };
 }
 
@@ -78,42 +94,54 @@ export default defineEventHandler(async (event) => {
   const slug = event.context.params?.slug;
 
   if (!slug) throw createError({ statusCode: 400, statusMessage: 'No slug provided' });
-  const tvMazeId = slug.split('-').pop();
-  if (!tvMazeId) throw createError({ statusCode: 400, statusMessage: 'Invalid slug format' });
+  const traktId = slug.split('-').pop();
+  if (!traktId) throw createError({ statusCode: 400, statusMessage: 'Invalid slug format' });
 
   try {
-    // 1. Always fetch fresh data from TVMaze
-    const { data: tvMazeShow } = await axios.get<TvMazeShow>(`https://api.tvmaze.com/shows/${tvMazeId}?embed[]=seasons&embed[]=cast`);
+    // 1. Always fetch fresh data from Trakt
+    const clientId = process.env.TRAKT_CLIENT_ID;
+    const traktUrl = `https://api.trakt.tv/shows/${traktId}?extended=full`;
+    const headers = {
+      'Content-Type': 'application/json',
+      'trakt-api-version': '2',
+      'trakt-api-key': clientId
+    };
+    const { data: traktShow } = await axios.get(traktUrl, { headers });
+
+    // Fetch cast separately as it's not in extended=full for shows
+    const castUrl = `https://api.trakt.tv/shows/${traktId}/people`;
+    const { data: traktCast } = await axios.get(castUrl, { headers });
+    traktShow._embedded = { cast: traktCast.cast }; // Add cast to _embedded for compatibility with mergeShowData
 
     // 2. Get our local data
-    let dbShow = await getShowFromDb(supabase, tvMazeId);
+    let dbShow = await getShowFromDb(supabase, traktId);
 
     // 3. If show doesn't exist, create it. If it exists, sync its seasons.
     if (!dbShow) {
-      dbShow = await createShowInDb(supabase, tvMazeShow);
+      dbShow = await createShowInDb(supabase, traktShow);
     } else {
-      // Sync seasons: find seasons from TVMaze that are not in our DB and add them.
-      const dbSeasonTvMazeIds = new Set(dbShow.seasons.map(s => s.tv_maze_id));
-      const missingSeasons = tvMazeShow._embedded.seasons.filter(
-        s => !dbSeasonTvMazeIds.has(s.id)
+      // Sync seasons: find seasons from Trakt that are not in our DB and add them.
+      const dbSeasonTraktIds = new Set(dbShow.seasons.map(s => s.trakt_id));
+      const missingSeasons = traktShow.seasons.filter(
+        (s: any) => !dbSeasonTraktIds.has(s.ids.trakt)
       );
 
       if (missingSeasons.length > 0) {
-        const seasonsToInsert = missingSeasons.map(s => ({
-          tv_maze_id: s.id,
-          name: s.name,
+        const seasonsToInsert = missingSeasons.map((s: any) => ({
+          trakt_id: s.ids.trakt,
+          name: s.title,
           number: s.number,
           show_id: dbShow!.id,
-          image: s.image?.original,
+          image: s.images?.poster?.full,
         }));
         await supabase.from('season').insert(seasonsToInsert);
         // Re-fetch to get the complete, updated show data
-        dbShow = await getShowFromDb(supabase, tvMazeId);
+        dbShow = await getShowFromDb(supabase, traktId);
       }
     }
 
     // 4. Merge the two data sources for the final response
-    const show = mergeShowData(tvMazeShow, dbShow);
+    const show = mergeShowData(traktShow, dbShow);
 
     return { show };
   } catch (error: any) {

@@ -1,5 +1,4 @@
 import axios from 'axios';
-import type { TvMazeShow } from '~/types/tv-maze.types';
 
 // This function fetches the schedule for the current day to get trending shows.
 export default defineEventHandler(async event => {
@@ -28,13 +27,34 @@ export default defineEventHandler(async event => {
 
     return trendingShows;
   } catch (error: any) {
-    console.error('Failed to fetch trending shows:', error);
-    // Fallback to a static list in case the schedule API fails
-    const fallbackIds = [169, 82, 2993, 139, 431];
-    const showPromises = fallbackIds.map(id =>
-      axios.get<TvMazeShow>(`https://api.tvmaze.com/shows/${id}`)
-    );
-    const showResponses = await Promise.all(showPromises);
-    return showResponses.map(res => res.data);
+    console.error('Failed to fetch trending shows from Trakt (primary):', error);
+    // Fallback to Trakt popular shows if trending fails
+    try {
+      const clientId = process.env.TRAKT_CLIENT_ID;
+      const fallbackUrl = 'https://api.trakt.tv/shows/popular?extended=images'; // Using popular as fallback
+
+      const headers = {
+        'Content-Type': 'application/json',
+        'trakt-api-version': '2',
+        'trakt-api-key': clientId
+      };
+
+      const fallbackResponse = await axios.get(fallbackUrl, { headers });
+      const fallbackShows = fallbackResponse.data;
+
+      const popularShows = Array.from(fallbackShows.values())
+        .slice(0, 10)
+        .map((popularShow: any) => ({
+          id: popularShow.show.ids.trakt,
+          name: popularShow.show.title,
+          image: 'https://' + popularShow.show.images.poster[0],
+          slug: popularShow.show.ids.slug,
+        }));
+      return popularShows;
+    } catch (fallbackError: any) {
+      console.error('Failed to fetch popular shows from Trakt (fallback):', fallbackError);
+      // If both fail, return an empty array
+      return [];
+    }
   }
 });

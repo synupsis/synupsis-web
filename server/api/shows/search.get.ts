@@ -1,5 +1,4 @@
 import axios from 'axios';
-import type { TvMazeSearchResult } from '~/types/tv-maze.types';
 
 export default defineEventHandler(async event => {
   const { q: query } = getQuery(event);
@@ -12,19 +11,24 @@ export default defineEventHandler(async event => {
   }
 
   try {
-    const { data: searchData } = await axios.get<TvMazeSearchResult[]>(
-      `https://api.tvmaze.com/search/shows?q=${query}`
-    );
+    const clientId = process.env.TRAKT_CLIENT_ID;
+    const url = `https://api.trakt.tv/search/show?query=${query}&extended=images`;
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'trakt-api-version': '2',
+      'trakt-api-key': clientId
+    };
+
+    const { data: searchData } = await axios.get(url, { headers });
 
     const shows = searchData
-      .map(item => item.show)
-      .filter(show => show.premiered)
-      .map(show => ({
-        id: show.id,
-        name: show.name,
-        premiered: show.premiered,
-        ended: show.ended,
-        image: show.image?.medium ?? null
+      .filter((item: any) => item.show && item.show.ids && item.show.title) // Ensure show and its basic info exist
+      .map((item: any) => ({
+        id: item.show.ids.trakt,
+        slug: item.show.ids.slug,
+        name: item.show.title,
+        image: 'https://' + item.show.images?.poster[0]
       }));
 
     return shows;
@@ -32,7 +36,7 @@ export default defineEventHandler(async event => {
     console.error('Error searching for shows:', error);
     throw createError({
       statusCode: 500,
-      statusMessage: 'Failed to fetch shows from TVMaze API.'
+      statusMessage: 'Failed to fetch shows from Trakt API.'
     });
   }
 });
