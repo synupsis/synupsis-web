@@ -1,16 +1,29 @@
 <template>
-  <div class="w-full min-h-screen bg-background text-foreground">
-    <!-- Header -->
-    <header class="flex w-full justify-between items-center py-6 px-8 border-b">
-      <router-link to="/">
-        <img src="/svg/logo_text.svg" alt="Synupsis Logo" class="h-8" />
-      </router-link>
-      <UserAuthStatus />
-    </header>
-
-    <!-- Main Content -->
-    <main class="p-4 sm:p-8">
-      <div class="max-w-7xl mx-auto">
+  <SidebarProvider>
+      <Sidebar>
+        <SidebarContent>
+          <SidebarHeader>
+            <router-link to="/">
+              <img src="/svg/logo_text.svg" alt="Synupsis Logo" class="h-8" />
+            </router-link>
+          </SidebarHeader>
+          <SidebarMenu>
+            <SidebarMenuItem to="/admin">
+              Dashboard
+            </SidebarMenuItem>
+            <SidebarMenuItem to="/admin/prompts">
+              Prompts
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarContent>
+      </Sidebar>
+      <div class="flex-1 flex flex-col">
+      <header class="flex w-full justify-between items-center py-6 px-8 border-b">
+        <div class="ml-auto">
+          <UserAuthStatus />
+        </div>
+      </header>
+      <main class="p-4 sm:p-8">
         <h1 class="text-3xl font-bold mb-8">Admin Panel</h1>
 
         <!-- Stats Section -->
@@ -47,16 +60,24 @@
           </div>
           <div v-else class="w-full h-64 bg-muted rounded-lg animate-pulse" />
         </section>
-      </div>
-    </main>
-  </div>
+      </main>
+    </div>
+  </SidebarProvider>
 </template>
 
 <script lang="ts" setup>
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/shadcn/card';
-import UserAuthStatus from '~/components/UserAuthStatus.vue';
 import { columns } from '~/components/admin/columns';
 import DataTable from '~/components/admin/DataTable.vue';
+import UserAuthStatus from '~/components/UserAuthStatus.vue';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarProvider,
+} from '~/components/shadcn/sidebar';
 
 definePageMeta({
   middleware: 'admin'

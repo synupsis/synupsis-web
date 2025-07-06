@@ -27,11 +27,6 @@
           :loading="isSearching"
           class="w-full h-14 text-lg"
         />
-        
-        <!-- Search Results -->
-        <div v-if="isSearching" class="absolute top-full mt-2 w-full bg-secondary rounded-lg shadow-lg p-4 z-20">
-          <SpinLoader class="h-8 w-8 mx-auto" />
-        </div>
       </div>
     </main>
 
@@ -68,7 +63,7 @@
             <h2 class="text-3xl font-bold tracking-tight text-white sm:text-4xl mb-10">Trending Now</h2>
             <Carousel v-if="featuredShows" class="w-full">
                <CarouselContent class="-ml-4">
-                <CarouselItem v-for="show in featuredShows" :key="show.id" class="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5">
+                <CarouselItem v-for="show in featuredShows" :key="show.id" class="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5 ">
                   <BlurReveal>
                     <router-link :to="`/shows/${slugify(show.name)}-${show.id}`" class="group">
                       <div class="aspect-[2/3] w-full overflow-hidden rounded-lg">

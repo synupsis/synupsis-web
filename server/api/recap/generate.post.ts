@@ -14,6 +14,18 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Missing showId or seasonId' });
   }
 
+  // Fetch active prompt
+  const { data: activePrompt, error: promptError } = await supabase
+    .from('prompts')
+    .select('content')
+    .eq('is_active', true)
+    .single();
+
+  if (promptError && promptError.code !== 'PGRST116') { // PGRST116 = no rows found
+    console.error('Error fetching active prompt:', promptError);
+    // Not throwing an error, will use fallback in createPrompt
+  }
+
   // 1. Get Show and Season details from our database
   const { data: showData, error: showError } = await supabase
     .from('show')
@@ -54,7 +66,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // 3. Generate recap with OpenAI
-  const prompt = createPrompt(seasonDetails, showName);
+  const prompt = createPrompt(seasonDetails, showName, activePrompt?.content);
   let slides;
 
   try {
@@ -131,10 +143,12 @@ export default defineEventHandler(async (event) => {
   return { recapId: recap.id };
 });
 
-function createPrompt(season: any, showName: string): string {
+function createPrompt(season: any, showName: string, promptTemplate?: string): string {
   const episodeSummaries = season._embedded.episodes.map((ep: any) => `Episode ${ep.number}: ${ep.name} - ${ep.summary?.replace(/<[^>]*>?/gm, '')}`).join('\n');
 
-  return `
+  if (!promptTemplate) {
+    // Fallback to the original hardcoded prompt
+    return `
 # ROLE
 Tu es un assistant expert en génération de JSON pour des canevas Konva.js.
 
@@ -197,4 +211,12 @@ Tu dois produire UNIQUEMENT un tableau JSON valide, sans aucun texte avant ou ap
     - Season Summary: ${season.summary?.replace(/<[^>]*>?/gm, '')}
     - Episodes: ${episodeSummaries}
   `;
+  }
+
+  // Replace placeholders in the dynamic prompt
+  return promptTemplate
+    .replace(/{{showName}}/g, showName)
+    .replace(/{{seasonNumber}}/g, season.number)
+    .replace(/{{seasonSummary}}/g, season.summary?.replace(/<[^>]*>?/gm, '') || '')
+    .replace(/{{episodeSummaries}}/g, episodeSummaries);
 }
