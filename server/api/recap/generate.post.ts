@@ -119,6 +119,7 @@ export default defineEventHandler(async (event) => {
       season_id: seasonId,
       user_id: user.id,
       status: 'published', // Set status to published directly
+      prompt_id: activePrompt?.id || null, // Save the ID of the active prompt
     })
     .select()
     .single();

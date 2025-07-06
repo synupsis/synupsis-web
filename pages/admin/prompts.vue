@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import type { Prompt } from '~/types/database.types'
+import type { Prompt, Recap } from '~/types/database.types'
 import { toast } from 'vue-sonner'
 import { Button } from '@/components/shadcn/button'
 import {
@@ -25,6 +25,8 @@ const activePromptId = ref<string | null>(null)
 const promptVersions = ref<Prompt[]>([])
 const viewingPromptContent = ref<string | null>(null)
 const isViewModalOpen = ref(false)
+const recapsList = ref<Recap[]>([])
+const isRecapsModalOpen = ref(false)
 
 async function fetchPrompts() {
   try {
@@ -98,9 +100,19 @@ function viewPrompt(content: string) {
   isViewModalOpen.value = true
 }
 
+async function viewRecaps(promptId: string) {
+  try {
+    recapsList.value = await $fetch<Recap[]>(`/api/admin/prompts/${promptId}/recaps`)
+    isRecapsModalOpen.value = true
+  } catch (error) {
+    console.error('Error fetching recaps:', error)
+    toast.error('Could not fetch recaps.')
+  }
+}
+
 const highlightedPromptContent = computed(() => {
   if (!viewingPromptContent.value) return '';
-  // Replace {{variable}} with a span for highlighting, using HTML entities for curly braces
+  // Replace {{variable}} with a span for highlighting
   return viewingPromptContent.value.replace(/\{\{([^}]+)\}\} /g, '<span class="bg-yellow-200 dark:bg-yellow-700 text-yellow-900 dark:text-yellow-100 px-1 rounded">&#123;&#123;$1&#125;&#125;</span>');
 });
 
@@ -155,6 +167,7 @@ onMounted(fetchPrompts)
                 <TableHead>ID</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead>Active</TableHead>
+                <TableHead>Recaps Generated</TableHead>
                 <TableHead class="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -163,8 +176,10 @@ onMounted(fetchPrompts)
                 <TableCell class="font-medium">{{ prompt.id.substring(0, 8) }}...</TableCell>
                 <TableCell>{{ new Date(prompt.created_at).toLocaleString() }}</TableCell>
                 <TableCell>{{ prompt.is_active ? 'Yes' : 'No' }}</TableCell>
+                <TableCell>{{ prompt.recaps_count[0].count }}</TableCell>
                 <TableCell class="text-right">
                   <Button variant="outline" size="sm" @click="viewPrompt(prompt.content)" class="mr-2">View</Button>
+                  <Button variant="outline" size="sm" @click="viewRecaps(prompt.id)" class="mr-2">View Recaps</Button>
                   <Button v-if="!prompt.is_active" variant="outline" size="sm" @click="activatePrompt(prompt.id)">Activate</Button>
                 </TableCell>
               </TableRow>
@@ -179,6 +194,40 @@ onMounted(fetchPrompts)
               <DialogDescription>Read-only view of the prompt content.</DialogDescription>
             </DialogHeader>
             <div class="whitespace-pre-wrap p-4 border rounded-md bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 overflow-auto max-h-[60vh]" v-html="highlightedPromptContent">
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog :open="isRecapsModalOpen" @update:open="isRecapsModalOpen = $event">
+          <DialogContent class="sm:max-w-[800px]">
+            <DialogHeader>
+              <DialogTitle>Recaps for this Prompt</DialogTitle>
+              <DialogDescription>List of recaps generated using this prompt version.</DialogDescription>
+            </DialogHeader>
+            <div class="overflow-auto max-h-[60vh]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Show ID</TableHead>
+                    <TableHead>Season ID</TableHead>
+                    <TableHead>Created At</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow v-for="recap in recapsList" :key="recap.id">
+                    <TableCell class="font-medium">{{ recap.id.substring(0, 8) }}...</TableCell>
+                    <TableCell>{{ recap.show_id.substring(0, 8) }}...</TableCell>
+                    <TableCell>{{ recap.season_id.substring(0, 8) }}...</TableCell>
+                    <TableCell>{{ new Date(recap.created_at).toLocaleString() }}</TableCell>
+                    <TableCell>{{ recap.status }}</TableCell>
+                  </TableRow>
+                  <TableRow v-if="recapsList.length === 0">
+                    <TableCell colspan="5" class="text-center">No recaps found for this prompt.</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
             </div>
           </DialogContent>
         </Dialog>

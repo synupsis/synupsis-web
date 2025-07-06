@@ -6,7 +6,7 @@ export default defineEventHandler(async (event) => {
 
   const { data, error } = await client
     .from('prompts')
-    .select('*')
+    .select('*, recaps_count:recap(count)') // Select all prompt fields and count related recaps
     .order('created_at', { ascending: false })
 
   if (error) {
