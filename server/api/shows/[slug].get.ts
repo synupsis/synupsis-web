@@ -32,7 +32,7 @@ async function createShowInDb(supabase: SupabaseClient<Database>, traktShow: any
       name: title,
       language: 'en',
       genres,
-      image: images?.poster?.full,
+      image: 'https://' + (images?.fanart[0] ?? images?.poster[0]),
       summary: overview
     })
     .select('id')
@@ -41,7 +41,7 @@ async function createShowInDb(supabase: SupabaseClient<Database>, traktShow: any
 
   // Fetch seasons from Trakt for the newly created show
   const clientId = process.env.TRAKT_CLIENT_ID;
-  const seasonsUrl = `https://api.trakt.tv/shows/${ids.trakt}/seasons?extended=full`;
+  const seasonsUrl = `https://api.trakt.tv/shows/${ids.trakt}/seasons?extended=full,images`;
   const headers = {
     'Content-Type': 'application/json',
     'trakt-api-version': '2',
@@ -54,7 +54,7 @@ async function createShowInDb(supabase: SupabaseClient<Database>, traktShow: any
     name: s.title,
     number: s.number,
     show_id: show.id,
-    image: s.images?.poster?.full,
+    image: 'https://' + s.images?.poster[0],
   }));
   const { error: seasonsError } = await supabase.from('season').insert(seasonsToInsert);
   if (seasonsError) {
@@ -62,31 +62,7 @@ async function createShowInDb(supabase: SupabaseClient<Database>, traktShow: any
     throw createError({ statusCode: 500, statusMessage: `Failed to create seasons: ${seasonsError.message}` });
   }
 
-  return getShowFromDb(supabase, ids.trakt.toString());
-}
-
-// Merges the rich data from Trakt with our local DB data
-function mergeShowData(traktShow: any, dbShow: ShowWithSeasons | null): any {
-  if (!dbShow) return traktShow;
-
-  const dbSeasonsByTraktId = new Map(dbShow.seasons.map(s => [s.trakt_id, s]));
-
-  const seasons = traktShow.seasons.map((traktSeason: any) => {
-    const dbSeason = dbSeasonsByTraktId.get(traktSeason.ids.trakt);
-    return {
-      ...traktSeason,
-      id: dbSeason?.id ?? traktSeason.ids.trakt,
-      recap: dbSeason?.recap ?? [],
-    };
-  });
-
-  return {
-    ...traktShow,
-    id: dbShow.id,
-    image: traktShow.images?.poster?.full,
-    seasons,
-    _embedded: { cast: traktShow._embedded.cast }, // Assuming cast is added to _embedded
-  };
+  return show.id;
 }
 
 export default defineEventHandler(async (event) => {
@@ -98,50 +74,44 @@ export default defineEventHandler(async (event) => {
   if (!traktId) throw createError({ statusCode: 400, statusMessage: 'Invalid slug format' });
 
   try {
-    // 1. Always fetch fresh data from Trakt
+    let show: ShowWithSeasons | null = null;
+    let cast: any[] = [];
+
+    // 1. Try to get show from our local database
+    const dbShow = await getShowFromDb(supabase, traktId);
+
+    if (dbShow) {
+      show = dbShow;
+    } else {
+      // 2. If not in DB, fetch from Trakt and create in DB
+      const clientId = process.env.TRAKT_CLIENT_ID;
+      const headers = {
+        'Content-Type': 'application/json',
+        'trakt-api-version': '2',
+        'trakt-api-key': clientId
+      };
+
+      const traktUrl = `https://api.trakt.tv/shows/${traktId}?extended=full,images`;
+      const { data: traktShow } = await axios.get(traktUrl, { headers });
+
+      const newShowId = await createShowInDb(supabase, traktShow);
+      show = await getShowFromDb(supabase, traktId); // Re-fetch to get full object with seasons and recaps
+    }
+
+    // 3. Always fetch cast from Trakt (as it's not stored in DB with show details)
     const clientId = process.env.TRAKT_CLIENT_ID;
-    const traktUrl = `https://api.trakt.tv/shows/${traktId}?extended=full`;
     const headers = {
       'Content-Type': 'application/json',
       'trakt-api-version': '2',
       'trakt-api-key': clientId
     };
-    const { data: traktShow } = await axios.get(traktUrl, { headers });
-
-    // Fetch cast separately as it's not in extended=full for shows
-    const castUrl = `https://api.trakt.tv/shows/${traktId}/people`;
+    const castUrl = `https://api.trakt.tv/shows/${traktId}/people?extended=images`;
     const { data: traktCast } = await axios.get(castUrl, { headers });
-    traktShow._embedded = { cast: traktCast.cast }; // Add cast to _embedded for compatibility with mergeShowData
-
-    // 2. Get our local data
-    let dbShow = await getShowFromDb(supabase, traktId);
-
-    // 3. If show doesn't exist, create it. If it exists, sync its seasons.
-    if (!dbShow) {
-      dbShow = await createShowInDb(supabase, traktShow);
-    } else {
-      // Sync seasons: find seasons from Trakt that are not in our DB and add them.
-      const dbSeasonTraktIds = new Set(dbShow.seasons.map(s => s.trakt_id));
-      const missingSeasons = traktShow.seasons.filter(
-        (s: any) => !dbSeasonTraktIds.has(s.ids.trakt)
-      );
-
-      if (missingSeasons.length > 0) {
-        const seasonsToInsert = missingSeasons.map((s: any) => ({
-          trakt_id: s.ids.trakt,
-          name: s.title,
-          number: s.number,
-          show_id: dbShow!.id,
-          image: s.images?.poster?.full,
-        }));
-        await supabase.from('season').insert(seasonsToInsert);
-        // Re-fetch to get the complete, updated show data
-        dbShow = await getShowFromDb(supabase, traktId);
-      }
+    cast = traktCast.cast; // Assign cast data
+    // Add cast to the show object before returning
+    if (show) {
+      (show as any)._embedded = { cast };
     }
-
-    // 4. Merge the two data sources for the final response
-    const show = mergeShowData(traktShow, dbShow);
 
     return { show };
   } catch (error: any) {

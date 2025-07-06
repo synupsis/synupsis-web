@@ -19,7 +19,7 @@ export default defineEventHandler(async event => {
     const trendingShows = Array.from(shows.values())
       .slice(0, 10)
       .map((trendingShow: any) => ({
-        id: trendingShow.show.ids.trakt,
+        traktId: trendingShow.show.ids.trakt,
         name: trendingShow.show.title,
         image: 'https://' + trendingShow.show.images.poster[0],
         slug: trendingShow.show.ids.slug,

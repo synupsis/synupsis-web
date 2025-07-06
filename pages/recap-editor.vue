@@ -5,7 +5,7 @@
       <header class="flex items-center justify-between p-4 border-b border-border">
         <div class="flex items-center gap-4">
           <router-link to="/">
-            <Logo variant="white" class="h-8 w-8" />
+            <Logo variant="white" size="sm" />
           </router-link>
           <div>
             <div class="flex items-center gap-2">

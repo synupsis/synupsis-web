@@ -25,7 +25,7 @@ export default defineEventHandler(async event => {
     const shows = searchData
       .filter((item: any) => item.show && item.show.ids && item.show.title) // Ensure show and its basic info exist
       .map((item: any) => ({
-        id: item.show.ids.trakt,
+        traktId: item.show.ids.trakt,
         slug: item.show.ids.slug,
         name: item.show.title,
         image: 'https://' + item.show.images?.poster[0]

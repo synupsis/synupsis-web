@@ -8,7 +8,7 @@
 
     <!-- Header -->
     <header class="relative z-10 flex w-full justify-between items-center py-6 px-8">
-      <Logo />
+      <Logo class="w-32" display-text />
       <UserAuthStatus />
     </header>
 
@@ -42,9 +42,9 @@
             </div>
             <Carousel v-else-if="searchResults.length > 0" class="w-full">
               <CarouselContent class="-ml-4">
-                <CarouselItem v-for="show in searchResults" :key="show.id" class="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5">
+                <CarouselItem v-for="show in searchResults" :key="show.traktId" class="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5">
                   <BlurReveal>
-                    <router-link :to="`/shows/${show.slug}-${show.id}`" class="group">
+                    <router-link :to="`/shows/${show.slug}-${show.traktId}`" class="group">
                       <div class="aspect-[2/3] w-full overflow-hidden rounded-lg">
                         <img :src="show.image" :alt="show.name" class="w-full h-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105" />
                       </div>
@@ -63,9 +63,9 @@
             <h2 class="text-3xl font-bold tracking-tight text-white sm:text-4xl mb-10">Trending Now</h2>
             <Carousel v-if="featuredShows" class="w-full">
                <CarouselContent class="-ml-4">
-                <CarouselItem v-for="show in featuredShows" :key="show.id" class="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5 ">
+                <CarouselItem v-for="show in featuredShows" :key="show.traktId" class="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5 ">
                   <BlurReveal>
-                    <router-link :to="`/shows/${show.slug}-${show.id}`" class="group">
+                    <router-link :to="`/shows/${show.slug}-${show.traktId}`" class="group">
                       <div class="aspect-[2/3] w-full overflow-hidden rounded-lg">
                         <img :src="show.image" :alt="show.name" class="w-full h-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105" />
                       </div>

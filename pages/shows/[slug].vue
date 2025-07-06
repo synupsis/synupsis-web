@@ -15,7 +15,7 @@
     <!-- Hero Section -->
     <div v-if="data"
       class="relative w-full h-[60vh] bg-cover bg-center bg-no-repeat"
-      :style="{ backgroundImage: `url(${data.image?.original})` }"
+      :style="{ backgroundImage: `url(${data.image})` }"
     >
       <div class="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
       <div class="relative h-full flex flex-col justify-end items-start p-8 md:p-12 lg:p-16">
