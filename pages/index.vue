@@ -23,7 +23,7 @@
       <div class="relative w-full max-w-xl mt-12">
         <VanishingInput
           v-model="searchQuery"
-          :placeholders="['Search for Breaking Bad...', 'Find Game of Thrones recaps', 'What happened in Stranger Things?']"
+          :placeholders="['Breaking Bad', 'Game of Thrones', 'Stranger Things', 'Squid Game', 'The Office', 'The Witcher', 'The Mandalorian', 'The Boys', 'The Crown', 'The Queen\'s Gambit']"
           :loading="isSearching"
           class="w-full h-14 text-lg"
         />
