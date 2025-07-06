@@ -98,6 +98,12 @@ function viewPrompt(content: string) {
   isViewModalOpen.value = true
 }
 
+const highlightedPromptContent = computed(() => {
+  if (!viewingPromptContent.value) return '';
+  // Replace {{variable}} with a span for highlighting, using HTML entities for curly braces
+  return viewingPromptContent.value.replace(/\{\{([^}]+)\}\} /g, '<span class="bg-yellow-200 dark:bg-yellow-700 text-yellow-900 dark:text-yellow-100 px-1 rounded">&#123;&#123;$1&#125;&#125;</span>');
+});
+
 onMounted(fetchPrompts)
 </script>
 
@@ -131,6 +137,9 @@ onMounted(fetchPrompts)
 
         <div class="mb-8">
           <h2 class="text-xl font-semibold mb-2">Active Prompt</h2>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+            You can use variables in your prompt with the syntax <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">&#123;&#123;variable&#125;&#125;</code>.
+          </p>
           <Textarea v-model="activePromptContent" rows="10" class="w-full mb-4" />
           <div class="flex gap-2">
             <Button @click="saveActivePrompt">Save Prompt</Button>
@@ -169,8 +178,7 @@ onMounted(fetchPrompts)
               <DialogTitle>Prompt Content</DialogTitle>
               <DialogDescription>Read-only view of the prompt content.</DialogDescription>
             </DialogHeader>
-            <div class="whitespace-pre-wrap p-4 border rounded-md bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 overflow-auto max-h-[60vh]">
-              {{ viewingPromptContent }}
+            <div class="whitespace-pre-wrap p-4 border rounded-md bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 overflow-auto max-h-[60vh]" v-html="highlightedPromptContent">
             </div>
           </DialogContent>
         </Dialog>
