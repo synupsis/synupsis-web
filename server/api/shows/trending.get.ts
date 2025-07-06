@@ -2,24 +2,29 @@ import axios from 'axios';
 import type { TvMazeShow } from '~/types/tv-maze.types';
 
 // This function fetches the schedule for the current day to get trending shows.
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async event => {
   try {
-    const today = new Date().toISOString().split('T')[0]; // Get date in YYYY-MM-DD format
-    const scheduleUrl = `https://api.tvmaze.com/schedule?country=US&date=${today}`;
+    const clientId = process.env.TRAKT_CLIENT_ID; // Remplacez par votre vrai Client ID
+    const url = 'https://api.trakt.tv/shows/trending?extended=images';
 
-    const response = await axios.get(scheduleUrl);
-    const scheduleItems = response.data;
+    const headers = {
+      'Content-Type': 'application/json',
+      'trakt-api-version': '2',
+      'trakt-api-key': clientId
+    };
 
-    // Use a Map to get unique shows, as a show might air multiple times.
-    const uniqueShows = new Map<number, TvMazeShow>();
-    for (const item of scheduleItems) {
-      if (item.show && !uniqueShows.has(item.show.id)) {
-        uniqueShows.set(item.show.id, item.show);
-      }
-    }
+    const response = await axios.get(url, { headers });
+    const shows = response.data;
 
     // Return a limited number of unique shows
-    const trendingShows = Array.from(uniqueShows.values()).slice(0, 10);
+    const trendingShows = Array.from(shows.values())
+      .slice(0, 10)
+      .map((trendingShow: any) => ({
+        id: trendingShow.show.ids.trakt,
+        name: trendingShow.show.title,
+        image: 'https://' + trendingShow.show.images.poster[0],
+        slug: trendingShow.show.ids.slug,
+      }));
 
     return trendingShows;
   } catch (error: any) {

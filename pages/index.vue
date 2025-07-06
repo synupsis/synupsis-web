@@ -2,7 +2,7 @@
   <div class="w-full min-h-screen flex flex-col">
     <!-- Background -->
     <div class="absolute inset-0 z-0 opacity-20">
-      <img v-if="featuredShows && featuredShows.length > 0" :src="featuredShows[0].image?.original" class="w-full h-full object-cover" alt="Featured show background" />
+      <img v-if="featuredShows && featuredShows.length > 0" :src="featuredShows[0].image" class="w-full h-full object-cover" alt="Featured show background" />
       <div class="absolute inset-0 bg-gradient-to-t from-background via-background to-transparent" />
     </div>
 
@@ -44,9 +44,9 @@
               <CarouselContent class="-ml-4">
                 <CarouselItem v-for="show in searchResults" :key="show.id" class="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5">
                   <BlurReveal>
-                    <router-link :to="`/shows/${slugify(show.name)}-${show.id}`" class="group">
+                    <router-link :to="`/shows/${show.slug}-${show.id}`" class="group">
                       <div class="aspect-[2/3] w-full overflow-hidden rounded-lg">
-                        <img :src="show.image?.medium ?? show.image" :alt="show.name" class="w-full h-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105" />
+                        <img :src="show.image" :alt="show.name" class="w-full h-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105" />
                       </div>
                     </router-link>
                   </BlurReveal>
@@ -65,9 +65,9 @@
                <CarouselContent class="-ml-4">
                 <CarouselItem v-for="show in featuredShows" :key="show.id" class="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5 ">
                   <BlurReveal>
-                    <router-link :to="`/shows/${slugify(show.name)}-${show.id}`" class="group">
+                    <router-link :to="`/shows/${show.slug}-${show.id}`" class="group">
                       <div class="aspect-[2/3] w-full overflow-hidden rounded-lg">
-                        <img :src="show.image?.medium ?? show.image" :alt="show.name" class="w-full h-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105" />
+                        <img :src="show.image" :alt="show.name" class="w-full h-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105" />
                       </div>
                     </router-link>
                   </BlurReveal>
@@ -108,17 +108,6 @@ const searchResults = ref<TvMazeShow[]>([]);
 const isSearching = ref(false);
 
 const { data: featuredShows } = useFetch<TvMazeShow[]>('/api/shows/trending');
-
-const slugify = (text: string) => {
-  return text
-    .toString()
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^\w-]+/g, '')
-    .replace(/--+/g, '-')
-    .replace(/^-+/, '')
-    .replace(/-+$/, '');
-};
 
 const searchShows = useDebounceFn(async () => {
   if (searchQuery.value.length < 2) {
