@@ -66,12 +66,13 @@ export default defineEventHandler(async (event) => {
     const response = await axios.get(traktUrl, { headers });
     const traktSeason = response.data;
 
+    console.log('Trakt Response:', traktSeason);
+
     // Map Trakt response to expected structure for createPrompt
     seasonDetails = {
-      number: traktSeason.number,
-      summary: traktSeason.overview,
+      number: seasonNumber,
       _embedded: {
-        episodes: traktSeason.episodes.map((ep: any) => ({
+        episodes: traktSeason.map((ep: any) => ({
           number: ep.number,
           name: ep.title,
           summary: ep.overview,
@@ -220,6 +221,5 @@ Tu dois produire UNIQUEMENT un tableau JSON valide, sans aucun texte avant ou ap
   return promptTemplate
     .replace(/{{showName}}/g, showName)
     .replace(/{{seasonNumber}}/g, season.number)
-    .replace(/{{seasonSummary}}/g, season.summary?.replace(/<[^>]*>?/gm, '') || '')
     .replace(/{{episodeSummaries}}/g, episodeSummaries);
 }
