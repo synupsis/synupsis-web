@@ -31,11 +31,13 @@
       <div v-else-if="data && data.slides.length > 0" class="w-full h-full flex items-center justify-center">
         <div class="relative aspect-[9/16] h-full max-h-[calc(100vh-120px)]">
           <div class="w-full h-full story-container" ref="storyContainerRef">
-            <div v-for="(slide, index) in data.slides" :key="slide.id" :ref="el => slideRefs[index] = el" class="story-slide">
-              <RecapCanvas
-                :model-value="JSON.stringify(slide.canvas_data)"
-                :read-only="true"
-              />
+            <div v-for="(slide, index) in data.slides" :key="slide.id" :ref="el => { if (el) slideRefs[index] = el as Element }" class="story-slide">
+              <ClientOnly>
+                <RecapCanvas
+                  :model-value="JSON.stringify(slide.canvas_data)"
+                  :read-only="true"
+                />
+              </ClientOnly>
             </div>
           </div>
         </div>
@@ -100,13 +102,15 @@ const scrollToSlide = (index: number) => {
 
 const nextSlide = () => {
   if (data.value && currentSlideIndex.value < data.value.slides.length - 1) {
-    scrollToSlide(currentSlideIndex.value + 1);
+    currentSlideIndex.value++;
+    scrollToSlide(currentSlideIndex.value);
   }
 };
 
 const prevSlide = () => {
   if (currentSlideIndex.value > 0) {
-    scrollToSlide(currentSlideIndex.value - 1);
+    currentSlideIndex.value--;
+    scrollToSlide(currentSlideIndex.value);
   }
 };
 
@@ -119,7 +123,7 @@ const initObserver = () => {
     (entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
-          const index = slideRefs.value.findIndex(el => el === entry.target);
+          const index = slideRefs.value.indexOf(entry.target as Element);
           if (index !== -1) {
             currentSlideIndex.value = index;
           }
@@ -134,13 +138,18 @@ const initObserver = () => {
   });
 };
 
-watch(data, () => {
-  if (data.value) {
+watch(data, (newData) => {
+  if (newData) {
+    slideRefs.value = []; // Clear the array to ensure it's fresh for new data
     nextTick(() => {
+      // After DOM updates and refs are populated, initialize observer
       initObserver();
+      // Scroll to the first slide when new data loads
+      scrollToSlide(0);
+      currentSlideIndex.value = 0;
     });
   }
-});
+}, { immediate: true }); // Run immediately on component mount
 
 onUnmounted(() => {
   observer?.disconnect();
