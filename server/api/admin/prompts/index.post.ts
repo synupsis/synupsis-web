@@ -5,6 +5,11 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient<Database>(event)
   const body = await readBody(event)
 
+  // Generate a default name if not provided
+  if (!body.name) {
+    body.name = `Prompt created at ${new Date().toLocaleString()}`;
+  }
+
   const { data, error } = await client
     .from('prompts')
     .insert(body)

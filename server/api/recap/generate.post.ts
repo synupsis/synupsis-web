@@ -106,27 +106,6 @@ export default defineEventHandler(async (event) => {
     }
     slides = JSON.parse(content).slides;
 
-    // --- Layout Sanitization ---
-    // We override the AI's coordinates to ensure everything is visible.
-    let currentY = 150; // Initial Y position
-    const verticalSpacing = 40; // Space between groups
-    const canvasWidth = 1920;
-
-    // recapGroups = rawGroups.map((group: any) => {
-    //   const newGroup = { ...group }; // Create a shallow copy
-    //
-    //   // Override position
-    //   const groupWidth = newGroup.attrs.rect.width || (canvasWidth - 200);
-    //   newGroup.attrs.x = (canvasWidth - groupWidth) / 2; // Center horizontally
-    //   newGroup.attrs.y = currentY;
-    //
-    //   // Update Y for the next element
-    //   const groupHeight = newGroup.attrs.rect.height || 100; // Use AI height or a fallback
-    //   currentY += groupHeight + verticalSpacing;
-    //
-    //   return newGroup;
-    // });
-
   } catch (e) {
     console.error('Failed to generate or process recap with OpenAI:', e);
     throw createError({ statusCode: 500, statusMessage: 'Failed to generate recap with AI.' });

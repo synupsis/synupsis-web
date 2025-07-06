@@ -1,9 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import type { Prompt } from '~/types/database.types'
-import { columns as baseColumns } from '@/components/admin/prompts/columns'
-import DataTable from '@/components/admin/DataTable.vue'
-import PromptModal from '@/components/admin/prompts/PromptModal.vue'
 import { toast } from 'vue-sonner'
 import { Button } from '@/components/shadcn/button'
 import {
@@ -15,108 +12,168 @@ import {
   SidebarProvider,
 } from '~/components/shadcn/sidebar';
 import UserAuthStatus from '~/components/UserAuthStatus.vue';
+import { Textarea } from '~/components/shadcn/textarea';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '~/components/shadcn/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '~/components/shadcn/dialog';
 
 definePageMeta({
   middleware: ['admin'],
 })
 
-const prompts = ref<Prompt[]>([])
-const isModalOpen = ref(false)
-const selectedPrompt = ref<Prompt | null>(null)
+const activePromptContent = ref<string>('')
+const activePromptId = ref<string | null>(null)
+const promptVersions = ref<Prompt[]>([])
+const viewingPromptContent = ref<string | null>(null)
+const isViewModalOpen = ref(false)
 
 async function fetchPrompts() {
   try {
-    prompts.value = await $fetch<Prompt[]>('/api/admin/prompts')
+    const allPrompts = await $fetch<Prompt[]>('/api/admin/prompts')
+    promptVersions.value = allPrompts.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+    const active = allPrompts.find(p => p.is_active)
+    if (active) {
+      activePromptContent.value = active.content
+      activePromptId.value = active.id
+    } else if (allPrompts.length > 0) {
+      // If no active prompt, set the latest one as active (or first if no created_at)
+      const latestPrompt = promptVersions.value[0];
+      await activatePrompt(latestPrompt.id);
+      activePromptContent.value = latestPrompt.content;
+      activePromptId.value = latestPrompt.id;
+    }
   } catch (error) {
     console.error('Error fetching prompts:', error)
     toast.error('Could not fetch prompts.')
   }
 }
 
-function openCreateModal() {
-  selectedPrompt.value = null
-  isModalOpen.value = true
-}
-
-function openEditModal(prompt: Prompt) {
-  selectedPrompt.value = prompt
-  isModalOpen.value = true
-}
-
-async function duplicatePrompt(id: string) {
+async function saveActivePrompt() {
+  if (!activePromptId.value) {
+    toast.error('No active prompt to save.')
+    return
+  }
   try {
-    await $fetch('/api/admin/prompts/duplicate', {
+    await $fetch(`/api/admin/prompts/${activePromptId.value}`, {
+      method: 'PUT',
+      body: { content: activePromptContent.value },
+    })
+    toast.success('Active prompt updated successfully.')
+    await fetchPrompts()
+  } catch (error) {
+    console.error('Error saving active prompt:', error)
+    toast.error('Could not save active prompt.')
+  }
+}
+
+async function saveNewVersion() {
+  try {
+    await $fetch('/api/admin/prompts', {
       method: 'POST',
-      body: { id },
+      body: { content: activePromptContent.value, is_active: true },
     })
+    toast.success('New prompt version created and set as active.')
     await fetchPrompts()
-    toast.success('Prompt duplicated successfully.')
   } catch (error) {
-    console.error('Error duplicating prompt:', error)
-    toast.error('Could not duplicate prompt.')
+    console.error('Error creating new version:', error)
+    toast.error('Could not create new prompt version.')
   }
 }
 
-async function deletePrompt(id: string) {
-  if (!confirm('Are you sure you want to delete this prompt?')) return
+async function activatePrompt(id: string) {
   try {
-    await $fetch(`/api/admin/prompts/${id}`, {
-      method: 'DELETE',
+    await $fetch(`/api/admin/prompts/activate/${id}`, {
+      method: 'POST',
     })
+    toast.success('Prompt activated successfully.')
     await fetchPrompts()
-    toast.success('Prompt deleted successfully.')
   } catch (error) {
-    console.error('Error deleting prompt:', error)
-    toast.error('Could not delete prompt.')
+    console.error('Error activating prompt:', error)
+    toast.error('Could not activate prompt.')
   }
 }
 
-const columns = computed(() => baseColumns({
-  onEdit: openEditModal,
-  onDuplicate: (prompt) => duplicatePrompt(prompt.id),
-  onDelete: (prompt) => deletePrompt(prompt.id),
-}))
+function viewPrompt(content: string) {
+  viewingPromptContent.value = content
+  isViewModalOpen.value = true
+}
 
 onMounted(fetchPrompts)
 </script>
 
 <template>
   <SidebarProvider>
-      <Sidebar>
-        <SidebarContent>
-          <SidebarHeader>
-            <router-link to="/">
-              <img src="/svg/logo_text.svg" alt="Synupsis Logo" class="h-8" />
-            </router-link>
-          </SidebarHeader>
-          <SidebarMenu>
-            <SidebarMenuItem to="/admin">
-              Dashboard
-            </SidebarMenuItem>
-            <SidebarMenuItem to="/admin/prompts">
-              Prompts
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarContent>
-      </Sidebar>
-      <div class="flex-1 flex flex-col">
+    <Sidebar>
+      <SidebarContent>
+        <SidebarHeader>
+          <router-link to="/">
+            <img src="/svg/logo_text.svg" alt="Synupsis Logo" class="h-8" />
+          </router-link>
+        </SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem to="/admin">
+            Dashboard
+          </SidebarMenuItem>
+          <SidebarMenuItem to="/admin/prompts">
+            Prompts
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarContent>
+    </Sidebar>
+    <div class="flex-1 flex flex-col">
       <header class="flex w-full justify-between items-center py-6 px-8 border-b">
         <div class="ml-auto">
           <UserAuthStatus />
         </div>
       </header>
       <main class="p-4 sm:p-8">
-        <div class="flex justify-between items-center mb-4">
-          <h1 class="text-2xl font-bold">Prompts Management</h1>
-          <Button @click="openCreateModal">Create Prompt</Button>
+        <h1 class="text-2xl font-bold mb-4">Prompts Management</h1>
+
+        <div class="mb-8">
+          <h2 class="text-xl font-semibold mb-2">Active Prompt</h2>
+          <Textarea v-model="activePromptContent" rows="10" class="w-full mb-4" />
+          <div class="flex gap-2">
+            <Button @click="saveActivePrompt">Save Prompt</Button>
+            <Button @click="saveNewVersion" variant="outline">Save This Version</Button>
+          </div>
         </div>
-        <DataTable :columns="columns" :data="prompts" />
-        <PromptModal
-          :open="isModalOpen"
-          :prompt="selectedPrompt"
-          @update:open="isModalOpen = $event"
-          @refresh="fetchPrompts"
-        />
+
+        <div>
+          <h2 class="text-xl font-semibold mb-2">Prompt Versions</h2>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>Created At</TableHead>
+                <TableHead>Active</TableHead>
+                <TableHead class="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="prompt in promptVersions" :key="prompt.id">
+                <TableCell class="font-medium">{{ prompt.id.substring(0, 8) }}...</TableCell>
+                <TableCell>{{ new Date(prompt.created_at).toLocaleString() }}</TableCell>
+                <TableCell>{{ prompt.is_active ? 'Yes' : 'No' }}</TableCell>
+                <TableCell class="text-right">
+                  <Button variant="outline" size="sm" @click="viewPrompt(prompt.content)" class="mr-2">View</Button>
+                  <Button v-if="!prompt.is_active" variant="outline" size="sm" @click="activatePrompt(prompt.id)">Activate</Button>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+
+        <Dialog :open="isViewModalOpen" @update:open="isViewModalOpen = $event">
+          <DialogContent class="sm:max-w-[800px]">
+            <DialogHeader>
+              <DialogTitle>Prompt Content</DialogTitle>
+              <DialogDescription>Read-only view of the prompt content.</DialogDescription>
+            </DialogHeader>
+            <div class="whitespace-pre-wrap p-4 border rounded-md bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 overflow-auto max-h-[60vh]">
+              {{ viewingPromptContent }}
+            </div>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   </SidebarProvider>
