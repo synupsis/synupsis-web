@@ -18,7 +18,7 @@
         <div
           v-for="(image, index) in images"
           :key="image?.original || index"
-          class="aspect-video bg-muted rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary ring-offset-2 ring-offset-background transition-all"
+          class="relative aspect-video bg-muted rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary ring-offset-2 ring-offset-background transition-all"
           @click="selectImage(image.original)"
         >
           <img
@@ -29,6 +29,9 @@
           />
           <div v-else class="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
             No Image
+          </div>
+          <div class="absolute bottom-1 right-1 bg-background/80 text-foreground text-xs px-1.5 py-0.5 rounded-sm">
+            Ep. {{ image.episode }}
           </div>
         </div>
       </div>
@@ -75,8 +78,7 @@ watch(() => props.isOpen, async (newVal) => {
     error.value = null;
     try {
       const response = await $fetch(`/api/shows/season-images?seasonId=${props.seasonId}`);
-      // @ts-ignore
-      images.value = response.body;
+      images.value = response.body.filter(image => image.original && image.medium);
     } catch (e: any) {
       error.value = e;
     } finally {
