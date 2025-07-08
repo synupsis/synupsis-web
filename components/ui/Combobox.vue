@@ -1,29 +1,31 @@
 <template>
-  <Combobox v-model="selected" as="div" @update:model-value="select">
-    <ComboboxLabel v-if="label" class="block text-sm font-medium leading-6 text-gray-900"
+  <HeadlessCombobox v-model="selected" as="div" @update:model-value="select">
+    <HeadlessComboboxLabel v-if="label" class="block text-sm font-medium leading-6 text-gray-900"
       >{{ label }}
-    </ComboboxLabel>
+    </HeadlessComboboxLabel>
     <div class="relative mt-2">
-      <ComboboxInput
-        :placeholder="placeholder"
-        class="w-full rounded-md border-0 bg-white py-1.5 pl-3 pr-12 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-        @change="search = $event.target.value"
-      />
-      <div v-if="itemsLoading" class="absolute inset-y-0 right-0 flex items-center px-2">
-        <div class="border-gray-300 h-5 w-5 animate-spin rounded-full border-4 border-t-blue-600" />
-      </div>
-      <ComboboxButton
-        v-else-if="showChevronIcon"
-        class="absolute inset-y-0 right-0 flex items-center rounded-r-md px-2 focus:outline-none"
-      >
-        <ChevronUpDownIcon aria-hidden="true" class="h-5 w-5 text-gray-400" />
-      </ComboboxButton>
+      <label class="input input-bordered flex items-center gap-2">
+        <HeadlessComboboxInput
+          :placeholder="placeholder"
+          class="grow border-none outline-none focus:outline-none focus:ring-0"
+          type="text"
+          @change="search = $event.target.value"
+        />
+        <span v-if="itemsLoading" class="loading loading-spinner loading-sm opacity-70"></span>
+        <HeadlessComboboxButton
+          v-else-if="showChevronIcon"
+          class="absolute inset-y-0 right-0 flex items-center rounded-r-md px-2 focus:outline-none"
+        >
+          <ChevronUpDownIcon aria-hidden="true" class="h-5 w-5 text-gray-400" />
+        </HeadlessComboboxButton>
+        <slot v-else class="opacity-70" name="icon"></slot>
+      </label>
 
-      <ComboboxOptions
+      <HeadlessComboboxOptions
         v-if="items.length > 0"
         class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm"
       >
-        <ComboboxOption
+        <HeadlessComboboxOption
           v-for="item in items"
           :key="item.username"
           v-slot="{ active, selected }"
@@ -60,23 +62,15 @@
               <CheckIcon aria-hidden="true" class="h-5 w-5" />
             </span>
           </li>
-        </ComboboxOption>
-      </ComboboxOptions>
+        </HeadlessComboboxOption>
+      </HeadlessComboboxOptions>
     </div>
-  </Combobox>
+  </HeadlessCombobox>
 </template>
 
 <script lang="ts" setup>
 import { ref } from 'vue';
 import { CheckIcon, ChevronUpDownIcon } from '@heroicons/vue/20/solid';
-import {
-  Combobox,
-  ComboboxButton,
-  ComboboxInput,
-  ComboboxLabel,
-  ComboboxOption,
-  ComboboxOptions
-} from '@headlessui/vue';
 import useUtils from '~/composables/useUtils';
 
 const { debounce } = useUtils();

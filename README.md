@@ -1,25 +1,24 @@
-
 # Synupsis web client
 
 Generate a quick summary for all seasons of all TV series of the world.
+
 ## Features
 
 - Search a show
 - Display show informations and seasons
 - [WIP] Authentication
 - [WIP] Create recap canvas
+
 ## Roadmap
 
 - Summary generation using AI
 - ... and more !
-
 
 ## Tech Stack
 
 **Client:** VueJS, Nuxt, TailwindCSS
 
 **Server:** Supabase, Deno
-
 
 ## Run Locally
 
@@ -50,9 +49,10 @@ Run Edge Functions locally
 ```bash
   supabase functions serve
 ```
+
 ## Deployment
 
-Nuxt web client deployment is automatic on commit on *main* branch.
+Nuxt web client deployment is automatic on commit on _main_ branch.
 
 To deploy Supabase Edge Functions run
 
@@ -65,33 +65,41 @@ To deploy Supabase Edge Functions run
 ### Features
 
 #### Start a new feature
+
 `git flow feature start`
 
 #### Finish up a feature
+
 `git flow feature finish --push`
 
 ### Bugfixes
 
 #### Start a new bugfix
+
 `git flow bugfix start`
 
 #### Finish up a bugfix
+
 `git flow bugfix finish --push`
 
 ### Hotfixes
 
 #### Start a new hotfix
+
 `git flow hotfix start 1.2.x`
 
 #### Finish up a hotfix
+
 `git flow hotfix finish --push`
 
 ### Make a release
 
 #### Start a new release
+
 `git flow release start 1.x.x`
 
 #### Finish up a release
+
 `git flow release finish --push`
 
 ## Conventions
@@ -149,20 +157,20 @@ No dot (.) at the end
 ## Supabase Edge Functions Reference
 
 ### search-show
+
 Search through all the shows in [TV Maze](https://www.tvmaze.com/api) database by the show's name.
 
 | Parameter | Type     | Description                |
 | :-------- | :------- | :------------------------- |
-| `query` | `string` | **Required**. Search query |
+| `query`   | `string` | **Required**. Search query |
 
 ### get-show
 
 Retrieve all primary information for a given show.
 
-| Parameter | Type     | Description                       |
-| :-------- | :------- | :-------------------------------- |
-| `slug`      | `string` | **Required**. Slug (*[show name] - [TV Maze id]*) of item to fetch |
-
+| Parameter | Type     | Description                                                        |
+| :-------- | :------- | :----------------------------------------------------------------- |
+| `slug`    | `string` | **Required**. Slug (_[show name] - [TV Maze id]_) of item to fetch |
 
 ## Environment Variables
 
@@ -171,6 +179,7 @@ To run this project, you will need to add the following environment variables to
 `SUPABASE_URL`
 
 `SUPABASE_ANON_KEY`
+
 ## Authors
 
 - [@valentingbt](https://www.github.com/valentingbt)

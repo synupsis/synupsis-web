@@ -12,12 +12,7 @@
     "allowSyntheticDefaultImports": true,
     "allowJs": true,
     "sourceMap": true,
-    "lib": [
-      "esnext",
-      "dom",
-      "dom.iterable",
-      "scripthost"
-    ],
+    "lib": ["esnext", "dom", "dom.iterable", "scripthost"],
     "removeComments": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -31,8 +26,5 @@
     "experimentalDecorators": true,
     "resolveJsonModule": true
   },
-  "exclude": [
-    "supabase",
-    "composables/useUtils.ts"
-  ]
+  "exclude": ["supabase", "composables/useUtils.ts"]
 }

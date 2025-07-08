@@ -1,0 +1,71 @@
+<template>
+  <HeadlessTransitionRoot :show="isOpen" appear as="template">
+    <HeadlessDialog as="div" @close="closeModal">
+      <div class="fixed inset-0 z-30 overflow-y-auto">
+        <div class="min-h-screen px-4 text-center">
+          <HeadlessTransitionChild
+            as="template"
+            enter="duration-300 ease-out"
+            enter-from="opacity-0"
+            enter-to="opacity-100"
+            leave="duration-200 ease-in"
+            leave-from="opacity-100"
+            leave-to="opacity-0"
+          >
+            <HeadlessDialogOverlay class="fixed inset-0 bg-gray-500 bg-opacity-75" />
+          </HeadlessTransitionChild>
+
+          <!-- This element is to trick the browser into centering the modal contents. -->
+          <span aria-hidden="true" class="hidden sm:inline-block sm:align-middle sm:h-screen"
+            >&#8203;</span
+          >
+
+          <HeadlessTransitionChild
+            as="template"
+            enter="duration-300 ease-out"
+            enter-from="opacity-0 scale-95"
+            enter-to="opacity-100 scale-100"
+            leave="duration-200 ease-in"
+            leave-from="opacity-100 scale-100"
+            leave-to="opacity-0 scale-95"
+          >
+            <div
+              class="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white text-gray-900 shadow-xl rounded-2xl"
+            >
+              <div class="absolute top-0 right-0 pt-4 pr-4">
+                <button
+                  class="bg-white rounded-md text-gray-400 hover:text-gray-500"
+                  tabindex="-1"
+                  type="button"
+                  @click="closeModal"
+                >
+                  <span class="sr-only">Close</span>
+
+                  <XMarkIcon class="h-6 w-6"></XMarkIcon>
+                </button>
+              </div>
+              <slot></slot>
+            </div>
+          </HeadlessTransitionChild>
+        </div>
+      </div>
+    </HeadlessDialog>
+  </HeadlessTransitionRoot>
+</template>
+
+<script setup>
+import { XMarkIcon } from '@heroicons/vue/24/outline';
+
+defineProps({
+  isOpen: {
+    type: Boolean,
+    default: false
+  }
+});
+
+const emit = defineEmits(['update:isOpen']);
+
+const closeModal = () => {
+  emit('update:isOpen', false);
+};
+</script>
