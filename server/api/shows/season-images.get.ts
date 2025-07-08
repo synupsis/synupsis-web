@@ -71,7 +71,7 @@ export default defineEventHandler(async (event: CompatibilityEvent) => {
           const medium = url.startsWith('http') ? url : `https://${url}`;
           // Create the 'original' (full) URL by replacing size identifier.
           const original = medium.replace('/medium/', '/full/');
-          return { original, medium };
+          return { original, medium, episode: episode.number };
         }).filter(Boolean); // Filter out any null entries
       }
       return []; // Return empty array if no screenshots
