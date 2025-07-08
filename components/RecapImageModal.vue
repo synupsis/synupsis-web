@@ -75,8 +75,7 @@ watch(() => props.isOpen, async (newVal) => {
     error.value = null;
     try {
       const response = await $fetch(`/api/shows/season-images?seasonId=${props.seasonId}`);
-      // @ts-ignore
-      images.value = response.body;
+      images.value = response.body.filter(image => image.original && image.medium);
     } catch (e: any) {
       error.value = e;
     } finally {

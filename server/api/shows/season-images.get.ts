@@ -58,16 +58,24 @@ export default defineEventHandler(async (event: CompatibilityEvent) => {
       'trakt-api-key': clientId
     };
 
-    const { data: traktSeason } = await axios.get(traktUrl, { headers });
+    const { data: traktEpisodes } = await axios.get(traktUrl, { headers });
 
-    // Trakt API returns images directly on the season object
-    const images = [];
-    if (traktSeason.images && traktSeason.images.poster && traktSeason.images.poster.full) {
-      images.push(traktSeason.images.poster.full);
-    }
-    if (traktSeason.images && traktSeason.images.fanart && traktSeason.images.fanart.full) {
-      images.push(traktSeason.images.fanart.full);
-    }
+    const images = traktEpisodes.flatMap((episode: any) => {
+      const screenshotUrls = episode?.images?.screenshot;
+      if (Array.isArray(screenshotUrls)) {
+        return screenshotUrls.map((url: string) => {
+          if (!url) {
+            return null;
+          }
+          // The URL from Trakt might not have a protocol
+          const medium = url.startsWith('http') ? url : `https://${url}`;
+          // Create the 'original' (full) URL by replacing size identifier.
+          const original = medium.replace('/medium/', '/full/');
+          return { original, medium };
+        }).filter(Boolean); // Filter out any null entries
+      }
+      return []; // Return empty array if no screenshots
+    });
 
     return {
       statusCode: 200,
