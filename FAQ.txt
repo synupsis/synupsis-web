@@ -1,0 +1,25 @@
+# 📖 Frequently Asked Questions (FAQ)
+
+### 🔍 What does this website do?
+Our platform uses generative AI to help you create and edit episode and season recaps for your favorite TV series. Whether you're catching up, reviewing, or organizing your thoughts, we’ve got you covered.
+
+### 🧠 How are the recaps generated?
+We use advanced generative AI models to craft summaries based on the series metadata and user input. You can further edit or enhance them as you like.
+
+### 🫂 What’s the community feature?
+We’re working on a community system! Soon, you’ll be able to like manually improved recaps, earn titles for contributions, and interact more with fellow TV enthusiasts.
+
+### 💸 Is the service free?
+Currently, yes! But to keep the platform running (and growing), we may introduce paid plans in the future. We’ll always aim to keep a free option available.
+
+### 📷 Where do the images and synopses come from?
+We use the [Trakt API](https://trakt.tv/) to fetch series artwork, metadata, and episode details. All credits go to their amazing service.
+
+### 🔐 What do you do with my data?
+Your data is stored securely on our servers and is only used to ensure the proper functioning of the platform. We don’t sell, share, or use your personal info for advertising purposes.
+
+### 🧪 Can I suggest improvements or report bugs?
+Absolutely! We love feedback. Use the contact form or feedback button to let us know what you'd like to see or if something isn't working.
+
+### 🌍 Do you support multiple languages?
+For now, the platform works in English, but support for other languages is on our roadmap.

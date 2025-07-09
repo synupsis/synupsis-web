@@ -9,6 +9,9 @@
         <router-link to="/about" class="text-muted-foreground hover:text-foreground transition-colors">
           About
         </router-link>
+        <router-link to="/faq" class="text-muted-foreground hover:text-foreground transition-colors">
+          FAQ
+        </router-link>
         <a href="#" class="text-muted-foreground hover:text-foreground transition-colors">Terms of Service</a>
         <a href="#" class="text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</a>
       </div>
