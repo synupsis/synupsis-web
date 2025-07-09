@@ -1,6 +1,11 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   pages: true,
+  routeRules: {
+    '/api/image-proxy/**': {
+      proxy: `${process.env.SUPABASE_URL}/functions/v1/image-proxy/**`
+    }
+  },
   devtools: { enabled: false },
   css: ['~/assets/css/main.css'],
 

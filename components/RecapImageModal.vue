@@ -23,7 +23,7 @@
         >
           <img
             v-if="image?.medium"
-            :src="image.medium"
+            :src="useImageUrl(image.medium)"
             class="w-full h-full object-cover"
             alt="Episode image"
           />
@@ -54,6 +54,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '~/components/shadcn/alert-dialog'
+import { useImageUrl } from '~/composables/useUtils';
 
 const props = defineProps({
   isOpen: {

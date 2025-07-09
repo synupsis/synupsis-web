@@ -15,7 +15,7 @@
     <!-- Hero Section -->
     <div v-if="data"
       class="relative w-full h-[60vh] bg-cover bg-center bg-no-repeat"
-      :style="{ backgroundImage: `url(${data.image})` }"
+      :style="{ backgroundImage: `url(${useImageUrl(data.image)})` }"
     >
       <div class="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
       <div class="relative h-full flex flex-col justify-end items-start p-8 md:p-12 lg:p-16">
@@ -187,6 +187,7 @@ import UserAuthStatus from '~/components/UserAuthStatus.vue';
 import ShowPageSkeleton from '~/components/ShowPageSkeleton.vue';
 import SeasonCard from '~/components/SeasonCard.vue';
 import CastMemberCard from '~/components/CastMemberCard.vue';
+import { useImageUrl } from '~/composables/useUtils';
 
 const user = useSupabaseUser();
 const route = useRoute();
@@ -286,13 +287,13 @@ useHead(() => {
       // Open Graph
       { property: 'og:title', content: title },
       { property: 'og:description', content: description },
-      { property: 'og:image', content: data.value.image?.original ?? '/svg/logo.svg' },
+      { property: 'og:image', content: useImageUrl(data.value.image) ?? '/svg/logo.svg' },
       { property: 'og:type', content: 'website' },
       // Twitter Card
       { name: 'twitter:card', content: 'summary_large_image' },
       { name: 'twitter:title', content: title },
       { name: 'twitter:description', content: description },
-      { name: 'twitter:image', content: data.value.image?.original ?? '/svg/logo.svg' },
+      { name: 'twitter:image', content: useImageUrl(data.value.image) ?? '/svg/logo.svg' },
     ],
   };
 });
