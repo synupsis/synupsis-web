@@ -118,6 +118,7 @@
                 :is-admin="isAdmin"
                 :is-generating="generationState[season.id]?.pending ?? false"
                 :is-latest="index === 0"
+                :is-second-latest="index === 1"
                 @view="goToRecap"
                 @edit="goToRecapEditor(data.id, season.id)"
                 @create="goToRecapEditor(data.id, season.id)"
