@@ -12,8 +12,8 @@
         <router-link to="/faq" class="text-muted-foreground hover:text-foreground transition-colors">
           FAQ
         </router-link>
-        <a href="#" class="text-muted-foreground hover:text-foreground transition-colors">Terms of Service</a>
-        <a href="#" class="text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</a>
+        <router-link to="/terms-of-service" class="text-muted-foreground hover:text-foreground transition-colors">Terms of Service</router-link>
+        <router-link to="/privacy-policy" class="text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</router-link>
       </div>
     </div>
   </footer>
