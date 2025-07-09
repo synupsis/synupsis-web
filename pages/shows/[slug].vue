@@ -5,7 +5,7 @@
   </div>
   <div v-else class="w-full">
     <!-- Header -->
-    <header class="flex w-full justify-between items-center py-6 px-8">
+    <header class="absolute top-0 left-0 z-10 flex w-full justify-between items-center py-6 px-8">
       <router-link to="/">
         <img src="/svg/logo_text.svg" alt="Synupsis Logo" class="h-8 hover:opacity-70 transition-opacity" />
       </router-link>
@@ -17,6 +17,7 @@
       class="relative w-full h-[60vh] bg-cover bg-center bg-no-repeat"
       :style="{ backgroundImage: `url(${data.image})` }"
     >
+      <div class="absolute top-0 left-0 right-0 h-72 bg-gradient-to-b from-black to-transparent z-0" />
       <div class="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
       <div class="relative h-full flex flex-col justify-end items-start p-8 md:p-12 lg:p-16">
         <div class="max-w-3xl text-white animate-fade-in-up">
