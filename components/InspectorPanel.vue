@@ -5,32 +5,34 @@
     <!-- Property Editor -->
     <div v-if="selectedElement" class="space-y-4">
       <Button variant="outline" @click="$emit('deselect')">Back to Layers</Button>
-      <div>
-        <label class="text-sm font-medium">Text Content</label>
-        <textarea
-          :value="selectedElement.text.text"
-          @input="updateText($event.target.value)"
-          class="w-full p-2 rounded-md bg-muted border border-border"
-          rows="4"
-        />
-      </div>
-      <div>
-        <label class="text-sm font-medium">Font Size</label>
-        <input
-          type="number"
-          :value="selectedElement.text.fontSize"
-          @input="update('fontSize', parseInt($event.target.value))"
-          class="w-full p-2 rounded-md bg-muted border border-border"
-        />
-      </div>
-      <div>
-        <label class="text-sm font-medium">Fill Color</label>
-        <input
-          type="color"
-          :value="selectedElement.text.fill"
-          @input="update('fill', $event.target.value)"
-          class="w-full p-2 rounded-md bg-muted border border-border"
-        />
+      <div v-if="selectedElement.text">
+        <div>
+          <label class="text-sm font-medium">Text Content</label>
+          <textarea
+            :value="selectedElement.text.text"
+            @input="updateText($event.target.value)"
+            class="w-full p-2 rounded-md bg-muted border border-border"
+            rows="4"
+          />
+        </div>
+        <div>
+          <label class="text-sm font-medium">Font Size</label>
+          <input
+            type="number"
+            :value="selectedElement.text.fontSize"
+            @input="update('fontSize', parseInt($event.target.value))"
+            class="w-full p-2 rounded-md bg-muted border border-border"
+          />
+        </div>
+        <div>
+          <label class="text-sm font-medium">Fill Color</label>
+          <input
+            type="color"
+            :value="selectedElement.text.fill"
+            @input="update('fill', $event.target.value)"
+            class="w-full p-2 rounded-md bg-muted border border-border"
+          />
+        </div>
       </div>
       <div>
         <label class="text-sm font-medium">Position</label>
