@@ -21,9 +21,9 @@
           class="relative aspect-video bg-muted rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary ring-offset-2 ring-offset-background transition-all"
           @click="selectImage(image.original)"
         >
-          <img
+          <CachedImage
             v-if="image?.medium"
-            :src="useImageUrl(image.medium)"
+            :src="image.medium"
             class="w-full h-full object-cover"
             alt="Episode image"
           />
@@ -55,6 +55,7 @@ import {
   AlertDialogTitle,
 } from '~/components/shadcn/alert-dialog'
 import { useImageUrl } from '~/composables/useUtils';
+import CachedImage from '~/components/CachedImage.vue';
 
 const props = defineProps({
   isOpen: {

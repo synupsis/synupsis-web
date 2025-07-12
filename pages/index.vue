@@ -2,7 +2,7 @@
   <div class="w-full min-h-screen flex flex-col">
     <!-- Background -->
     <div class="absolute inset-0 z-0 opacity-20">
-      <img v-if="featuredShows && featuredShows.length > 0" :src="useImageUrl(featuredShows[0].image.replace('thumb', 'full'))" class="w-full h-full object-cover" alt="Featured show background" />
+      <CachedImage v-if="featuredShows && featuredShows.length > 0" :src="featuredShows[0].image.replace('thumb', 'full')" class="w-full h-full object-cover" alt="Featured show background" />
       <div class="absolute inset-0 bg-gradient-to-t from-background via-background to-transparent" />
     </div>
 
@@ -46,7 +46,7 @@
                   <BlurReveal>
                     <router-link :to="`/shows/${show.slug}-${show.traktId}`" class="group">
                       <div class="aspect-[2/3] w-full overflow-hidden rounded-lg">
-                        <img :src="useImageUrl(show.image)" :alt="show.name" class="w-full h-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105" />
+                        <CachedImage :src="show.image" :alt="show.name" class="w-full h-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105" />
                       </div>
                     </router-link>
                   </BlurReveal>
@@ -67,7 +67,7 @@
                   <BlurReveal>
                     <router-link :to="`/shows/${show.slug}-${show.traktId}`" class="group">
                       <div class="aspect-[2/3] w-full overflow-hidden rounded-lg">
-                        <img :src="useImageUrl(show.image)" :alt="show.name" class="w-full h-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105" />
+                        <CachedImage :src="show.image" :alt="show.name" class="w-full h-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105" />
                       </div>
                     </router-link>
                   </BlurReveal>
@@ -103,6 +103,7 @@ import {
 } from '~/components/shadcn/carousel';
 import type { TvMazeShow } from '~/types/tv-maze.types';
 import { useImageUrl } from '~/composables/useUtils';
+import CachedImage from '~/components/CachedImage.vue';
 
 const searchQuery = ref('');
 const searchResults = ref<TvMazeShow[]>([]);
