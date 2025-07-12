@@ -43,6 +43,10 @@
               View
             </router-link>
           </Button>
+          <Button variant="outline" @click="copyJsonToClipboard">
+            <DocumentDuplicateIcon class="h-4 w-4 mr-2" />
+            Copy JSON
+          </Button>
         </div>
       </header>
 
@@ -195,6 +199,7 @@ import {
   TrashIcon,
   CheckCircleIcon,
   EyeIcon,
+  DocumentDuplicateIcon,
 } from '@heroicons/vue/24/outline';
 import draggable from 'vuedraggable';
 import InspectorPanel from '~/components/InspectorPanel.vue';
@@ -504,6 +509,25 @@ const deleteRecap = async () => {
     });
   } finally {
     isDeleting.value = false;
+  }
+};
+
+const copyJsonToClipboard = async () => {
+  try {
+    const slidesData = slides.value.map((slide, index) => ({
+      order: index + 1,
+      canvas: JSON.parse(slide.canvas),
+    }));
+    const jsonToCopy = JSON.stringify({ slides: slidesData }, null, 2);
+    await navigator.clipboard.writeText(jsonToCopy);
+    toast.success('Success', {
+      description: 'JSON copied to clipboard!'
+    });
+  } catch (e) {
+    console.error("Failed to copy JSON to clipboard", e);
+    toast.error('Error', {
+      description: 'Failed to copy JSON to clipboard.'
+    });
   }
 };
 </script>
