@@ -268,7 +268,7 @@ const addTextbox = () => {
   const textConfig = {
     text: 'Votre texte ici',
     fontSize: 32,
-    fontFamily: '"Fredoka One", cursive',
+    fontFamily: 'Inter, sans-serif',
     fill: hexToRgb('#000'),
     padding: 10, // Reduced padding
   };

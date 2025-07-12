@@ -14,6 +14,12 @@ import 'vue-sonner/style.css'
 import Footer from '~/components/Footer.vue'
 
 useHead({
+  link: [
+    {
+      rel: 'stylesheet',
+      href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
+    }
+  ],
   htmlAttrs: {
     'data-theme': 'night',
     class: 'dark'
