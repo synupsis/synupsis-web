@@ -54,7 +54,7 @@
       <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
 
       <!-- Canvas Data -->
-      <div class="absolute inset-0 flex items-center justify-center p-8">
+      <div class="absolute inset-0 flex items-center justify-center">
         <ClientOnly>
           <RecapCanvas
             :key="currentSlide.id"
