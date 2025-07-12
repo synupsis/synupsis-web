@@ -55,6 +55,7 @@ async function createShowInDb(supabase: SupabaseClient<Database>, traktShow: any
     number: s.number,
     show_id: show.id,
     image: 'https://' + s.images?.poster[0],
+    first_aired: s.first_aired,
   }));
   const { error: seasonsError } = await supabase.from('season').insert(seasonsToInsert);
   if (seasonsError) {

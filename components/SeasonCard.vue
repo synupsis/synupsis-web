@@ -15,7 +15,7 @@
       <!-- Content Overlay -->
       <div class="absolute inset-0 flex flex-col justify-end p-4 text-white">
         <div class="flex items-center justify-between">
-          <CardTitle class="text-lg font-bold">{{ season.name || `Season ${season.number}` }}</CardTitle>
+          <CardTitle class="text-lg font-bold">{{ season.name || `Season ${season.number}` }} <span v-if="season.first_aired" class="text-muted-foreground font-normal text-base ml-1">{{ new Date(season.first_aired).getFullYear() }}</span></CardTitle>
           <Badge v-if="isDraft" variant="secondary" class="text-xs">Draft</Badge>
         </div>
         
