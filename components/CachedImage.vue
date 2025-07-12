@@ -15,7 +15,7 @@ const error = ref(false)
 
 const imageUrl = computed(() => {
   if (error.value || !props.src) {
-    return '/svg/logo.svg' // Image de remplacement
+    return '' // Image de remplacement
   }
   return useImageUrl(props.src)
 })
