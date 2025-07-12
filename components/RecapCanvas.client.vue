@@ -271,6 +271,8 @@ const addTextbox = () => {
     fontFamily: 'Inter, sans-serif',
     fill: hexToRgb('#000'),
     padding: 10, // Reduced padding
+    width: 300, // Default width for wrapping
+    wrap: 'word',
   };
   const text = new Konva.Text(textConfig);
   const rectConfig = {
@@ -425,6 +427,9 @@ const handleDblClick = (e: any) => {
   textarea.style.textAlign = textNode.align();
   textarea.style.color = textNode.fill();
   textarea.style.fontSize = textNode.fontSize() * scale + 'px';
+  const konvaTextWidth = textNode.attrs.width || textNode.width();
+  textarea.style.width = konvaTextWidth * scale + 'px';
+  textarea.style.height = textNode.height() * scale + 'px';
   
   const rotation = group.rotation();
   let transform = '';
@@ -439,6 +444,7 @@ const handleDblClick = (e: any) => {
       fontSize: textNode.fontSize(),
       fontFamily: textNode.fontFamily(),
       padding: textNode.padding(),
+      width: textNode.attrs.width, // Use the same width as the Konva.Text node
     });
     const groupScaleX = group.scaleX();
     const groupScaleY = group.scaleY();
@@ -465,6 +471,7 @@ const handleDblClick = (e: any) => {
         const text = new Konva.Text(groupItems.value[index].text);
         groupItems.value[index].rect.width = text.width();
         groupItems.value[index].rect.height = text.height();
+        groupItems.value[index].text.width = text.width(); // Update text width
       }
       removeTextarea();
       emitUpdate();
