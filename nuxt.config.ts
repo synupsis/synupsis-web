@@ -1,9 +1,16 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
+
 export default defineNuxtConfig({
   pages: true,
   routeRules: {
     '/api/image-proxy/**': {
-      proxy: `${process.env.SUPABASE_URL}/functions/v1/image-proxy/**`
+      proxy: {
+        to: `${process.env.SUPABASE_URL}/functions/v1/image-proxy/**`,
+        headers: supabaseAnonKey
+          ? { Authorization: `Bearer ${supabaseAnonKey}` }
+          : undefined
+      }
     }
   },
   devtools: { enabled: false },
