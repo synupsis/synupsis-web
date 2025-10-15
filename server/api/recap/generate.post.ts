@@ -2,6 +2,7 @@ import { serverSupabaseClient } from '#supabase/server';
 import type { Database } from '~/types/database.types';
 import OpenAI from 'openai';
 import axios from 'axios';
+import { defaultRecapPromptTemplate } from '~/lib/prompts/defaultPrompt';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -15,16 +16,38 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Missing showId or seasonId' });
   }
 
-  // Fetch active prompt
-  const { data: activePrompt, error: promptError } = await supabase
-    .from('prompts')
-    .select('content')
-    .eq('is_active', true)
+  // Check if the default prompt should be enforced
+  const {
+    data: defaultPromptSetting,
+    error: defaultPromptSettingError,
+  } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'use_default_prompt')
     .single();
 
-  if (promptError && promptError.code !== 'PGRST116') { // PGRST116 = no rows found
-    console.error('Error fetching active prompt:', promptError);
-    // Not throwing an error, will use fallback in createPrompt
+  if (defaultPromptSettingError && defaultPromptSettingError.code !== 'PGRST116') {
+    console.error('Error fetching default prompt setting:', defaultPromptSettingError);
+    throw createError({ statusCode: 500, statusMessage: 'Failed to fetch prompt settings.' });
+  }
+
+  const useDefaultPrompt = defaultPromptSetting?.value?.enabled === true;
+
+  // Fetch active prompt
+  let activePromptRecord: { id: string; content: string } | null = null;
+  if (!useDefaultPrompt) {
+    const { data: activePrompt, error: promptError } = await supabase
+      .from('prompts')
+      .select('id, content')
+      .eq('is_active', true)
+      .single();
+
+    if (promptError && promptError.code !== 'PGRST116') { // PGRST116 = no rows found
+      console.error('Error fetching active prompt:', promptError);
+      // Not throwing an error, will use fallback in createPrompt
+    } else {
+      activePromptRecord = activePrompt;
+    }
   }
 
   // Fetch show's trakt_id and season's number
@@ -71,6 +94,7 @@ export default defineEventHandler(async (event) => {
     // Map Trakt response to expected structure for createPrompt
     seasonDetails = {
       number: seasonNumber,
+      summary: traktSeason?.overview,
       _embedded: {
         episodes: traktSeason.map((ep: any) => ({
           number: ep.number,
@@ -90,7 +114,8 @@ export default defineEventHandler(async (event) => {
   }
 
   // 3. Generate recap with OpenAI
-  const prompt = createPrompt(seasonDetails, showName, activePrompt?.content);
+  const promptTemplate = useDefaultPrompt ? defaultRecapPromptTemplate : activePromptRecord?.content;
+  const prompt = createPrompt(seasonDetails, showName, promptTemplate);
   let slides;
 
   try {
@@ -120,7 +145,7 @@ export default defineEventHandler(async (event) => {
       season_id: seasonId,
       user_id: user.id,
       status: 'published', // Set status to published directly
-      prompt_id: activePrompt?.id || null, // Save the ID of the active prompt
+      prompt_id: useDefaultPrompt ? null : activePromptRecord?.id || null, // Save the ID of the active prompt
     })
     .select()
     .single();
@@ -148,78 +173,15 @@ export default defineEventHandler(async (event) => {
 });
 
 function createPrompt(season: any, showName: string, promptTemplate?: string): string {
-  const episodeSummaries = season._embedded.episodes.map((ep: any) => `Episode ${ep.number}: ${ep.name} - ${ep.summary?.replace(/<[^>]*>?/gm, '')}`).join('\n');
+  const episodeSummaries = season._embedded.episodes
+    .map((ep: any) => `Episode ${ep.number}: ${ep.name} - ${ep.summary?.replace(/<[^>]*>?/gm, '') || 'Résumé indisponible'}`)
+    .join('\n');
+  const seasonSummary = season.summary?.replace(/<[^>]*>?/gm, '') || 'Résumé indisponible';
+  const template = promptTemplate ?? defaultRecapPromptTemplate;
 
-  if (!promptTemplate) {
-    // Fallback to the original hardcoded prompt
-    return `
-# ROLE
-Tu es un assistant expert en génération de JSON pour des canevas Konva.js.
-
-# TÂCHE
-Ta mission est de résumer une saison de série TV en 5 à 8 moments clés. Chaque moment clé doit être formaté comme une "slide" dans un objet JSON Konva \`Stage\` distinct. Tu dois retourner un tableau d'objets, où chaque objet contient un numéro d'ordre et le JSON du canevas.
-
-# FORMAT DE SORTIE ATTENDU
-Tu dois produire UNIQUEMENT un tableau JSON valide, sans aucun texte avant ou après. La structure doit être :
-\`{ "slides": [{ "order": 1, "canvas": { ...JSON Konva... } }, { "order": 2, "canvas": { ...JSON Konva... } }] }\`
-
-# INSTRUCTIONS DÉTAILLÉES
-1.  **Slide 1 (Titre)** : La première slide doit contenir le nom de la série et le numéro de la saison.
-2.  **Slides suivantes (Moments clés)** : Chaque slide suivante doit décrire un seul événement majeur de la saison, de manière concise.
-3.  **Contenu du Texte** : Remplis l'attribut \`text\` des objets \`Text\` avec le contenu approprié. Utilise \`\\n\` pour les sauts de ligne si nécessaire.
-4.  **Ajustement des Dimensions** : Adapte les valeurs \`width\` et \`height\` des objets \`Rect\` pour qu'elles correspondent à la taille du texte. Ajuste les coordonnées \`x\` et \`y\` pour centrer les éléments de manière esthétique.
-5.  **Structure JSON** : Respecte scrupuleusement la structure de l'exemple ci-dessous pour chaque slide. Seuls les contenus textuels et les attributs de géométrie (\`x\`, \`y\`, \`width\`, \`height\`) doivent changer.
-
-# EXEMPLE DE JSON POUR UNE SEULE SLIDE
-{
-    "order": 1,
-    "canvas": {
-        "attrs": { "width": 368, "height": 796 },
-        "children": [
-            {
-                "attrs": {},
-                "className": "Layer",
-                "children": [
-                    {
-                        "attrs": {
-                            "x": 95, "y": 143,
-                            "draggable": true
-                        },
-                        "className": "Group",
-                        "children": [
-                            { "attrs": { "fill": "#fff", "width": 222, "height": 52, "cornerRadius": 10 }, "className": "Rect" },
-                            { "attrs": { "fill": "#000", "text": "Breaking Bad", "padding": 10, "fontSize": 32, "fontFamily": "\\"Fredoka One\\", cursive" }, "className": "Text" }
-                        ]
-                    },
-                    {
-                        "attrs": {
-                            "x": 38, "y": 346,
-                            "draggable": true
-                        },
-                        "className": "Group",
-                        "children": [
-                            { "attrs": { "fill": "#fff", "width": 328, "height": 180, "cornerRadius": 10 }, "className": "Rect" },
-                            { "attrs": { "fill": "#000", "text": "Walt apprend qu'il\\na un cancer et\\ns'associe avec Jesse.", "padding": 10, "fontSize": 32, "fontFamily": "\\"Fredoka One\\", cursive" }, "className": "Text" }
-                        ]
-                    }
-                ]
-            }
-        ],
-        "className": "Stage"
-    }
-}
-
-# DEMANDE UTILISATEUR
-    The recap is for "${showName}", Season ${season.number}.
-    Use this information:
-    - Season Summary: ${season.summary?.replace(/<[^>]*>?/gm, '')}
-    - Episodes: ${episodeSummaries}
-  `;
-  }
-
-  // Replace placeholders in the dynamic prompt
-  return promptTemplate
+  return template
     .replace(/{{showName}}/g, showName)
     .replace(/{{seasonNumber}}/g, season.number)
+    .replace(/{{seasonSummary}}/g, seasonSummary)
     .replace(/{{episodeSummaries}}/g, episodeSummaries);
 }

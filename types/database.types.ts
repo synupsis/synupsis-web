@@ -8,6 +8,25 @@ export type Database = MergeDeep<
   DatabaseGenerated,
   {
     public: {
+      Tables: {
+        app_settings: {
+          Row: {
+            key: string;
+            value: Json;
+            updated_at: string;
+          };
+          Insert: {
+            key: string;
+            value?: Json;
+            updated_at?: string;
+          };
+          Update: {
+            key?: string;
+            value?: Json;
+            updated_at?: string;
+          };
+        };
+      };
       Views: {
         movies_view: {
           Row: {
@@ -22,3 +41,4 @@ export type Database = MergeDeep<
 
 export type Show = Database['public']['Tables']['show']['Row'];
 export type Season = Database['public']['Tables']['season']['Row'];
+export type AppSetting = Database['public']['Tables']['app_settings']['Row'];
