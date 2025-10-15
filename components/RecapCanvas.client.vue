@@ -142,7 +142,7 @@ const groupItems = ref<any[]>([]);
 const selectedShapeName = ref('');
 
 const addImageToCanvas = (imageUrl: string) => {
-  const proxiedUrl = `/api/images/proxy?url=${encodeURIComponent(imageUrl)}`;
+  const proxiedUrl = `/api/image-proxy/?url=${encodeURIComponent(imageUrl)}`;
   Konva.Image.fromURL(proxiedUrl, (image) => {
     const scale = originalWidth / image.width();
     imageItems.value.push({
@@ -189,25 +189,62 @@ const loadCanvasFromJSON = (json: string) => {
     return;
   }
 
-  const data = JSON.parse(json);
-  const layer = data.children?.[0];
-  if (!layer) return;
+  let data: any;
+  try {
+    data = JSON.parse(json);
+  } catch (error) {
+    console.error('Failed to parse canvas JSON', error);
+    return;
+  }
 
-  const groupNodes = layer.children?.filter((c: any) => c.className === 'Group') || [];
-  const imageNodeConfigs = layer.children?.filter((c: any) => c.className === 'Image').map((c: any) => c.attrs) || [];
+  const layers = Array.isArray(data?.children) ? data.children : [];
+  const layer = layers[0];
+  if (!layer) {
+    groupItems.value = [];
+    imageItems.value = [];
+    return;
+  }
+
+  const layerChildren = Array.isArray(layer?.children) ? layer.children : [];
+
+  const groupNodes = layerChildren.filter((c: any) => c?.className === 'Group');
+  const imageNodeConfigs = layerChildren
+    .filter((c: any) => c?.className === 'Image')
+    .map((c: any) => c?.attrs)
+    .filter((attrs: any) => !!attrs);
 
   if (props.readOnly) {
-    groupNodes.forEach(group => group.attrs.draggable = false);
-    imageNodeConfigs.forEach(config => config.draggable = false);
+    groupNodes.forEach(group => {
+      if (group?.attrs) {
+        group.attrs.draggable = false;
+      }
+    });
+    imageNodeConfigs.forEach(config => {
+      config.draggable = false;
+    });
   }
 
   transformerRef.value?.getNode().nodes([]);
-  groupItems.value = groupNodes.map((groupNode: any) => ({
-    ...groupNode.attrs,
-    id: groupNode.attrs.id || `group-${Date.now()}`,
-    rect: groupNode.children.find((c: any) => c.className === 'Rect').attrs,
-    text: groupNode.children.find((c: any) => c.className === 'Text').attrs,
-  }));
+  const groups: any[] = [];
+  groupNodes.forEach((groupNode: any, index: number) => {
+    const attrs = groupNode?.attrs || {};
+    const children = Array.isArray(groupNode?.children) ? groupNode.children : [];
+    const rectChild = children.find((c: any) => c?.className === 'Rect');
+    const textChild = children.find((c: any) => c?.className === 'Text');
+
+    if (!rectChild || !textChild) {
+      console.warn('Skipping group with missing Rect/Text nodes', attrs?.id || index);
+      return;
+    }
+
+    groups.push({
+      ...attrs,
+      id: attrs.id || `group-${Date.now()}-${index}`,
+      rect: rectChild.attrs,
+      text: textChild.attrs,
+    });
+  });
+  groupItems.value = groups;
 
   const loadedImages: any[] = [];
   let imagesToLoad = imageNodeConfigs.length;
