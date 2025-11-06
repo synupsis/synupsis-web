@@ -1,5 +1,5 @@
 <template>
-  <Card class="flex flex-col group overflow-hidden border-2" :class="{ 'border-primary shadow-lg shadow-primary/20': isLatest, 'border-transparent': !isLatest }">
+  <Card class="flex flex-col group overflow-hidden border-2" :class="{ 'border-primary shadow-lg shadow-primary/20': isLatest, 'border-slate-500': isSecondLatest, 'border-transparent': !isLatest && !isSecondLatest }">
     <div class="relative w-full aspect-[2/3]">
       <!-- Image -->
       <CachedImage v-if="season.image" :src="season.image" :alt="`Poster for Season ${season.number}`" class="w-full h-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105" />
@@ -11,6 +11,7 @@
       
       <!-- Latest Badge -->
       <Badge v-if="isLatest" class="absolute top-2 right-2">Latest</Badge>
+      <Badge v-else-if="isSecondLatest" class="absolute top-2 right-2 bg-slate-500 text-white border-transparent">Catch Up</Badge>
 
       <!-- Content Overlay -->
       <div class="absolute inset-0 flex flex-col justify-end p-4 text-white">
@@ -86,6 +87,7 @@ const props = defineProps<{
   isAdmin: boolean;
   isGenerating: boolean;
   isLatest: boolean;
+  isSecondLatest: boolean;
 }>();
 
 const emit = defineEmits(['view', 'edit', 'create', 'generate']);

@@ -12,8 +12,8 @@
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuLabel>{{ user.user_metadata.username }}</DropdownMenuLabel>
-          <DropdownMenuSeparator />
+          
+          
           <DropdownMenuItem @click="router.push('/profile')">
             Profile
           </DropdownMenuItem>
