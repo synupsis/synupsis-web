@@ -1,5 +1,8 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
+const supabaseServiceKey =
+  process.env.SUPABASE_SERVICE_KEY ||
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 
 export default defineNuxtConfig({
   pages: true,
@@ -30,6 +33,7 @@ export default defineNuxtConfig({
   supabase: {
     url: process.env.SUPABASE_URL,
     key: process.env.SUPABASE_ANON_KEY,
+    serviceKey: supabaseServiceKey,
     redirect: true,
     redirectOptions: {
       login: '/login',

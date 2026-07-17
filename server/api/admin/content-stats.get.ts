@@ -1,11 +1,10 @@
 import { serverSupabaseClient } from '#supabase/server';
-import { Database } from '~/types/database.types';
+import type { Database } from '~/types/database.types';
+import { requireAdminUser } from '~/server/utils/require-admin';
 
 export default defineEventHandler(async (event) => {
+  await requireAdminUser(event);
   const supabase = await serverSupabaseClient<Database>(event);
-  
-  // We should add an admin check here, but for now we'll proceed
-  // This will be added in a later step with RLS.
 
   const [
     { count: showCount },

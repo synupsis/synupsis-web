@@ -160,7 +160,7 @@
   </div>
 </template>
 <script lang="ts" setup>
-import { ref, watchEffect, computed } from 'vue';
+import { ref, computed } from 'vue';
 import type { TvMazeShow } from '~/types/tv-maze.types';
 import { CalendarIcon, StarIcon, TvIcon, EyeIcon } from '@heroicons/vue/24/outline';
 import { toast } from 'vue-sonner';
@@ -184,26 +184,12 @@ import {
   CarouselPrevious,
 } from '~/components/shadcn/carousel';
 import UserAuthStatus from '~/components/UserAuthStatus.vue';
-import ShowPageSkeleton from '~/components/ShowPageSkeleton.vue';
 import SeasonCard from '~/components/SeasonCard.vue';
 import CastMemberCard from '~/components/CastMemberCard.vue';
 import { useImageUrl } from '~/composables/useUtils';
 
-const user = useSupabaseUser();
 const route = useRoute();
-const supabase = useSupabaseClient();
-const isAdmin = ref(false);
-
-watchEffect(async () => {
-  if (user.value) {
-    const { data } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('user_id', user.value.id)
-      .single();
-    isAdmin.value = data?.role === 'admin';
-  }
-});
+const isAdmin = useIsAdmin();
 
 const { data, pending, error, refresh } = useAsyncData(
   `show-data-${route.params.slug}`,

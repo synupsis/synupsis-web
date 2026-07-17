@@ -42,7 +42,6 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, watchEffect } from 'vue';
 import { Button } from '~/components/shadcn/button'
 import {
   DropdownMenu,
@@ -58,18 +57,7 @@ import SpinLoader from '~/components/ui/SpinLoader.vue';
 const user = useSupabaseUser();
 const router = useRouter();
 const supabase = useSupabaseClient();
-const isAdmin = ref(false);
-
-watchEffect(async () => {
-  if (user.value) {
-    const { data } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('user_id', user.value.id)
-      .single();
-    isAdmin.value = data?.role === 'admin';
-  }
-});
+const isAdmin = useIsAdmin();
 
 function goToLogin() {
   router.push('/login');

@@ -12,7 +12,7 @@ export default defineEventHandler(async event => {
 
   try {
     const clientId = process.env.TRAKT_CLIENT_ID;
-    const url = `https://api.trakt.tv/search/show?query=${query}&extended=images`;
+    const url = `https://api.trakt.tv/search/show?query=${encodeURIComponent(query)}&extended=images`;
 
     const headers = {
       'Content-Type': 'application/json',

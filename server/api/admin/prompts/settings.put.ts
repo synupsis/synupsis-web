@@ -1,7 +1,9 @@
 import { serverSupabaseClient } from '#supabase/server';
 import type { Database } from '~/types/database.types';
+import { requireAdminUser } from '~/server/utils/require-admin';
 
 export default defineEventHandler(async (event) => {
+  await requireAdminUser(event);
   const client = await serverSupabaseClient<Database>(event);
   const body = await readBody<{ enabled?: boolean }>(event);
 

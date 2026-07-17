@@ -1,4 +1,5 @@
-import { serverSupabaseClient, SupabaseClient } from '#supabase/server';
+import { serverSupabaseClient } from '#supabase/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '~/types/database.types';
 import axios from 'axios';
 
@@ -95,7 +96,7 @@ export default defineEventHandler(async (event) => {
       const traktUrl = `https://api.trakt.tv/shows/${traktId}?extended=full,images`;
       const { data: traktShow } = await axios.get(traktUrl, { headers });
 
-      const newShowId = await createShowInDb(supabase, traktShow);
+      await createShowInDb(supabase, traktShow);
       show = await getShowFromDb(supabase, traktId); // Re-fetch to get full object with seasons and recaps
     }
 

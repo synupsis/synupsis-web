@@ -56,7 +56,7 @@
         <section>
           <h2 class="text-2xl font-semibold mb-4">User Management</h2>
           <div v-if="users">
-            <DataTable :columns="columns" :data="users" :refresh="refreshUsers" />
+            <DataTable :columns="columns" :data="users" @refresh="refreshUsers" />
           </div>
           <div v-else class="w-full h-64 bg-muted rounded-lg animate-pulse" />
         </section>

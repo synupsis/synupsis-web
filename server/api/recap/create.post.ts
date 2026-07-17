@@ -47,7 +47,7 @@ export default defineEventHandler(async event => {
     }
 
     // 3. Create the new slides
-    const slidesToInsert = slides.map((slide, index) => ({
+    const slidesToInsert = slides.map((slide: { canvas?: string }, index: number) => ({
       recap_id: recap.id,
       canvas_data: JSON.parse(slide.canvas || '{}'),
       order: index

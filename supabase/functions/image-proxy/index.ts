@@ -1,18 +1,37 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024
+
+function parseTrustedImageUrl(rawUrl: string): URL {
+  const parsedUrl = new URL(rawUrl)
+  const hostname = parsedUrl.hostname.toLowerCase()
+  const isTrustedHost = hostname === 'trakt.tv' || hostname.endsWith('.trakt.tv')
+
+  if (parsedUrl.protocol !== 'https:' || !isTrustedHost) {
+    throw new Error('Unsupported image host')
+  }
+
+  return parsedUrl
+}
+
 Deno.serve(async (req) => {
   const requestUrl = new URL(req.url)
-  const traktImageUrl = requestUrl.searchParams.get('url')
+  const rawImageUrl = requestUrl.searchParams.get('url')
 
-  if (!traktImageUrl) {
+  if (!rawImageUrl) {
     return new Response('Missing "url" query parameter', { status: 400 })
   }
 
-  // Use the pathname of the Trakt URL to create a unique storage path
-  // e.g., https://trakt.tv/images/shows/000/060/184/posters/thumb/93df635730.jpg
-  // becomes -> images/shows/000/060/184/posters/thumb/93df635730.jpg
-  const imagePath = new URL(traktImageUrl).pathname.substring(1) // remove leading slash
-  const storagePath = `trakt-cache/${imagePath}`
+  let imageUrl: URL
+
+  try {
+    imageUrl = parseTrustedImageUrl(rawImageUrl)
+  } catch {
+    return new Response('Unsupported image host', { status: 400 })
+  }
+
+  const imagePath = imageUrl.pathname.replace(/^\/+/, '')
+  const storagePath = `trakt-cache/${imageUrl.hostname}/${imagePath}`
 
   const supabaseClient = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -25,10 +44,14 @@ Deno.serve(async (req) => {
       .from('images')
       .download(storagePath)
 
-    if (existingImage) {
+    if (existingImage && existingImage.type.startsWith('image/')) {
       // Cache HIT
       return new Response(existingImage, {
-        headers: { 'Content-Type': existingImage.type, 'X-Cache-Status': 'HIT' },
+        headers: {
+          'Cache-Control': 'public, max-age=31536000, immutable',
+          'Content-Type': existingImage.type,
+          'X-Cache-Status': 'HIT',
+        },
       })
     }
   } catch (error) {
@@ -38,9 +61,19 @@ Deno.serve(async (req) => {
 
 
   // Cache MISS: Fetch from original URL
-  const traktRes = await fetch(traktImageUrl)
+  const traktRes = await fetch(imageUrl.toString())
   if (!traktRes.ok) {
     return new Response(`Failed to fetch image from Trakt: ${traktRes.statusText}`, { status: traktRes.status })
+  }
+
+  const contentType = traktRes.headers.get('content-type')?.toLowerCase() ?? ''
+  if (!contentType.startsWith('image/')) {
+    return new Response('Unsupported content type', { status: 415 })
+  }
+
+  const contentLength = Number(traktRes.headers.get('content-length') ?? 0)
+  if (Number.isFinite(contentLength) && contentLength > MAX_IMAGE_BYTES) {
+    return new Response('Image too large', { status: 413 })
   }
 
   const imageBlob = await traktRes.blob()
@@ -60,6 +93,10 @@ Deno.serve(async (req) => {
   }
 
   return new Response(imageBlob, {
-    headers: { 'Content-Type': imageBlob.type, 'X-Cache-Status': 'MISS' },
+    headers: {
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      'Content-Type': imageBlob.type,
+      'X-Cache-Status': 'MISS',
+    },
   })
 })

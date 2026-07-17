@@ -1,9 +1,10 @@
 import { serverSupabaseClient } from '#supabase/server';
-import { CompatibilityEvent } from 'h3';
+import type { H3Event } from 'h3';
 import axios from 'axios';
+import type { Database } from '~/types/database.types';
 
-export default defineEventHandler(async (event: CompatibilityEvent) => {
-  const supabase = await serverSupabaseClient(event);
+export default defineEventHandler(async (event: H3Event) => {
+  const supabase = await serverSupabaseClient<Database>(event);
   const { seasonId } = getQuery(event);
 
   if (!seasonId) {

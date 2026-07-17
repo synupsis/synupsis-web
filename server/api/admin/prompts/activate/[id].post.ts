@@ -1,7 +1,9 @@
 import { serverSupabaseClient } from '#supabase/server';
 import type { Database } from '~/types/database.types';
+import { requireAdminUser } from '~/server/utils/require-admin';
 
 export default defineEventHandler(async (event) => {
+  await requireAdminUser(event);
   const supabase = await serverSupabaseClient<Database>(event);
   const promptId = event.context.params?.id;
 

@@ -1,9 +1,50 @@
 import axios from 'axios';
 
-// This function fetches the schedule for the current day to get trending shows.
-export default defineEventHandler(async event => {
+type TraktShowImageSet = {
+  poster?: string[];
+};
+
+type TraktShowIds = {
+  trakt?: number;
+  slug?: string;
+};
+
+type TraktShowPayload = {
+  ids?: TraktShowIds;
+  title?: string;
+  images?: TraktShowImageSet;
+};
+
+type TraktShowEntry = {
+  show?: TraktShowPayload;
+};
+
+function isPresent<T>(value: T | null): value is T {
+  return value !== null;
+}
+
+function mapTraktShow(entry: TraktShowEntry) {
+  const show = entry.show;
+  const traktId = show?.ids?.trakt;
+  const slug = show?.ids?.slug;
+  const name = show?.title;
+  const poster = show?.images?.poster?.[0];
+
+  if (!traktId || !slug || !name || !poster) {
+    return null;
+  }
+
+  return {
+    traktId,
+    slug,
+    name,
+    image: `https://${poster}`,
+  };
+}
+
+export default defineEventHandler(async () => {
   try {
-    const clientId = process.env.TRAKT_CLIENT_ID; // Remplacez par votre vrai Client ID
+    const clientId = process.env.TRAKT_CLIENT_ID;
     const url = 'https://api.trakt.tv/shows/trending?extended=images';
 
     const headers = {
@@ -13,25 +54,20 @@ export default defineEventHandler(async event => {
     };
 
     const response = await axios.get(url, { headers });
-    const shows = response.data;
+    const shows = Array.isArray(response.data) ? response.data : [];
 
-    // Return a limited number of unique shows
-    const trendingShows = Array.from(shows.values())
+    const trendingShows = shows
       .slice(0, 10)
-      .map((trendingShow: any) => ({
-        traktId: trendingShow.show.ids.trakt,
-        name: trendingShow.show.title,
-        image: 'https://' + trendingShow.show.images.poster[0],
-        slug: trendingShow.show.ids.slug,
-      }));
+      .map(mapTraktShow)
+      .filter(isPresent);
 
     return trendingShows;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to fetch trending shows from Trakt (primary):', error);
-    // Fallback to Trakt popular shows if trending fails
+
     try {
       const clientId = process.env.TRAKT_CLIENT_ID;
-      const fallbackUrl = 'https://api.trakt.tv/shows/popular?extended=images'; // Using popular as fallback
+      const fallbackUrl = 'https://api.trakt.tv/shows/popular?extended=images';
 
       const headers = {
         'Content-Type': 'application/json',
@@ -40,20 +76,17 @@ export default defineEventHandler(async event => {
       };
 
       const fallbackResponse = await axios.get(fallbackUrl, { headers });
-      const fallbackShows = fallbackResponse.data;
+      const fallbackShows = Array.isArray(fallbackResponse.data) ? fallbackResponse.data : [];
 
-      const popularShows = Array.from(fallbackShows.values())
+      const popularShows = fallbackShows
         .slice(0, 10)
-        .map((popularShow: any) => ({
-          id: popularShow.show.ids.trakt,
-          name: popularShow.show.title,
-          image: 'https://' + popularShow.show.images.poster[0],
-          slug: popularShow.show.ids.slug,
-        }));
+        .map(mapTraktShow)
+        .filter(isPresent);
+
       return popularShows;
-    } catch (fallbackError: any) {
+    } catch (fallbackError: unknown) {
       console.error('Failed to fetch popular shows from Trakt (fallback):', fallbackError);
-      // If both fail, return an empty array
+
       return [];
     }
   }
