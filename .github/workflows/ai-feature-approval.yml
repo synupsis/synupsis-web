@@ -5,7 +5,10 @@ on:
     types:
       - created
 
-permissions: {}
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
 
 concurrency:
   group: ai-feature-approval-${{ github.event.issue.number }}
@@ -43,3 +46,12 @@ jobs:
             )
             const { handleSpecificationApproval } = await import(moduleUrl.href)
             await handleSpecificationApproval({ github, context, core })
+
+  develop:
+    name: Request an isolated implementation
+    needs: approve
+    if: needs.approve.outputs.approval_status == 'ai:spec-approved'
+    uses: ./.github/workflows/ai-feature-development.yml
+    with:
+      issue_number: ${{ needs.approve.outputs.issue_number }}
+    secrets: inherit

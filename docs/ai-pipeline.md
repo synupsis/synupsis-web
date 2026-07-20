@@ -55,13 +55,28 @@ Le workflow `AI feature approval` contrôle que :
 - le label `ai:spec-ready` est encore présent ;
 - une spécification a réellement été publiée par le bot.
 
-Après validation, il ajoute `ai:spec-approved` et publie une confirmation. Cette étape ne génère encore aucun code : le label constituera le déclencheur sécurisé du futur agent de développement.
+Après validation, il ajoute `ai:spec-approved`, publie une confirmation et transmet l’Issue à l’agent de développement.
+
+## Étape 4 — Implémentation isolée
+
+L’agent développeur utilise la spécification approuvée et le dépôt `develop` pour produire un patch Git structuré. Il peut modifier le code applicatif dans sa copie de travail, mais n’a aucun jeton GitHub lui permettant de pousser ou de créer une PR.
+
+Les chemins sensibles sont interdits dans cette première version : workflows GitHub, Supabase, fichiers d’environnement, dépendances et configuration Netlify. Si le besoin exige l’un de ces changements, l’agent publie un blocage au lieu de contourner la protection.
+
+Le patch traverse ensuite deux environnements distincts :
+
+1. un job sans secret et avec le dépôt en lecture seule réapplique le patch sur une copie propre, puis exécute lint, typecheck, tests du pipeline et build ;
+2. uniquement si tout réussit, un job séparé disposant des droits GitHub réapplique le même patch sans exécuter le code, crée `codex/issue-<numéro>`, pousse un commit et ouvre une Pull Request brouillon vers `develop`.
+
+L’Issue reçoit alors `ai:implementation-pr` et un lien vers la PR. La fusion et la mise en production restent manuelles.
 
 Un mainteneur peut aussi relancer manuellement le workflow avec le numéro d’une Issue depuis l’onglet **Actions**, par exemple après la correction d’un workflow ou d’une configuration.
 
 ## Sécurité
 
-Les Issues du dépôt étant publiques, l’appartenance de l’auteur est contrôlée avant la collecte puis à nouveau avant l’appel au modèle. Le contenu de l’Issue est traité comme une donnée non fiable, les commentaires HTML sont retirés et l’agent ne peut pas écrire dans le dépôt. Le job qui publie dans GitHub est isolé du job Codex et ne reçoit pas la clé OpenAI.
+Les Issues du dépôt étant publiques, l’appartenance de l’auteur est contrôlée avant la collecte puis à nouveau avant chaque appel au modèle. Le contenu de l’Issue est traité comme une donnée non fiable et les commentaires HTML sont retirés.
+
+Les agents de spécification et de développement ne disposent jamais d’un jeton GitHub en écriture. Pour l’implémentation, le code généré est en plus testé dans un job sans secret. Le job autorisé à pousser ne fait qu’appliquer le patch déjà validé et n’exécute aucun code généré.
 
 ## Test local
 
@@ -75,4 +90,4 @@ Les workflows de collecte et de spécification acceptent un numéro d’Issue de
 
 ## Prochaine étape
 
-Après validation humaine de la spécification, un agent de développement pourra créer une branche dédiée, implémenter la fonctionnalité et ouvrir une Pull Request vers `develop`.
+Un agent de revue analysera la Pull Request, ses checks et le diff. Il pourra proposer ou appliquer des corrections avant que la PR soit présentée pour validation humaine et test de la preview Netlify.

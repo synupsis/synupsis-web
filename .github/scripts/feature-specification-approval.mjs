@@ -32,9 +32,9 @@ export function buildApprovalComment() {
     APPROVAL_COMMENT_MARKER,
     '### Spécification approuvée',
     '',
-    'La validation humaine est enregistrée. La demande est maintenant prête pour le futur agent de développement.',
+    'La validation humaine est enregistrée. La demande est transmise à l’agent de développement.',
     '',
-    'Aucun code ni déploiement n’a encore été déclenché.',
+    'Toute implémentation restera dans une Pull Request brouillon : aucune fusion ni mise en production n’est automatique.',
   ].join('\n')
 }
 
