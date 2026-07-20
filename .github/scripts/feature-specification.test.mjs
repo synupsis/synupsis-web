@@ -171,5 +171,6 @@ test('publishFeatureSpecification creates labels and one reusable comment', asyn
   assert.deepEqual(removedLabels, ['ai:spec-needs-info'])
   assert.equal(comments.length, 1)
   assert.match(comments[0], /Spécification proposée/)
+  assert.match(comments[0], /\/approve-spec/)
   assert.equal(outputs.get('specification-status'), 'ai:spec-ready')
 })

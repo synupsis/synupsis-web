@@ -165,7 +165,7 @@ export function buildSpecificationComment(result) {
     '',
     '---',
     ready
-      ? 'Cette proposition attend une validation humaine avant toute génération de code.'
+      ? 'Cette proposition attend une validation humaine avant toute génération de code. Pour l’approuver, commente `/approve-spec` dans cette Issue.'
       : 'Réponds aux questions dans l’Issue, puis relance le workflow de collecte. Aucun code n’a été généré.',
   )
 

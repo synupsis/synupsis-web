@@ -1,0 +1,45 @@
+name: AI feature approval
+
+on:
+  issue_comment:
+    types:
+      - created
+
+permissions: {}
+
+concurrency:
+  group: ai-feature-approval-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  approve:
+    name: Record human specification approval
+    if: >-
+      github.event.issue.pull_request == null &&
+      github.event.comment.body == '/approve-spec'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    outputs:
+      approval_status: ${{ steps.approve.outputs.approval_status }}
+      issue_number: ${{ steps.approve.outputs.issue_number }}
+
+    steps:
+      - name: Checkout the default branch
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Validate and record the approval
+        id: approve
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { pathToFileURL } = await import('node:url')
+            const moduleUrl = pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/feature-specification-approval.mjs`,
+            )
+            const { handleSpecificationApproval } = await import(moduleUrl.href)
+            await handleSpecificationApproval({ github, context, core })
