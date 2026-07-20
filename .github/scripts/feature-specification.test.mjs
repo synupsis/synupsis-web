@@ -130,7 +130,11 @@ test('publishFeatureSpecification creates labels and one reusable comment', asyn
         get: async () => ({
           data: {
             ...readyIssue,
-            labels: [{ name: 'ai:ready-for-spec' }, { name: 'ai:spec-needs-info' }],
+            labels: [
+              { name: 'ai:ready-for-spec' },
+              { name: 'ai:spec-needs-info' },
+              { name: 'ai:spec-approved' },
+            ],
           },
         }),
         getLabel: async () => {
@@ -168,7 +172,7 @@ test('publishFeatureSpecification creates labels and one reusable comment', asyn
 
   assert.deepEqual(createdLabels.sort(), ['ai:spec-needs-info', 'ai:spec-ready'])
   assert.deepEqual(addedLabels, ['ai:spec-ready'])
-  assert.deepEqual(removedLabels, ['ai:spec-needs-info'])
+  assert.deepEqual(removedLabels.sort(), ['ai:spec-approved', 'ai:spec-needs-info'])
   assert.equal(comments.length, 1)
   assert.match(comments[0], /Spécification proposée/)
   assert.match(comments[0], /\/approve-spec/)

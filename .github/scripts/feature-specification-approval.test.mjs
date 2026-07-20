@@ -38,11 +38,11 @@ test('only the exact approval command is accepted', () => {
   assert.equal(isSpecificationApprovalCommand('/APPROVE-SPEC'), false)
 })
 
-test('approval comments explain that development has not started', () => {
+test('approval comments explain that development cannot merge automatically', () => {
   const comment = buildApprovalComment()
 
   assert.match(comment, /Spécification approuvée/)
-  assert.match(comment, /Aucun code ni déploiement/)
+  assert.match(comment, /aucune fusion ni mise en production n’est automatique/)
 })
 
 test('commands from untrusted accounts are rejected without GitHub writes', async () => {

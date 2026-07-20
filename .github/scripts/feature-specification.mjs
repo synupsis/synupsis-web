@@ -4,6 +4,11 @@ const MAX_ISSUE_BODY_LENGTH = 30000
 const MAX_SPECIFICATION_LENGTH = 45000
 const MAX_QUESTIONS = 10
 const MAX_QUESTION_LENGTH = 1000
+const DOWNSTREAM_LABELS = [
+  'ai:spec-approved',
+  'ai:implementation-pr',
+  'ai:dev-blocked',
+]
 
 const LABELS = {
   ready: {
@@ -234,6 +239,17 @@ export async function publishFeatureSpecification({ github, context, core, issue
         repo,
         issue_number: normalizedIssueNumber,
         name: label.name,
+      })
+    }
+  }
+
+  for (const label of DOWNSTREAM_LABELS) {
+    if (currentLabels.has(label)) {
+      await github.rest.issues.removeLabel({
+        owner,
+        repo,
+        issue_number: normalizedIssueNumber,
+        name: label,
       })
     }
   }

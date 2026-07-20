@@ -1,0 +1,336 @@
+name: AI feature development
+
+on:
+  workflow_call:
+    inputs:
+      issue_number:
+        required: true
+        type: string
+    secrets:
+      OPENAI_API_KEY:
+        required: true
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Numéro de l’Issue approuvée à implémenter
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: ai-feature-development-${{ inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  develop:
+    name: Generate an isolated implementation patch
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: read
+    env:
+      NUXT_TELEMETRY_DISABLED: 1
+      NUXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NUXT_PUBLIC_SUPABASE_KEY: ai-development-placeholder
+    outputs:
+      should_run: ${{ steps.prepare.outputs.should_run }}
+      branch_name: ${{ steps.prepare.outputs.branch_name }}
+      final_message: ${{ steps.codex.outputs.final-message }}
+
+    steps:
+      - name: Checkout develop without persisted credentials
+        uses: actions/checkout@v7
+        with:
+          ref: develop
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: yarn
+          cache-dependency-path: yarn.lock
+
+      - name: Install existing dependencies
+        run: yarn install --frozen-lockfile --non-interactive
+
+      - name: Prepare the approved development prompt
+        id: prepare
+        uses: actions/github-script@v9
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+        with:
+          script: |
+            const fs = await import('node:fs/promises')
+            const { pathToFileURL } = await import('node:url')
+            const moduleUrl = pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/feature-development.mjs`,
+            )
+            const { prepareFeatureDevelopment } = await import(moduleUrl.href)
+            const templatePath = `${process.env.GITHUB_WORKSPACE}/.github/codex/prompts/development.md`
+            const promptPath = `${process.env.GITHUB_WORKSPACE}/.github/codex/runtime-development-prompt.md`
+            const template = await fs.readFile(templatePath, 'utf8')
+            const prepared = await prepareFeatureDevelopment({
+              github,
+              context,
+              issueNumber: process.env.ISSUE_NUMBER,
+              template,
+            })
+            core.setOutput('should_run', String(prepared.shouldRun))
+            core.setOutput('branch_name', prepared.branchName)
+            if (prepared.shouldRun) {
+              await fs.writeFile(promptPath, prepared.prompt, { encoding: 'utf8', mode: 0o600 })
+            } else {
+              core.notice(prepared.reason)
+            }
+
+      - name: Implement the approved specification
+        if: steps.prepare.outputs.should_run == 'true'
+        id: codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: .github/codex/runtime-development-prompt.md
+          model: gpt-5.6-sol
+          effort: high
+          sandbox: workspace-write
+          safety-strategy: drop-sudo
+          codex-args: '["--ephemeral","--output-schema",".github/codex/development-output.schema.json"]'
+
+  validate:
+    name: Validate the patch without secrets or write access
+    needs: develop
+    if: needs.develop.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      NUXT_TELEMETRY_DISABLED: 1
+      NUXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NUXT_PUBLIC_SUPABASE_KEY: ai-validation-placeholder
+    outputs:
+      development_status: ${{ steps.result.outputs.development_status }}
+
+    steps:
+      - name: Checkout a clean develop without persisted credentials
+        uses: actions/checkout@v7
+        with:
+          ref: develop
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: yarn
+          cache-dependency-path: yarn.lock
+
+      - name: Install existing dependencies
+        run: yarn install --frozen-lockfile --non-interactive
+
+      - name: Parse and inspect the generated patch
+        id: result
+        uses: actions/github-script@v9
+        env:
+          DEVELOPMENT_RESULT: ${{ needs.develop.outputs.final_message }}
+        with:
+          script: |
+            const fs = await import('node:fs/promises')
+            const { pathToFileURL } = await import('node:url')
+            const moduleUrl = pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/feature-development.mjs`,
+            )
+            const { parseDevelopmentResult, validateDevelopmentPatch } = await import(moduleUrl.href)
+            const result = parseDevelopmentResult(process.env.DEVELOPMENT_RESULT)
+            core.setOutput('development_status', result.status)
+            if (result.status === 'implemented') {
+              const paths = validateDevelopmentPatch(result.patch)
+              core.info(`Validated generated paths: ${paths.join(', ')}`)
+              await fs.writeFile('/tmp/codex-development.patch', result.patch, {
+                encoding: 'utf8',
+                mode: 0o600,
+              })
+            }
+
+      - name: Apply the patch to the clean checkout
+        if: steps.result.outputs.development_status == 'implemented'
+        run: |
+          git apply --check --whitespace=error-all /tmp/codex-development.patch
+          git apply --whitespace=error-all /tmp/codex-development.patch
+          git diff --check
+
+      - name: Lint
+        if: steps.result.outputs.development_status == 'implemented'
+        run: yarn lint
+
+      - name: Typecheck
+        if: steps.result.outputs.development_status == 'implemented'
+        run: yarn typecheck
+
+      - name: Pipeline tests
+        if: steps.result.outputs.development_status == 'implemented'
+        run: yarn test:pipeline
+
+      - name: Build
+        if: steps.result.outputs.development_status == 'implemented'
+        run: yarn build
+
+  report-blocked:
+    name: Report an agent blocker
+    needs:
+      - develop
+      - validate
+    if: needs.validate.outputs.development_status == 'blocked'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout trusted pipeline code
+        uses: actions/checkout@v7
+        with:
+          ref: develop
+          persist-credentials: false
+
+      - name: Publish the blocker
+        uses: actions/github-script@v9
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          DEVELOPMENT_RESULT: ${{ needs.develop.outputs.final_message }}
+        with:
+          script: |
+            const { pathToFileURL } = await import('node:url')
+            const moduleUrl = pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/feature-development.mjs`,
+            )
+            const { publishDevelopmentBlocked } = await import(moduleUrl.href)
+            await publishDevelopmentBlocked({
+              github,
+              context,
+              core,
+              issueNumber: process.env.ISSUE_NUMBER,
+              rawResult: process.env.DEVELOPMENT_RESULT,
+            })
+
+  report-validation-failure:
+    name: Report deterministic validation failure
+    needs:
+      - develop
+      - validate
+    if: >-
+      always() &&
+      needs.develop.outputs.should_run == 'true' &&
+      needs.validate.result == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+
+    steps:
+      - name: Publish the validation failure
+        uses: actions/github-script@v9
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+        with:
+          script: |
+            const issueNumber = Number(process.env.ISSUE_NUMBER)
+            if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
+              throw new Error('Invalid Issue number.')
+            }
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: issueNumber,
+              body: [
+                '<!-- synupsis-ai-development-validation-failed:v1 -->',
+                '### Validation de l’implémentation échouée',
+                '',
+                'Le patch généré n’a pas franchi les contrôles déterministes. Il n’a pas été poussé et aucune PR n’a été créée.',
+                '',
+                `[Consulter les logs du workflow](${runUrl})`,
+              ].join('\n'),
+            })
+
+  publish:
+    name: Publish the validated patch as a draft PR
+    needs:
+      - develop
+      - validate
+    if: needs.validate.outputs.development_status == 'implemented'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout a clean develop with push credentials
+        uses: actions/checkout@v7
+        with:
+          ref: develop
+          fetch-depth: 0
+
+      - name: Revalidate and write the patch
+        uses: actions/github-script@v9
+        env:
+          DEVELOPMENT_RESULT: ${{ needs.develop.outputs.final_message }}
+        with:
+          script: |
+            const fs = await import('node:fs/promises')
+            const { pathToFileURL } = await import('node:url')
+            const moduleUrl = pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/feature-development.mjs`,
+            )
+            const { parseDevelopmentResult, validateDevelopmentPatch } = await import(moduleUrl.href)
+            const result = parseDevelopmentResult(process.env.DEVELOPMENT_RESULT)
+            if (result.status !== 'implemented') {
+              throw new Error('Only an implemented result can be published.')
+            }
+            validateDevelopmentPatch(result.patch)
+            await fs.writeFile('/tmp/codex-development.patch', result.patch, {
+              encoding: 'utf8',
+              mode: 0o600,
+            })
+
+      - name: Create and push the implementation branch
+        env:
+          BRANCH_NAME: ${{ needs.develop.outputs.branch_name }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+        run: |
+          git switch -c "$BRANCH_NAME"
+          git apply --check --whitespace=error-all /tmp/codex-development.patch
+          git apply --whitespace=error-all /tmp/codex-development.patch
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git -c core.hooksPath=/dev/null commit -m "feat: implement issue #${ISSUE_NUMBER}"
+          git push --set-upstream origin "$BRANCH_NAME"
+
+      - name: Create the draft Pull Request and update the Issue
+        uses: actions/github-script@v9
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          BRANCH_NAME: ${{ needs.develop.outputs.branch_name }}
+          DEVELOPMENT_RESULT: ${{ needs.develop.outputs.final_message }}
+        with:
+          script: |
+            const { pathToFileURL } = await import('node:url')
+            const moduleUrl = pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/feature-development.mjs`,
+            )
+            const { publishDevelopmentPullRequest } = await import(moduleUrl.href)
+            await publishDevelopmentPullRequest({
+              github,
+              context,
+              core,
+              issueNumber: process.env.ISSUE_NUMBER,
+              branchName: process.env.BRANCH_NAME,
+              rawResult: process.env.DEVELOPMENT_RESULT,
+            })
