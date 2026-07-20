@@ -6,6 +6,7 @@ import {
 } from './feature-development.mjs'
 
 const REVIEW_COMMENT_MARKER = '<!-- synupsis-ai-review:v1 -->'
+const REVIEW_HEAD_MARKER_PREFIX = 'synupsis-ai-review-head:'
 const SPECIFICATION_COMMENT_MARKER = '<!-- synupsis-ai-spec:v1 -->'
 const APPROVAL_COMMENT_MARKER = '<!-- synupsis-ai-approval:v1 -->'
 const APPROVED_LABEL = 'ai:spec-approved'
@@ -13,6 +14,7 @@ const IMPLEMENTATION_LABEL = 'ai:implementation-pr'
 const TRUSTED_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
 const REVIEW_VERDICTS = new Set(['approved', 'changes_requested', 'blocked'])
 const FINDING_SEVERITIES = new Set(['critical', 'high', 'medium', 'low'])
+const CORRECTION_LABEL_NAMES = ['ai:fix-in-progress', 'ai:fix-blocked']
 
 const REVIEW_LABELS = {
   approved: {
@@ -66,6 +68,13 @@ export function issueNumberFromReviewBranch(branchName = '') {
 
 export function sanitizeReviewText(value = '', maxLength = 50000) {
   return sanitizeProductText(value, maxLength)
+}
+
+export function reviewHeadMarker(headSha) {
+  if (typeof headSha !== 'string' || !/^[0-9a-f]{40}$/i.test(headSha)) {
+    throw new Error('The review head SHA is invalid.')
+  }
+  return `<!-- ${REVIEW_HEAD_MARKER_PREFIX}${headSha.toLowerCase()} -->`
 }
 
 export function buildReviewPrompt({
@@ -338,6 +347,7 @@ export function buildReviewComment(result, headSha) {
   }
   const parts = [
     REVIEW_COMMENT_MARKER,
+    reviewHeadMarker(headSha),
     headings[result.verdict],
     '',
     neutralizeMentions(result.summary),
@@ -384,6 +394,15 @@ export function buildReviewComment(result, headSha) {
     )
   }
 
+  if (result.verdict === 'changes_requested') {
+    parts.push(
+      '',
+      '#### Validation humaine requise',
+      '',
+      'Après lecture des problèmes ci-dessus, commente exactement `/apply-review-fixes` sur cette Pull Request pour autoriser un agent séparé à proposer les corrections.',
+    )
+  }
+
   parts.push(
     '',
     '---',
@@ -425,6 +444,19 @@ async function setManagedReviewLabel({ github, owner, repo, issueNumber, current
         repo,
         issue_number: issueNumber,
         name: label.name,
+      })
+    }
+  }
+}
+
+async function removeCorrectionLabels({ github, owner, repo, issueNumber, currentLabels }) {
+  for (const labelName of CORRECTION_LABEL_NAMES) {
+    if (currentLabels.has(labelName)) {
+      await github.rest.issues.removeLabel({
+        owner,
+        repo,
+        issue_number: issueNumber,
+        name: labelName,
       })
     }
   }
@@ -506,6 +538,20 @@ export async function publishFeatureReview({
     issueNumber,
     currentLabels: issueLabels,
     statusLabel,
+  })
+  await removeCorrectionLabels({
+    github,
+    owner,
+    repo,
+    issueNumber: normalizedPullRequestNumber,
+    currentLabels: labelsOf(pullRequest),
+  })
+  await removeCorrectionLabels({
+    github,
+    owner,
+    repo,
+    issueNumber,
+    currentLabels: issueLabels,
   })
 
   const body = buildReviewComment(result, expectedHeadSha)

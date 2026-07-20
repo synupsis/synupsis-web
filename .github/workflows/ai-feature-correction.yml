@@ -1,0 +1,456 @@
+name: AI feature correction
+
+on:
+  issue_comment:
+    types:
+      - created
+
+permissions: {}
+
+concurrency:
+  group: ai-feature-correction-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  authorize:
+    name: Record human correction approval
+    if: >-
+      github.event.issue.pull_request != null &&
+      github.event.comment.body == '/apply-review-fixes'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    outputs:
+      approval_status: ${{ steps.authorize.outputs.approval_status }}
+      pull_request_number: ${{ steps.authorize.outputs.pull_request_number }}
+      issue_number: ${{ steps.authorize.outputs.issue_number }}
+      head_sha: ${{ steps.authorize.outputs.head_sha }}
+      branch_name: ${{ steps.authorize.outputs.branch_name }}
+
+    steps:
+      - name: Checkout trusted pipeline code
+        uses: actions/checkout@v7
+        with:
+          ref: develop
+          persist-credentials: false
+
+      - name: Validate and record correction approval
+        id: authorize
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { pathToFileURL } = await import('node:url')
+            const moduleUrl = pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/feature-correction.mjs`,
+            )
+            const { handleCorrectionApproval } = await import(moduleUrl.href)
+            await handleCorrectionApproval({ github, context, core })
+
+  correct:
+    name: Generate an isolated correction patch
+    needs: authorize
+    if: needs.authorize.outputs.approval_status == 'ai:fix-in-progress'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    env:
+      NUXT_TELEMETRY_DISABLED: 1
+      NUXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NUXT_PUBLIC_SUPABASE_KEY: ai-correction-placeholder
+    outputs:
+      final_message: ${{ steps.codex.outputs.final-message }}
+      allowed_paths: ${{ steps.prepare.outputs.allowed_paths }}
+
+    steps:
+      - name: Checkout the exact implementation SHA without credentials
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.authorize.outputs.head_sha }}
+          persist-credentials: false
+
+      - name: Checkout trusted pipeline code separately
+        uses: actions/checkout@v7
+        with:
+          ref: develop
+          path: .trusted-pipeline
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: yarn
+          cache-dependency-path: yarn.lock
+
+      - name: Install existing dependencies
+        run: yarn install --frozen-lockfile --non-interactive
+
+      - name: Prepare the approved correction prompt
+        id: prepare
+        uses: actions/github-script@v9
+        env:
+          PULL_REQUEST_NUMBER: ${{ needs.authorize.outputs.pull_request_number }}
+          EXPECTED_HEAD_SHA: ${{ needs.authorize.outputs.head_sha }}
+        with:
+          script: |
+            const fs = await import('node:fs/promises')
+            const { pathToFileURL } = await import('node:url')
+            const trustedRoot = `${process.env.GITHUB_WORKSPACE}/.trusted-pipeline`
+            const moduleUrl = pathToFileURL(
+              `${trustedRoot}/.github/scripts/feature-correction.mjs`,
+            )
+            const { prepareFeatureCorrection } = await import(moduleUrl.href)
+            const templatePath = `${trustedRoot}/.github/codex/prompts/correction.md`
+            const promptPath = `${trustedRoot}/.github/codex/runtime-correction-prompt.md`
+            const template = await fs.readFile(templatePath, 'utf8')
+            const prepared = await prepareFeatureCorrection({
+              github,
+              context,
+              pullRequestNumber: process.env.PULL_REQUEST_NUMBER,
+              expectedHeadSha: process.env.EXPECTED_HEAD_SHA,
+              template,
+            })
+            core.setOutput('allowed_paths', JSON.stringify(prepared.allowedPaths))
+            await fs.writeFile(promptPath, prepared.prompt, { encoding: 'utf8', mode: 0o600 })
+
+      - name: Correct the approved review findings
+        id: codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: .trusted-pipeline/.github/codex/runtime-correction-prompt.md
+          model: gpt-5.6-sol
+          effort: high
+          sandbox: workspace-write
+          safety-strategy: drop-sudo
+          codex-args: '["--ephemeral","--output-schema",".trusted-pipeline/.github/codex/correction-output.schema.json"]'
+
+  validate:
+    name: Validate corrections without secrets or write access
+    needs:
+      - authorize
+      - correct
+    if: needs.authorize.outputs.approval_status == 'ai:fix-in-progress'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      NUXT_TELEMETRY_DISABLED: 1
+      NUXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NUXT_PUBLIC_SUPABASE_KEY: ai-correction-validation-placeholder
+    outputs:
+      correction_status: ${{ steps.result.outputs.correction_status }}
+
+    steps:
+      - name: Checkout the exact implementation SHA without credentials
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.authorize.outputs.head_sha }}
+          persist-credentials: false
+
+      - name: Checkout trusted pipeline code separately
+        uses: actions/checkout@v7
+        with:
+          ref: develop
+          path: .trusted-pipeline
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: yarn
+          cache-dependency-path: yarn.lock
+
+      - name: Install existing dependencies
+        run: yarn install --frozen-lockfile --non-interactive
+
+      - name: Parse and inspect the correction patch
+        id: result
+        uses: actions/github-script@v9
+        env:
+          CORRECTION_RESULT: ${{ needs.correct.outputs.final_message }}
+          ALLOWED_PATHS: ${{ needs.correct.outputs.allowed_paths }}
+        with:
+          script: |
+            const fs = await import('node:fs/promises')
+            const { pathToFileURL } = await import('node:url')
+            const moduleUrl = pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/.trusted-pipeline/.github/scripts/feature-correction.mjs`,
+            )
+            const { parseCorrectionResult, validateCorrectionPatch } = await import(moduleUrl.href)
+            const result = parseCorrectionResult(process.env.CORRECTION_RESULT)
+            core.setOutput('correction_status', result.status)
+            if (result.status === 'fixed') {
+              const allowedPaths = JSON.parse(process.env.ALLOWED_PATHS)
+              const paths = validateCorrectionPatch(result.patch, allowedPaths)
+              core.info(`Validated correction paths: ${paths.join(', ')}`)
+              await fs.writeFile('/tmp/codex-correction.patch', result.patch, {
+                encoding: 'utf8',
+                mode: 0o600,
+              })
+            }
+
+      - name: Apply the correction patch to the clean implementation
+        if: steps.result.outputs.correction_status == 'fixed'
+        run: |
+          git apply --check --whitespace=error-all /tmp/codex-correction.patch
+          git apply --whitespace=error-all /tmp/codex-correction.patch
+          git diff --check
+
+      - name: Lint
+        if: steps.result.outputs.correction_status == 'fixed'
+        run: yarn lint
+
+      - name: Typecheck
+        if: steps.result.outputs.correction_status == 'fixed'
+        run: yarn typecheck
+
+      - name: Pipeline tests
+        if: steps.result.outputs.correction_status == 'fixed'
+        run: yarn test:pipeline
+
+      - name: Build
+        if: steps.result.outputs.correction_status == 'fixed'
+        run: yarn build
+
+  report-blocked:
+    name: Report an agent correction blocker
+    needs:
+      - authorize
+      - correct
+      - validate
+    if: needs.validate.outputs.correction_status == 'blocked'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout trusted pipeline code
+        uses: actions/checkout@v7
+        with:
+          ref: develop
+          persist-credentials: false
+
+      - name: Publish the correction blocker
+        uses: actions/github-script@v9
+        env:
+          PULL_REQUEST_NUMBER: ${{ needs.authorize.outputs.pull_request_number }}
+          EXPECTED_HEAD_SHA: ${{ needs.authorize.outputs.head_sha }}
+          CORRECTION_RESULT: ${{ needs.correct.outputs.final_message }}
+        with:
+          script: |
+            const { pathToFileURL } = await import('node:url')
+            const moduleUrl = pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/feature-correction.mjs`,
+            )
+            const { publishCorrectionBlocked } = await import(moduleUrl.href)
+            await publishCorrectionBlocked({
+              github,
+              context,
+              core,
+              pullRequestNumber: process.env.PULL_REQUEST_NUMBER,
+              expectedHeadSha: process.env.EXPECTED_HEAD_SHA,
+              rawResult: process.env.CORRECTION_RESULT,
+            })
+
+  report-validation-failure:
+    name: Report deterministic correction validation failure
+    needs:
+      - authorize
+      - correct
+      - validate
+    if: >-
+      always() &&
+      needs.authorize.outputs.approval_status == 'ai:fix-in-progress' &&
+      needs.correct.result == 'success' &&
+      needs.validate.result == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout trusted pipeline code
+        uses: actions/checkout@v7
+        with:
+          ref: develop
+          persist-credentials: false
+
+      - name: Publish the validation failure
+        uses: actions/github-script@v9
+        env:
+          PULL_REQUEST_NUMBER: ${{ needs.authorize.outputs.pull_request_number }}
+          EXPECTED_HEAD_SHA: ${{ needs.authorize.outputs.head_sha }}
+        with:
+          script: |
+            const { pathToFileURL } = await import('node:url')
+            const moduleUrl = pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/feature-correction.mjs`,
+            )
+            const { publishCorrectionValidationFailure } = await import(moduleUrl.href)
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+            await publishCorrectionValidationFailure({
+              github,
+              context,
+              core,
+              pullRequestNumber: process.env.PULL_REQUEST_NUMBER,
+              expectedHeadSha: process.env.EXPECTED_HEAD_SHA,
+              runUrl,
+            })
+
+  report-agent-failure:
+    name: Report correction agent execution failure
+    needs:
+      - authorize
+      - correct
+    if: >-
+      always() &&
+      needs.authorize.outputs.approval_status == 'ai:fix-in-progress' &&
+      needs.correct.result == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout trusted pipeline code
+        uses: actions/checkout@v7
+        with:
+          ref: develop
+          persist-credentials: false
+
+      - name: Publish the agent execution failure
+        uses: actions/github-script@v9
+        env:
+          PULL_REQUEST_NUMBER: ${{ needs.authorize.outputs.pull_request_number }}
+          EXPECTED_HEAD_SHA: ${{ needs.authorize.outputs.head_sha }}
+        with:
+          script: |
+            const { pathToFileURL } = await import('node:url')
+            const moduleUrl = pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/feature-correction.mjs`,
+            )
+            const { publishCorrectionExecutionFailure } = await import(moduleUrl.href)
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+            await publishCorrectionExecutionFailure({
+              github,
+              context,
+              core,
+              pullRequestNumber: process.env.PULL_REQUEST_NUMBER,
+              expectedHeadSha: process.env.EXPECTED_HEAD_SHA,
+              runUrl,
+            })
+
+  publish:
+    name: Push the validated corrections
+    needs:
+      - authorize
+      - correct
+      - validate
+    if: needs.validate.outputs.correction_status == 'fixed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: write
+      contents: write
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout the implementation branch with push credentials
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.authorize.outputs.branch_name }}
+          fetch-depth: 0
+
+      - name: Checkout trusted pipeline code separately
+        uses: actions/checkout@v7
+        with:
+          ref: develop
+          path: .trusted-pipeline
+          persist-credentials: false
+
+      - name: Revalidate and write the correction patch
+        id: prepare
+        uses: actions/github-script@v9
+        env:
+          PULL_REQUEST_NUMBER: ${{ needs.authorize.outputs.pull_request_number }}
+          EXPECTED_HEAD_SHA: ${{ needs.authorize.outputs.head_sha }}
+          CORRECTION_RESULT: ${{ needs.correct.outputs.final_message }}
+        with:
+          script: |
+            const fs = await import('node:fs/promises')
+            const { pathToFileURL } = await import('node:url')
+            const moduleUrl = pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/.trusted-pipeline/.github/scripts/feature-correction.mjs`,
+            )
+            const { prepareCorrectionPublication } = await import(moduleUrl.href)
+            const prepared = await prepareCorrectionPublication({
+              github,
+              context,
+              pullRequestNumber: process.env.PULL_REQUEST_NUMBER,
+              expectedHeadSha: process.env.EXPECTED_HEAD_SHA,
+              rawResult: process.env.CORRECTION_RESULT,
+            })
+            core.setOutput('summary', prepared.result.summary)
+            await fs.writeFile('/tmp/codex-correction.patch', prepared.result.patch, {
+              encoding: 'utf8',
+              mode: 0o600,
+            })
+
+      - name: Commit and push the validated corrections
+        id: commit
+        env:
+          BRANCH_NAME: ${{ needs.authorize.outputs.branch_name }}
+          EXPECTED_HEAD_SHA: ${{ needs.authorize.outputs.head_sha }}
+          ISSUE_NUMBER: ${{ needs.authorize.outputs.issue_number }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+          git apply --check --whitespace=error-all /tmp/codex-correction.patch
+          git apply --whitespace=error-all /tmp/codex-correction.patch
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u -- .
+          git -c core.hooksPath=/dev/null commit -m "fix: address AI review for issue #${ISSUE_NUMBER}"
+          git push origin "HEAD:${BRANCH_NAME}"
+          echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Report the pushed corrections
+        uses: actions/github-script@v9
+        env:
+          PULL_REQUEST_NUMBER: ${{ needs.authorize.outputs.pull_request_number }}
+          PREVIOUS_HEAD_SHA: ${{ needs.authorize.outputs.head_sha }}
+          CORRECTION_COMMIT_SHA: ${{ steps.commit.outputs.commit_sha }}
+          CORRECTION_SUMMARY: ${{ steps.prepare.outputs.summary }}
+        with:
+          script: |
+            const { pathToFileURL } = await import('node:url')
+            const moduleUrl = pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/.trusted-pipeline/.github/scripts/feature-correction.mjs`,
+            )
+            const { publishCorrectionSuccess } = await import(moduleUrl.href)
+            await publishCorrectionSuccess({
+              github,
+              context,
+              core,
+              pullRequestNumber: process.env.PULL_REQUEST_NUMBER,
+              previousHeadSha: process.env.PREVIOUS_HEAD_SHA,
+              correctionCommitSha: process.env.CORRECTION_COMMIT_SHA,
+              summary: process.env.CORRECTION_SUMMARY,
+            })

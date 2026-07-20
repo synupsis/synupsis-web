@@ -23,7 +23,7 @@ const LABELS = {
 }
 
 const TRUSTED_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
-const PROTECTED_PREFIXES = ['.codex/', '.git/', '.github/', 'supabase/']
+const PROTECTED_PREFIXES = ['.codex/', '.git/', '.github/', '.trusted-pipeline/', 'supabase/']
 const PROTECTED_FILES = new Set([
   '.gitattributes',
   '.gitmodules',
@@ -558,6 +558,20 @@ export async function publishDevelopmentPullRequest({
     issueNumber: normalizedIssueNumber,
     marker: DEVELOPMENT_COMMENT_MARKER,
     body,
+  })
+
+  await github.rest.actions.createWorkflowDispatch({
+    owner,
+    repo,
+    workflow_id: 'ci.yml',
+    ref: branchName,
+  })
+  await github.rest.actions.createWorkflowDispatch({
+    owner,
+    repo,
+    workflow_id: 'ai-feature-review.yml',
+    ref: 'develop',
+    inputs: { pull_request_number: String(pullRequest.number) },
   })
 
   core.setOutput('development_status', LABELS.pullRequest.name)

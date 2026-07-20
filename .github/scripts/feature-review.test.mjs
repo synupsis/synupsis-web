@@ -8,6 +8,7 @@ import {
   parseFeatureReviewResult,
   prepareFeatureReview,
   publishFeatureReview,
+  reviewHeadMarker,
   sanitizeReviewText,
 } from './feature-review.mjs'
 
@@ -203,6 +204,8 @@ test('review comments render findings and prevent live mentions', () => {
   }, headSha)
 
   assert.match(comment, /Corrections demandées/)
+  assert.match(comment, /\/apply-review-fixes/)
+  assert.match(comment, new RegExp(reviewHeadMarker(headSha).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   assert.match(comment, /pages\/recap\/\[id\]\.vue:42/)
   assert.equal(comment.includes('@product'), false)
   assert.equal(comment.includes('@\u200bproduct'), true)
