@@ -40,6 +40,23 @@ Lorsqu’une demande reçoit le statut `ai:ready-for-spec`, le workflow `AI feat
 
 La spécification couvre le comportement, les fichiers concernés, l’approche technique, l’impact Supabase/RLS, l’accessibilité, les étapes d’implémentation et les tests. Elle reste soumise à validation humaine. Aucun code ni déploiement n’est encore produit.
 
+## Étape 3 — Validation humaine
+
+Un propriétaire, membre ou collaborateur du dépôt approuve la proposition en ajoutant exactement ce commentaire dans l’Issue :
+
+```text
+/approve-spec
+```
+
+Le workflow `AI feature approval` contrôle que :
+
+- la commande vient d’un compte autorisé ;
+- la cible est bien une Issue et non une Pull Request ;
+- le label `ai:spec-ready` est encore présent ;
+- une spécification a réellement été publiée par le bot.
+
+Après validation, il ajoute `ai:spec-approved` et publie une confirmation. Cette étape ne génère encore aucun code : le label constituera le déclencheur sécurisé du futur agent de développement.
+
 Un mainteneur peut aussi relancer manuellement le workflow avec le numéro d’une Issue depuis l’onglet **Actions**, par exemple après la correction d’un workflow ou d’une configuration.
 
 ## Sécurité
@@ -54,7 +71,7 @@ yarn test:pipeline
 
 ## Relance manuelle
 
-Les deux workflows acceptent un numéro d’Issue depuis l’onglet **Actions**. Relancer `AI feature intake` rejoue toute la chaîne si la demande est complète. Relancer directement `AI feature specification` ne rejoue que l’analyse.
+Les workflows de collecte et de spécification acceptent un numéro d’Issue depuis l’onglet **Actions**. Relancer `AI feature intake` rejoue toute la chaîne si la demande est complète. Relancer directement `AI feature specification` ne rejoue que l’analyse. L’approbation, elle, exige volontairement la commande publique `/approve-spec` afin de conserver une trace humaine explicite dans l’Issue.
 
 ## Prochaine étape
 
