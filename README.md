@@ -52,7 +52,13 @@ Run Edge Functions locally
 
 ## Deployment
 
-Nuxt web client deployment is automatic on commit on _main_ branch.
+The `develop` branch is automatically deployed to the shared development environment on Netlify. Pull requests get an isolated Netlify Deploy Preview.
+
+## AI feature pipeline
+
+Non-technical contributors can submit a structured feature request from the **Fonctionnalité assistée par IA** GitHub Issue form. The current intake validates and normalizes the request before it is sent to an agent.
+
+See [the AI pipeline documentation](docs/ai-pipeline.md) for its current status and safety rules.
 
 To deploy Supabase Edge Functions run
 

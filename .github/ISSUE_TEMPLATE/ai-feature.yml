@@ -1,0 +1,102 @@
+name: Fonctionnalité assistée par IA
+description: Décrire une fonctionnalité qui sera spécifiée puis développée par les agents Synupsis.
+title: "[Feature IA] "
+labels:
+  - "ai:request"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        <!-- synupsis-ai-request:v1 -->
+        Décris le besoin avec tes mots. Tu n'as pas besoin de proposer une solution technique : les agents s'en chargeront.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problème à résoudre
+      description: Quel problème rencontres-tu aujourd'hui et pourquoi est-il important ?
+      placeholder: Aujourd'hui, un utilisateur ne peut pas…
+    validations:
+      required: true
+
+  - type: dropdown
+    id: audience
+    attributes:
+      label: Utilisateurs concernés
+      description: Qui bénéficiera principalement de cette fonctionnalité ?
+      options:
+        - Visiteurs non connectés
+        - Utilisateurs connectés
+        - Administrateurs
+        - Tous les utilisateurs
+        - Je ne sais pas encore
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Résultat attendu
+      description: Que devrait-il se passer une fois la fonctionnalité terminée ?
+      placeholder: L'utilisateur peut…
+    validations:
+      required: true
+
+  - type: textarea
+    id: journey
+    attributes:
+      label: Parcours utilisateur imaginé
+      description: Décris les étapes principales, même approximativement.
+      placeholder: |
+        1. L'utilisateur ouvre…
+        2. Il clique sur…
+        3. Il voit…
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Critères de validation
+      description: Comment sauras-tu que le résultat te convient ? Écris une liste de comportements observables.
+      placeholder: |
+        - [ ] Le bouton est visible sur…
+        - [ ] Après le clic…
+        - [ ] En cas d'erreur…
+    validations:
+      required: true
+
+  - type: dropdown
+    id: data-impact
+    attributes:
+      label: Impact possible sur les données
+      description: La fonctionnalité semble-t-elle nécessiter de nouvelles données ou modifier la base ?
+      options:
+        - Je ne sais pas
+        - Aucun changement de données
+        - De nouvelles données seront probablement nécessaires
+        - Des données existantes seront probablement modifiées
+    validations:
+      required: true
+
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Contraintes et éléments à préserver
+      description: Facultatif — comportement existant, design, compatibilité ou règle métier à ne pas casser.
+      placeholder: Il faut conserver…
+
+  - type: textarea
+    id: references
+    attributes:
+      label: Références utiles
+      description: Facultatif — captures d'écran, liens, exemples ou produits similaires.
+      placeholder: Tu peux glisser-déposer des captures d'écran ici.
+
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: J'ai décrit le résultat attendu et j'accepte qu'une première version soit proposée sur un environnement de preview.
+          required: true
