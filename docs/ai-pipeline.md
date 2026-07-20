@@ -28,6 +28,8 @@ Le formulaire demande :
 
 Cette étape ne lance encore aucun modèle, ne modifie pas le code et ne déploie rien.
 
+Un mainteneur peut aussi relancer manuellement le workflow avec le numéro d’une Issue depuis l’onglet **Actions**, par exemple après la correction d’un workflow ou d’une configuration.
+
 ## Sécurité
 
 Les Issues du dépôt étant publiques, l’appartenance de l’auteur est contrôlée avant de déclarer une demande prête. Ce garde-fou devra aussi être vérifié par tous les futurs workflows qui consommeront des crédits IA ou disposeront de droits d’écriture.

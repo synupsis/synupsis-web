@@ -1,5 +1,6 @@
 const REQUEST_MARKER = '<!-- synupsis-ai-request:v1 -->'
 const COMMENT_MARKER = '<!-- synupsis-ai-intake:v1 -->'
+const FEATURE_TITLE_PREFIX = '[Feature IA]'
 
 const FIELD_DEFINITIONS = [
   { key: 'problem', heading: 'Problème à résoudre', required: true },
@@ -88,6 +89,18 @@ export function validateFeatureRequest(featureRequest) {
 
 export function isTrustedAssociation(association = '') {
   return TRUSTED_ASSOCIATIONS.has(association.toUpperCase())
+}
+
+export function isFeatureRequestIssue(issue = {}) {
+  const title = typeof issue.title === 'string' ? issue.title.trimStart() : ''
+  const body = typeof issue.body === 'string' ? issue.body : ''
+  const hasExpectedSections = body.includes('### Problème à résoudre')
+    && body.includes('### Résultat attendu')
+    && body.includes('### Critères de validation')
+
+  return title.startsWith(FEATURE_TITLE_PREFIX)
+    || body.includes(REQUEST_MARKER)
+    || hasExpectedSections
 }
 
 function blockquote(value) {
@@ -187,14 +200,29 @@ async function ensureLabel(github, owner, repo, label) {
 }
 
 export async function handleFeatureRequest({ github, context, core }) {
-  const issue = context.payload.issue
+  const { owner, repo } = context.repo
+  let issue = context.payload.issue
 
-  if (!issue || !issue.body?.includes(REQUEST_MARKER)) {
+  if (!issue && context.payload.inputs?.issue_number) {
+    const issueNumber = Number(context.payload.inputs.issue_number)
+
+    if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
+      throw new Error('The workflow_dispatch issue_number input must be a positive integer.')
+    }
+
+    const response = await github.rest.issues.get({
+      owner,
+      repo,
+      issue_number: issueNumber,
+    })
+    issue = response.data
+  }
+
+  if (!issue || !isFeatureRequestIssue(issue)) {
     core.info('This issue is not a Synupsis AI feature request.')
     return
   }
 
-  const { owner, repo } = context.repo
   const issueNumber = issue.number
   const featureRequest = normalizeFeatureRequest(issue.body)
   const missingFields = validateFeatureRequest(featureRequest)

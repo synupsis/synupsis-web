@@ -5,14 +5,14 @@ import {
   buildNormalizedBrief,
   buildStatusComment,
   handleFeatureRequest,
+  isFeatureRequestIssue,
   isTrustedAssociation,
   normalizeFeatureRequest,
   parseSections,
   validateFeatureRequest,
 } from './feature-request-intake.mjs'
 
-const completeBody = `<!-- synupsis-ai-request:v1 -->
-### Problème à résoudre
+const completeBody = `### Problème à résoudre
 
 Les utilisateurs perdent leur progression.
 
@@ -76,6 +76,12 @@ test('only repository owners, members and collaborators are trusted', () => {
   assert.equal(isTrustedAssociation('NONE'), false)
 })
 
+test('feature requests are detected without the discarded form markdown block', () => {
+  assert.equal(isFeatureRequestIssue({ title: '[Feature IA] Une amélioration', body: completeBody }), true)
+  assert.equal(isFeatureRequestIssue({ title: 'Titre modifié', body: completeBody }), true)
+  assert.equal(isFeatureRequestIssue({ title: 'Rapport de bug', body: 'Une erreur apparaît.' }), false)
+})
+
 test('ready comments contain the normalized brief without live mentions', () => {
   const request = normalizeFeatureRequest(completeBody.replace('Les utilisateurs', '@product Les utilisateurs'))
   const brief = buildNormalizedBrief(request)
@@ -114,6 +120,15 @@ test('handleFeatureRequest creates labels and one reusable status comment', asyn
         listComments: async () => {},
         createComment: async ({ body }) => comments.push(body),
         updateComment: async () => {},
+        get: async () => ({
+          data: {
+            number: 42,
+            title: '[Feature IA] Reprendre une story',
+            body: completeBody,
+            author_association: 'MEMBER',
+            labels: [],
+          },
+        }),
       },
     },
     paginate: async () => [],
@@ -121,12 +136,7 @@ test('handleFeatureRequest creates labels and one reusable status comment', asyn
   const context = {
     repo: { owner: 'synupsis', repo: 'synupsis-web' },
     payload: {
-      issue: {
-        number: 42,
-        body: completeBody,
-        author_association: 'MEMBER',
-        labels: [],
-      },
+      inputs: { issue_number: '42' },
     },
   }
   const core = {
