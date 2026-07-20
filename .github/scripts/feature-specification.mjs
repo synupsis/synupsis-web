@@ -13,6 +13,8 @@ const DOWNSTREAM_LABELS = [
   'ai:review-blocked',
   'ai:fix-in-progress',
   'ai:fix-blocked',
+  'ai:preview-approved',
+  'ai:integrated-dev',
 ]
 
 const LABELS = {

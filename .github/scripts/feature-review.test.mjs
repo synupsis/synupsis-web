@@ -9,6 +9,7 @@ import {
   prepareFeatureReview,
   publishFeatureReview,
   reviewHeadMarker,
+  reviewVerdictMarker,
   sanitizeReviewText,
 } from './feature-review.mjs'
 
@@ -206,10 +207,26 @@ test('review comments render findings and prevent live mentions', () => {
   assert.match(comment, /Corrections demandées/)
   assert.match(comment, /\/apply-review-fixes/)
   assert.match(comment, new RegExp(reviewHeadMarker(headSha).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  assert.match(comment, new RegExp(reviewVerdictMarker('changes_requested')))
   assert.match(comment, /pages\/recap\/\[id\]\.vue:42/)
   assert.equal(comment.includes('@product'), false)
   assert.equal(comment.includes('@\u200bproduct'), true)
   assert.match(comment, new RegExp(headSha.slice(0, 12)))
+})
+
+test('approved reviews expose the preview acceptance command', () => {
+  const comment = buildReviewComment({
+    verdict: 'approved',
+    summary: 'La proposition est prête à être testée.',
+    findings: [],
+    strengths: [],
+    verificationSteps: ['Tester sur mobile.'],
+    blockers: [],
+  }, headSha)
+
+  assert.match(comment, /\/approve-preview/)
+  assert.match(comment, /fusion dans `develop`/)
+  assert.match(comment, new RegExp(reviewVerdictMarker('approved')))
 })
 
 test('publishing revalidates the SHA and updates reusable labels and comment', async () => {

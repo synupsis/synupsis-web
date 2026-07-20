@@ -1,93 +1,131 @@
 # Pipeline IA Synupsis
 
-Le pipeline doit permettre à un membre non développeur de proposer une fonctionnalité, d’obtenir une preview testable, puis de demander sa mise en production sans manipuler le code.
+Le pipeline permet à un membre non développeur de proposer une fonctionnalité, de faire produire et reviewer son implémentation, puis de tester une Deploy Preview avant son intégration dans l’environnement de développement partagé.
+
+La production n’est pas encore configurée. Aucune commande décrite ici ne déploie sur `main` ou en production.
+
+## Vue d’ensemble
+
+1. créer une Issue avec le formulaire **Fonctionnalité assistée par IA** ;
+2. laisser l’agent produire une spécification ;
+3. approuver cette spécification avec `/approve-spec` ;
+4. laisser l’agent développeur créer une Pull Request brouillon ;
+5. laisser la CI, Netlify et l’agent reviewer analyser la proposition ;
+6. si nécessaire, autoriser les corrections avec `/apply-review-fixes` ;
+7. tester manuellement la Deploy Preview Netlify ;
+8. accepter son intégration dans `develop` avec `/approve-preview`.
 
 ## Étape 1 — Collecte de la demande
 
-Cette première étape est disponible depuis **GitHub → Issues → New issue → Fonctionnalité assistée par IA**.
+La demande se crée depuis **GitHub → Issues → New issue → Fonctionnalité assistée par IA**. Le formulaire demande le problème à résoudre, les utilisateurs concernés, le parcours attendu, des critères de validation observables, l’impact probable sur les données et les contraintes éventuelles.
 
-Le formulaire demande :
+Le workflow `AI feature intake` vérifie l’auteur et les champs indispensables, normalise le brief et applique l’un de ces labels :
 
-- le problème à résoudre ;
-- les utilisateurs concernés ;
-- le résultat et le parcours attendus ;
-- des critères de validation observables ;
-- l’impact probable sur les données ;
-- les contraintes et références éventuelles.
+- `ai:ready-for-spec` : la demande est complète ;
+- `ai:needs-info` : des informations obligatoires manquent ;
+- `ai:needs-approval` : la demande vient d’un compte externe.
 
-À la création ou à la modification de l’Issue, le workflow `AI feature intake` :
-
-1. vérifie que les champs indispensables sont présents ;
-2. vérifie que l’auteur est propriétaire, membre ou collaborateur du dépôt ;
-3. transforme les réponses en brief initial normalisé ;
-4. maintient un commentaire de statut unique sur l’Issue ;
-5. applique l’un des labels suivants :
-   - `ai:ready-for-spec` : la demande peut être envoyée à l’agent de spécification ;
-   - `ai:needs-info` : des informations obligatoires manquent ;
-   - `ai:needs-approval` : la demande vient d’un compte externe ;
-6. transmet automatiquement une demande complète à l’agent de spécification.
+Une demande complète et autorisée est automatiquement transmise à l’agent de spécification.
 
 ## Étape 2 — Spécification assistée par IA
 
-Lorsqu’une demande reçoit le statut `ai:ready-for-spec`, le workflow `AI feature specification` :
+Le workflow `AI feature specification` fournit le brief et le dépôt à Codex dans un environnement en lecture seule. Il exige une réponse JSON structurée, puis publie une spécification en français sur l’Issue.
 
-1. contrôle à nouveau l’auteur et le label de l’Issue avant de consommer des crédits ;
-2. fournit à Codex le brief et le dépôt dans un environnement en lecture seule ;
-3. demande une spécification structurée en français, fondée sur les fichiers réellement présents ;
-4. valide la réponse avec un schéma JSON ;
-5. publie ou met à jour un commentaire unique sur l’Issue ;
-6. applique `ai:spec-ready` ou `ai:spec-needs-info`.
+La proposition couvre notamment le comportement, les fichiers concernés, l’approche technique, Supabase et les règles RLS, l’accessibilité et les tests. Elle reçoit `ai:spec-ready` ou `ai:spec-needs-info` et reste soumise à validation humaine.
 
-La spécification couvre le comportement, les fichiers concernés, l’approche technique, l’impact Supabase/RLS, l’accessibilité, les étapes d’implémentation et les tests. Elle reste soumise à validation humaine. Aucun code ni déploiement n’est encore produit.
+## Étape 3 — Approbation de la spécification
 
-## Étape 3 — Validation humaine
-
-Un propriétaire, membre ou collaborateur du dépôt approuve la proposition en ajoutant exactement ce commentaire dans l’Issue :
+Un propriétaire, membre ou collaborateur approuve la spécification en commentant exactement ceci sur l’Issue :
 
 ```text
 /approve-spec
 ```
 
-Le workflow `AI feature approval` contrôle que :
-
-- la commande vient d’un compte autorisé ;
-- la cible est bien une Issue et non une Pull Request ;
-- le label `ai:spec-ready` est encore présent ;
-- une spécification a réellement été publiée par le bot.
-
-Après validation, il ajoute `ai:spec-approved`, publie une confirmation et transmet l’Issue à l’agent de développement.
+Le workflow `AI feature approval` revalide l’auteur, la cible, le label et la présence de la spécification du bot. Il ajoute ensuite `ai:spec-approved` et déclenche l’implémentation.
 
 ## Étape 4 — Implémentation isolée
 
-L’agent développeur utilise la spécification approuvée et le dépôt `develop` pour produire un patch Git structuré. Il peut modifier le code applicatif dans sa copie de travail, mais n’a aucun jeton GitHub lui permettant de pousser ou de créer une PR.
+L’agent développeur travaille à partir de `develop` et de la spécification approuvée. Il peut modifier le code applicatif dans sa copie de travail, mais ne possède aucun jeton GitHub en écriture.
 
-Les chemins sensibles sont interdits dans cette première version : workflows GitHub, Supabase, fichiers d’environnement, dépendances et configuration Netlify. Si le besoin exige l’un de ces changements, l’agent publie un blocage au lieu de contourner la protection.
+Les chemins sensibles sont interdits : workflows GitHub, Supabase, fichiers d’environnement, dépendances et configuration Netlify. Si une fonctionnalité exige l’un de ces changements, l’agent signale un blocage.
 
-Le patch traverse ensuite deux environnements distincts :
+Le patch produit est réappliqué sur une copie propre dans un job sans secret, puis soumis au lint, au typecheck, aux tests du pipeline et au build. Un autre job ne disposant pas des secrets applicatifs crée alors `codex/issue-<numéro>`, pousse le patch validé et ouvre une Pull Request brouillon vers `develop`.
 
-1. un job sans secret et avec le dépôt en lecture seule réapplique le patch sur une copie propre, puis exécute lint, typecheck, tests du pipeline et build ;
-2. uniquement si tout réussit, un job séparé disposant des droits GitHub réapplique le même patch sans exécuter le code, crée `codex/issue-<numéro>`, pousse un commit et ouvre une Pull Request brouillon vers `develop`.
+## Étape 5 — CI, Deploy Preview et review IA
 
-L’Issue reçoit alors `ai:implementation-pr` et un lien vers la PR. La fusion et la mise en production restent manuelles.
+La Pull Request déclenche trois contrôles indépendants :
 
-Un mainteneur peut aussi relancer manuellement le workflow avec le numéro d’une Issue depuis l’onglet **Actions**, par exemple après la correction d’un workflow ou d’une configuration.
+- la CI GitHub `Lint, typecheck and build` ;
+- une Deploy Preview Netlify isolée ;
+- le workflow `AI feature review` en lecture seule.
+
+Le reviewer compare la spécification, l’Issue et le diff. Son verdict est attaché au SHA exact du dernier commit afin qu’une ancienne review ne puisse pas valider une nouvelle version.
+
+Il applique l’un des labels suivants :
+
+- `ai:review-passed` : aucun défaut actionnable n’a été trouvé ;
+- `ai:review-changes` : des corrections sont demandées ;
+- `ai:review-blocked` : la review ne peut pas conclure de manière fiable.
+
+Une review IA réussie n’est pas une validation produit : la preview doit encore être testée par un humain.
+
+## Étape 6 — Corrections autorisées
+
+Si la review demande des changements, un membre autorisé peut commenter exactement ceci sur la Pull Request :
+
+```text
+/apply-review-fixes
+```
+
+L’agent correcteur ne peut modifier que les fichiers déjà touchés par l’implémentation. Son patch repasse dans un environnement sans secret et dans les mêmes validations. En cas de succès, il est poussé sur la même branche, puis la CI et le reviewer sont explicitement relancés sur le nouveau SHA.
+
+Cette commande n’est acceptée que si la review courante demande réellement des changements.
+
+## Étape 7 — Acceptation humaine de la preview
+
+Lorsque la PR porte `ai:review-passed` et que Netlify affiche une Deploy Preview fonctionnelle, un membre autorisé doit ouvrir le lien, tester les critères de l’Issue et vérifier notamment le comportement mobile, les erreurs visibles et l’absence de régression évidente.
+
+Après ce test manuel, il peut commenter exactement ceci sur la Pull Request :
+
+```text
+/approve-preview
+```
+
+Le workflow `AI feature preview acceptance` revalide alors :
+
+- l’identité de la personne ayant commenté ;
+- la branche `codex/issue-<numéro>` et la cible `develop` ;
+- les labels de spécification, d’implémentation et de review ;
+- l’absence de correction ou de blocage en cours ;
+- une review positive attachée au SHA courant ;
+- la réussite de la CI sur ce SHA ;
+- la réussite de la Deploy Preview Netlify propre à cette PR ;
+- une URL de la forme `deploy-preview-<PR>--dev-synupsis.netlify.app`.
+
+Si tout est encore valide, la PR est passée hors brouillon, fusionnée par squash dans `develop`, l’Issue est clôturée avec `ai:integrated-dev` et la CI de `develop` est relancée explicitement.
+
+`/approve-preview` signifie donc « intégrer dans l’environnement de développement partagé ». Cette commande ne signifie jamais « mettre en production ».
 
 ## Sécurité
 
-Les Issues du dépôt étant publiques, l’appartenance de l’auteur est contrôlée avant la collecte puis à nouveau avant chaque appel au modèle. Le contenu de l’Issue est traité comme une donnée non fiable et les commentaires HTML sont retirés.
+Les Issues étant publiques, l’appartenance de l’auteur est contrôlée avant chaque opération sensible et avant chaque appel au modèle. Les textes produits par les utilisateurs sont traités comme des données non fiables et neutralisés avant leur insertion dans les prompts ou commentaires.
 
-Les agents de spécification et de développement ne disposent jamais d’un jeton GitHub en écriture. Pour l’implémentation, le code généré est en plus testé dans un job sans secret. Le job autorisé à pousser ne fait qu’appliquer le patch déjà validé et n’exécute aucun code généré.
+Les agents de spécification et de review sont en lecture seule. Les agents développeur et correcteur écrivent uniquement dans un espace isolé, sans droit GitHub en écriture. Le code généré est validé sans secret ; les jobs disposant d’un droit d’écriture ne font qu’appliquer un patch déjà contrôlé ou effectuer une opération GitHub déterministe.
 
-## Test local
+Chaque approbation humaine est une commande exacte et publique. Les reviews, corrections et acceptations sont liées au SHA complet afin d’empêcher qu’une autorisation ancienne soit réutilisée après modification du code.
+
+## Tests et relances
+
+Les scripts déterministes du pipeline se testent localement avec :
 
 ```bash
 yarn test:pipeline
 ```
 
-## Relance manuelle
+Les workflows de collecte, spécification, développement et review peuvent aussi être relancés manuellement depuis l’onglet **Actions** avec le numéro d’Issue ou de Pull Request demandé. Les commandes `/approve-spec`, `/apply-review-fixes` et `/approve-preview` restent volontairement publiques et humaines afin de conserver une trace d’autorisation explicite.
 
-Les workflows de collecte et de spécification acceptent un numéro d’Issue depuis l’onglet **Actions**. Relancer `AI feature intake` rejoue toute la chaîne si la demande est complète. Relancer directement `AI feature specification` ne rejoue que l’analyse. L’approbation, elle, exige volontairement la commande publique `/approve-spec` afin de conserver une trace humaine explicite dans l’Issue.
+## Frontière avec la production
 
-## Prochaine étape
+À ce stade, Netlify déploie automatiquement `develop` vers l’environnement de développement partagé et crée une Deploy Preview pour chaque Pull Request. Aucun environnement GitHub Production, aucun déploiement automatique de `main` et aucune promotion vers la production ne font partie de ce pipeline.
 
-Un agent de revue analysera la Pull Request, ses checks et le diff. Il pourra proposer ou appliquer des corrections avant que la PR soit présentée pour validation humaine et test de la preview Netlify.
+La prochaine étape sera de créer une fondation de production séparée : environnement Netlify dédié, secrets et Supabase de production distincts, remise à niveau contrôlée de `main`, règles de protection et commande de promotion indépendante. Cette étape devra conserver une validation humaine supplémentaire et ne réutilisera pas `/approve-preview`.

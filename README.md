@@ -54,9 +54,11 @@ Run Edge Functions locally
 
 The `develop` branch is automatically deployed to the shared development environment on Netlify. Pull requests get an isolated Netlify Deploy Preview.
 
+After testing a generated Pull Request's Deploy Preview, an authorized repository member can approve it with `/approve-preview`. The pipeline then squash-merges it into `develop` only. No automatic production deployment is configured yet.
+
 ## AI feature pipeline
 
-Non-technical contributors can submit a structured feature request from the **Fonctionnalité assistée par IA** GitHub Issue form. The current intake validates and normalizes the request before it is sent to an agent.
+Non-technical contributors can submit a structured feature request from the **Fonctionnalité assistée par IA** GitHub Issue form. The pipeline specifies, implements, validates and reviews the change before presenting its Netlify preview for explicit human approval.
 
 See [the AI pipeline documentation](docs/ai-pipeline.md) for its current status and safety rules.
 

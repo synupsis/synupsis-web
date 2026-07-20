@@ -7,6 +7,7 @@ import {
 
 const REVIEW_COMMENT_MARKER = '<!-- synupsis-ai-review:v1 -->'
 const REVIEW_HEAD_MARKER_PREFIX = 'synupsis-ai-review-head:'
+const REVIEW_VERDICT_MARKER_PREFIX = 'synupsis-ai-review-verdict:'
 const SPECIFICATION_COMMENT_MARKER = '<!-- synupsis-ai-spec:v1 -->'
 const APPROVAL_COMMENT_MARKER = '<!-- synupsis-ai-approval:v1 -->'
 const APPROVED_LABEL = 'ai:spec-approved'
@@ -75,6 +76,13 @@ export function reviewHeadMarker(headSha) {
     throw new Error('The review head SHA is invalid.')
   }
   return `<!-- ${REVIEW_HEAD_MARKER_PREFIX}${headSha.toLowerCase()} -->`
+}
+
+export function reviewVerdictMarker(verdict) {
+  if (!REVIEW_VERDICTS.has(verdict)) {
+    throw new Error('The review verdict marker is invalid.')
+  }
+  return `<!-- ${REVIEW_VERDICT_MARKER_PREFIX}${verdict} -->`
 }
 
 export function buildReviewPrompt({
@@ -348,6 +356,7 @@ export function buildReviewComment(result, headSha) {
   const parts = [
     REVIEW_COMMENT_MARKER,
     reviewHeadMarker(headSha),
+    reviewVerdictMarker(result.verdict),
     headings[result.verdict],
     '',
     neutralizeMentions(result.summary),
@@ -400,6 +409,15 @@ export function buildReviewComment(result, headSha) {
       '#### Validation humaine requise',
       '',
       'Après lecture des problèmes ci-dessus, commente exactement `/apply-review-fixes` sur cette Pull Request pour autoriser un agent séparé à proposer les corrections.',
+    )
+  }
+
+  if (result.verdict === 'approved') {
+    parts.push(
+      '',
+      '#### Acceptation de la preview',
+      '',
+      'Après avoir testé la Deploy Preview Netlify et validé le résultat fonctionnel, commente exactement `/approve-preview` sur cette Pull Request pour autoriser sa fusion dans `develop`.',
     )
   }
 
