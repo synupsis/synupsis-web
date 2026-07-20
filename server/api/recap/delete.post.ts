@@ -19,7 +19,7 @@ export default defineEventHandler(async event => {
   const { error } = await client
     .from('recap')
     .delete()
-    .match({ id: recapId, user_id: user.id });
+    .match({ id: recapId, user_id: user.sub });
 
   if (error) {
     console.error('Error deleting recap:', error);

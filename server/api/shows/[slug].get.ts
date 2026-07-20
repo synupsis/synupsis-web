@@ -12,7 +12,7 @@ type ShowWithSeasons = Database['public']['Tables']['show']['Row'] & {
 };
 
 // Fetches the show and its relations from our local database
-async function getShowFromDb(supabase: SupabaseClient<Database>, traktId: string) {
+async function getShowFromDb(supabase: SupabaseClient<Database>, traktId: number) {
   const { data, error } = await supabase
     .from('show')
     .select('*, seasons:season(*, recap(*))')
@@ -72,8 +72,11 @@ export default defineEventHandler(async (event) => {
   const slug = event.context.params?.slug;
 
   if (!slug) throw createError({ statusCode: 400, statusMessage: 'No slug provided' });
-  const traktId = slug.split('-').pop();
-  if (!traktId) throw createError({ statusCode: 400, statusMessage: 'Invalid slug format' });
+  const rawTraktId = slug.split('-').pop();
+  const traktId = Number(rawTraktId);
+  if (!rawTraktId || !Number.isInteger(traktId)) {
+    throw createError({ statusCode: 400, statusMessage: 'Invalid slug format' });
+  }
 
   try {
     let show: ShowWithSeasons | null = null;

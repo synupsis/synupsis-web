@@ -68,6 +68,7 @@
 <script lang="ts" setup>
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/shadcn/card';
 import { columns } from '~/components/admin/columns';
+import type { User } from '~/components/admin/columns';
 import DataTable from '~/components/admin/DataTable.vue';
 import UserAuthStatus from '~/components/UserAuthStatus.vue';
 import {
@@ -84,5 +85,5 @@ definePageMeta({
 });
 
 const { data: stats } = useFetch('/api/admin/content-stats');
-const { data: users, refresh: refreshUsers } = useFetch('/api/admin/users');
+const { data: users, refresh: refreshUsers } = useFetch<User[]>('/api/admin/users');
 </script>

@@ -45,9 +45,11 @@ async function fetchPrompts() {
     } else if (allPrompts.length > 0 && !useDefaultPrompt.value) {
       // If no active prompt, set the latest one as active (or first if no created_at)
       const latestPrompt = promptVersions.value[0];
-      await activatePrompt(latestPrompt.id);
-      activePromptContent.value = latestPrompt.content;
-      activePromptId.value = latestPrompt.id;
+      if (latestPrompt) {
+        await activatePrompt(latestPrompt.id);
+        activePromptContent.value = latestPrompt.content;
+        activePromptId.value = latestPrompt.id;
+      }
     }
   } catch (error) {
     console.error('Error fetching prompts:', error)
@@ -245,7 +247,7 @@ onMounted(async () => {
                 <TableCell class="font-medium">{{ prompt.id.substring(0, 8) }}...</TableCell>
                 <TableCell>{{ new Date(prompt.created_at).toLocaleString() }}</TableCell>
                 <TableCell>{{ prompt.is_active ? 'Yes' : 'No' }}</TableCell>
-                <TableCell>{{ prompt.recaps_count[0].count }}</TableCell>
+                <TableCell>{{ prompt.recaps_count?.[0]?.count ?? 0 }}</TableCell>
                 <TableCell class="text-right">
                   <Button variant="outline" size="sm" @click="viewPrompt(prompt.content)" class="mr-2">View</Button>
                   <Button variant="outline" size="sm" @click="viewRecaps(prompt.id)" class="mr-2">View Recaps</Button>

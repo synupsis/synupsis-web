@@ -34,6 +34,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       profile: {
         Row: {
           created_at: string
@@ -58,27 +76,30 @@ export type Database = {
         }
         Relationships: []
       }
-      profiles: {
+      prompts: {
         Row: {
-          avatar_url: string | null
+          content: string
+          created_at: string
           id: string
-          updated_at: string | null
-          username: string | null
-          website: string | null
+          is_active: boolean
+          name: string
+          updated_at: string
         }
         Insert: {
-          avatar_url?: string | null
-          id: string
-          updated_at?: string | null
-          username?: string | null
-          website?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
         }
         Update: {
-          avatar_url?: string | null
+          content?: string
+          created_at?: string
           id?: string
-          updated_at?: string | null
-          username?: string | null
-          website?: string | null
+          is_active?: boolean
+          name?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -86,6 +107,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          prompt_id: string | null
           season_id: string
           show_id: string
           status: string
@@ -94,6 +116,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          prompt_id?: string | null
           season_id: string
           show_id: string
           status?: string
@@ -102,6 +125,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          prompt_id?: string | null
           season_id?: string
           show_id?: string
           status?: string
@@ -127,30 +151,33 @@ export type Database = {
       season: {
         Row: {
           created_at: string
+          first_aired: string | null
           id: string
           image: string | null
           name: string | null
           number: number
           show_id: string
-          tv_maze_id: number
+          trakt_id: number
         }
         Insert: {
           created_at?: string
+          first_aired?: string | null
           id?: string
           image?: string | null
           name?: string | null
           number: number
           show_id: string
-          tv_maze_id: number
+          trakt_id: number
         }
         Update: {
           created_at?: string
+          first_aired?: string | null
           id?: string
           image?: string | null
           name?: string | null
           number?: number
           show_id?: string
-          tv_maze_id?: number
+          trakt_id?: number
         }
         Relationships: [
           {
@@ -171,7 +198,7 @@ export type Database = {
           language: string
           name: string
           summary: string | null
-          tv_maze_id: number
+          trakt_id: number
         }
         Insert: {
           created_at?: string
@@ -181,7 +208,7 @@ export type Database = {
           language: string
           name: string
           summary?: string | null
-          tv_maze_id: number
+          trakt_id: number
         }
         Update: {
           created_at?: string
@@ -191,7 +218,7 @@ export type Database = {
           language?: string
           name?: string
           summary?: string | null
-          tv_maze_id?: number
+          trakt_id?: number
         }
         Relationships: []
       }
@@ -786,4 +813,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-

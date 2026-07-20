@@ -2,7 +2,7 @@
   <div class="w-full min-h-screen flex flex-col">
     <!-- Background -->
     <div class="absolute inset-0 z-0 opacity-20">
-      <CachedImage v-if="featuredShows && featuredShows.length > 0" :src="featuredShows[0].image.replace('thumb', 'full')" class="w-full h-full object-cover" alt="Featured show background" />
+      <CachedImage v-if="featuredShow" :src="featuredShow.image.replace('thumb', 'full')" class="w-full h-full object-cover" alt="Featured show background" />
       <div class="absolute inset-0 bg-gradient-to-t from-background via-background to-transparent" />
     </div>
 
@@ -101,15 +101,15 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '~/components/shadcn/carousel';
-import type { TvMazeShow } from '~/types/tv-maze.types';
-import { useImageUrl } from '~/composables/useUtils';
+import type { TraktShowCard } from '~/types/trakt.types';
 import CachedImage from '~/components/CachedImage.vue';
 
 const searchQuery = ref('');
-const searchResults = ref<TvMazeShow[]>([]);
+const searchResults = ref<TraktShowCard[]>([]);
 const isSearching = ref(false);
 
-const { data: featuredShows } = useFetch<TvMazeShow[]>('/api/shows/trending');
+const { data: featuredShows } = useFetch<TraktShowCard[]>('/api/shows/trending');
+const featuredShow = computed(() => featuredShows.value?.[0] ?? null);
 
 const searchShows = useDebounceFn(async () => {
   if (searchQuery.value.length < 2) {
@@ -118,7 +118,7 @@ const searchShows = useDebounceFn(async () => {
   }
   isSearching.value = true;
   try {
-    const results = await $fetch<TvMazeShow[]>(`/api/shows/search?q=${searchQuery.value}`);
+    const results = await $fetch<TraktShowCard[]>(`/api/shows/search?q=${searchQuery.value}`);
     searchResults.value = results;
   } catch (error) {
     console.error('Search error:', error);

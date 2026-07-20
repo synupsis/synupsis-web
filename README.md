@@ -176,9 +176,11 @@ Retrieve all primary information for a given show.
 
 To run this project, you will need to add the following environment variables to your .env file
 
-`SUPABASE_URL`
+`NUXT_PUBLIC_SUPABASE_URL`
 
-`SUPABASE_ANON_KEY`
+`NUXT_PUBLIC_SUPABASE_KEY`
+
+`NUXT_SUPABASE_SECRET_KEY` (server only)
 
 ## Authors
 

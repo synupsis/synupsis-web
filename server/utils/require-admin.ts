@@ -1,9 +1,9 @@
-import type { User } from '@supabase/supabase-js';
+import type { JwtPayload } from '@supabase/supabase-js';
 import type { H3Event } from 'h3';
 import { serverSupabaseClient, serverSupabaseUser } from '#supabase/server';
 import type { Database } from '~/types/database.types';
 
-export async function requireAuthenticatedUser(event: H3Event): Promise<User> {
+export async function requireAuthenticatedUser(event: H3Event): Promise<JwtPayload> {
   const user = await serverSupabaseUser(event);
 
   if (!user) {
@@ -13,14 +13,14 @@ export async function requireAuthenticatedUser(event: H3Event): Promise<User> {
   return user;
 }
 
-export async function requireAdminUser(event: H3Event): Promise<User> {
+export async function requireAdminUser(event: H3Event): Promise<JwtPayload> {
   const user = await requireAuthenticatedUser(event);
   const client = await serverSupabaseClient<Database>(event);
 
   const { data, error } = await client
     .from('profile')
     .select('role')
-    .eq('user_id', user.id)
+    .eq('user_id', user.sub)
     .maybeSingle();
 
   if (error) {

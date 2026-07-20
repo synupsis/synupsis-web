@@ -71,8 +71,9 @@ const uploadAvatar = async () => {
     emit('upload-success', avatarUrl);
     emit('update:isOpen', false);
   } catch (e: any) {
-    error.value = e.data?.message || 'An error occurred during upload.';
-    toast.error('Upload failed', { description: error.value });
+    const message = e.data?.message || 'An error occurred during upload.';
+    error.value = message;
+    toast.error('Upload failed', { description: message });
   } finally {
     isLoading.value = false;
   }

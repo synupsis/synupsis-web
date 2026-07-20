@@ -52,10 +52,19 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle,
 } from '~/components/shadcn/alert-dialog'
-import { useImageUrl } from '~/composables/useUtils';
 import CachedImage from '~/components/CachedImage.vue';
+
+type EpisodeImage = {
+  original: string;
+  medium: string;
+  episode: number;
+};
+
+type SeasonImagesResponse = {
+  statusCode: number;
+  body: EpisodeImage[];
+};
 
 const props = defineProps({
   isOpen: {
@@ -70,7 +79,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:isOpen', 'select-image']);
 
-const images = ref<any[]>([]);
+const images = ref<EpisodeImage[]>([]);
 const loading = ref(false);
 const error = ref<Error | null>(null);
 
@@ -79,8 +88,8 @@ watch(() => props.isOpen, async (newVal) => {
     loading.value = true;
     error.value = null;
     try {
-      const response = await $fetch(`/api/shows/season-images?seasonId=${props.seasonId}`);
-      images.value = response.body.filter(image => image.original && image.medium);
+      const response = await $fetch<SeasonImagesResponse>(`/api/shows/season-images?seasonId=${props.seasonId}`);
+      images.value = response.body.filter((image) => image.original && image.medium);
     } catch (e: any) {
       error.value = e;
     } finally {

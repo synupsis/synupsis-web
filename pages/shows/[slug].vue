@@ -27,17 +27,9 @@
             {{ data.name }}
           </h1>
           <div class="flex items-center flex-wrap gap-x-4 gap-y-2 mt-4 text-lg text-muted-foreground">
-            <div v-if="data.rating?.average" class="flex items-center gap-1">
-              <StarIcon class="h-5 w-5 text-yellow-400" />
-              <span>{{ data.rating.average }} / 10</span>
-            </div>
-            <div v-if="data.status" class="flex items-center gap-1">
-              <TvIcon class="h-5 w-5" />
-              <span>{{ data.status }}</span>
-            </div>
-            <div v-if="data.premiered" class="flex items-center gap-1">
+            <div v-if="firstAired" class="flex items-center gap-1">
               <CalendarIcon class="h-5 w-5" />
-              <span>{{ new Date(data.premiered).getFullYear() }}</span>
+              <span>{{ new Date(firstAired).getFullYear() }}</span>
             </div>
           </div>
           <ClientOnly>
@@ -103,7 +95,7 @@
           </div>
           <Button size="lg" @click="goToRecap(latestSeasonRecap.id)">
             <EyeIcon class="mr-2 h-5 w-5" />
-            Watch Season {{ sortedSeasons[0].number }} Recap
+            Watch Season {{ latestSeason?.number }} Recap
           </Button>
         </div>
 
@@ -149,8 +141,8 @@
     <div v-if="data" class="py-16 bg-background">
       <div class="mx-auto max-w-7xl px-6 lg:px-8">
         <h2 class="text-3xl font-bold tracking-tight text-white sm:text-4xl mb-10">Cast</h2>
-        <div v-if="data._embedded?.cast?.length > 0" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-8">
-          <CastMemberCard v-for="member in data._embedded.cast" :key="member.person.id" :cast-member="member" />
+        <div v-if="cast.length > 0" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-8">
+          <CastMemberCard v-for="(member, index) in cast" :key="member?.person?.ids?.trakt ?? index" :cast-member="member" />
         </div>
         <div v-else class="text-muted-foreground">
           No cast information available for this show.
@@ -161,8 +153,8 @@
 </template>
 <script lang="ts" setup>
 import { ref, computed } from 'vue';
-import type { TvMazeShow } from '~/types/tv-maze.types';
-import { CalendarIcon, StarIcon, TvIcon, EyeIcon } from '@heroicons/vue/24/outline';
+import type { ShowWithSeasons } from '~/types/database.types';
+import { CalendarIcon, EyeIcon } from '@heroicons/vue/24/outline';
 import { toast } from 'vue-sonner';
 import { Badge } from '~/components/shadcn/badge';
 import { Button } from '~/components/shadcn/button';
@@ -191,7 +183,7 @@ import { useImageUrl } from '~/composables/useUtils';
 const route = useRoute();
 const isAdmin = useIsAdmin();
 
-const { data, pending, error, refresh } = useAsyncData(
+const { data, error, refresh } = useAsyncData(
   `show-data-${route.params.slug}`,
   async () => {
     const tvMazeId = (route.params.slug as string).split('-').pop();
@@ -201,7 +193,7 @@ const { data, pending, error, refresh } = useAsyncData(
     }
     try {
       const response = await $fetch(`/api/shows/${tvMazeId}`);
-      return response.show as TvMazeShow | null;
+      return response.show as ShowWithSeasons | null;
     } catch (e: any) {
       toast.error('Failed to fetch show data.', { description: e.data?.statusMessage || e.message });
       throw e; // Re-throw to be caught by useAsyncData
@@ -218,10 +210,14 @@ const sortedSeasons = computed(() => {
   return [...data.value.seasons].sort((a, b) => b.number - a.number);
 });
 
+const latestSeason = computed(() => sortedSeasons.value[0] ?? null);
+const firstAired = computed(() => sortedSeasons.value.at(-1)?.first_aired ?? null);
+const cast = computed<any[]>(() => (data.value?._embedded?.cast as any[] | undefined) ?? []);
+
 const latestSeasonRecap = computed(() => {
   if (!sortedSeasons.value.length) return null;
-  const latestSeason = sortedSeasons.value[0];
-  return (latestSeason.recap || []).find((r: any) => r.status === 'published');
+  const season = latestSeason.value;
+  return season ? season.recap.find((recap) => recap.status === 'published') ?? null : null;
 });
 
 const generateRecap = async (showId: string, seasonId: string) => {

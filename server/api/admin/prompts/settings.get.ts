@@ -1,6 +1,7 @@
 import { serverSupabaseClient } from '#supabase/server';
 import type { Database } from '~/types/database.types';
 import { requireAdminUser } from '~/server/utils/require-admin';
+import { isEnabledSetting } from '~/server/utils/app-settings';
 
 export default defineEventHandler(async (event) => {
   await requireAdminUser(event);
@@ -17,6 +18,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: 'Error fetching prompt settings' });
   }
 
-  const enabled = data?.value?.enabled === true;
+  const enabled = isEnabledSetting(data?.value);
   return { enabled };
 });

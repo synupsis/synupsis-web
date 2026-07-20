@@ -1,6 +1,14 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
-const supabaseServiceKey =
+const supabaseUrl =
+  process.env.NUXT_PUBLIC_SUPABASE_URL ||
+  process.env.SUPABASE_URL
+const supabasePublishableKey =
+  process.env.NUXT_PUBLIC_SUPABASE_KEY ||
+  process.env.SUPABASE_PUBLISHABLE_KEY ||
+  process.env.SUPABASE_ANON_KEY
+const supabaseSecretKey =
+  process.env.NUXT_SUPABASE_SECRET_KEY ||
+  process.env.SUPABASE_SECRET_KEY ||
   process.env.SUPABASE_SERVICE_KEY ||
   process.env.SUPABASE_SERVICE_ROLE_KEY
 
@@ -9,9 +17,9 @@ export default defineNuxtConfig({
   routeRules: {
     '/api/image-proxy/**': {
       proxy: {
-        to: `${process.env.SUPABASE_URL}/functions/v1/image-proxy/**`,
-        headers: supabaseAnonKey
-          ? { Authorization: `Bearer ${supabaseAnonKey}` }
+        to: `${supabaseUrl}/functions/v1/image-proxy/**`,
+        headers: supabasePublishableKey
+          ? { apikey: supabasePublishableKey }
           : undefined
       }
     }
@@ -31,9 +39,9 @@ export default defineNuxtConfig({
   },
 
   supabase: {
-    url: process.env.SUPABASE_URL,
-    key: process.env.SUPABASE_ANON_KEY,
-    serviceKey: supabaseServiceKey,
+    url: supabaseUrl,
+    key: supabasePublishableKey,
+    secretKey: supabaseSecretKey,
     redirect: true,
     redirectOptions: {
       login: '/login',

@@ -5,14 +5,14 @@
         <DropdownMenuTrigger as-child>
           <Button variant="ghost" class="flex items-center gap-2">
             <Avatar class="h-8 w-8">
-              <AvatarImage v-if="user.user_metadata.avatar_url" :src="user.user_metadata.avatar_url" :alt="user.user_metadata.username" />
-              <AvatarFallback>{{ user.user_metadata.username.charAt(0) }}</AvatarFallback>
+              <AvatarImage v-if="avatarUrl" :src="avatarUrl" :alt="displayName" />
+              <AvatarFallback>{{ displayName.charAt(0) }}</AvatarFallback>
             </Avatar>
-            <span>{{ user.user_metadata.username }}</span>
+            <span>{{ displayName }}</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuLabel>{{ user.user_metadata.username }}</DropdownMenuLabel>
+          <DropdownMenuLabel>{{ displayName }}</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem @click="router.push('/profile')">
             Profile
@@ -58,6 +58,15 @@ const user = useSupabaseUser();
 const router = useRouter();
 const supabase = useSupabaseClient();
 const isAdmin = useIsAdmin();
+const userMetadata = computed<Record<string, unknown>>(() => user.value?.user_metadata ?? {});
+const displayName = computed(() => {
+  const username = userMetadata.value.username;
+  return typeof username === 'string' && username ? username : (user.value?.email ?? 'User');
+});
+const avatarUrl = computed(() => {
+  const value = userMetadata.value.avatar_url;
+  return typeof value === 'string' ? value : '';
+});
 
 function goToLogin() {
   router.push('/login');

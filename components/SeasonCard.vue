@@ -78,7 +78,6 @@ import { Card, CardTitle } from '~/components/shadcn/card';
 import { Badge } from '~/components/shadcn/badge';
 import { EyeIcon, PencilIcon, SparklesIcon, SquaresPlusIcon } from '@heroicons/vue/24/outline';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
-import { useImageUrl } from '~/composables/useUtils';
 import CachedImage from '~/components/CachedImage.vue';
 
 const props = defineProps<{

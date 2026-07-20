@@ -214,12 +214,12 @@ const loadCanvasFromJSON = (json: string) => {
     .filter((attrs: any) => !!attrs);
 
   if (props.readOnly) {
-    groupNodes.forEach(group => {
+    groupNodes.forEach((group: any) => {
       if (group?.attrs) {
         group.attrs.draggable = false;
       }
     });
-    imageNodeConfigs.forEach(config => {
+    imageNodeConfigs.forEach((config: any) => {
       config.draggable = false;
     });
   }
