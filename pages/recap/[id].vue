@@ -18,7 +18,7 @@
   >
     <!-- Progress Bars -->
     <div
-      class="pointer-events-none absolute top-[calc(env(safe-area-inset-top)_+_0.5rem)] left-2 right-2 z-20 flex gap-1"
+      class="pointer-events-none absolute top-[calc(env(safe-area-inset-top)_+_0.5rem)] left-2 right-2 z-20 flex gap-1 bg-black"
       role="progressbar"
       aria-valuemin="1"
       :aria-valuemax="data.slides.length"
@@ -28,7 +28,7 @@
       <div
         v-for="(slide, index) in data.slides"
         :key="slide.id"
-        class="h-1 flex-1 overflow-hidden rounded-full bg-white/25 data-[state=current]:bg-white/40"
+        class="h-1 flex-1 overflow-hidden rounded-full bg-white/40 data-[state=current]:bg-white/60"
         :data-state="getProgressBarState(index)"
         aria-hidden="true"
       >
