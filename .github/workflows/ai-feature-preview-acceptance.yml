@@ -23,7 +23,7 @@ jobs:
       checks: read
       contents: read
       issues: write
-      pull-requests: read
+      pull-requests: write
       statuses: read
     outputs:
       approval_status: ${{ steps.authorize.outputs.approval_status }}
