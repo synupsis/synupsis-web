@@ -22,7 +22,7 @@ jobs:
     permissions:
       contents: read
       issues: write
-      pull-requests: read
+      pull-requests: write
     outputs:
       approval_status: ${{ steps.authorize.outputs.approval_status }}
       pull_request_number: ${{ steps.authorize.outputs.pull_request_number }}
