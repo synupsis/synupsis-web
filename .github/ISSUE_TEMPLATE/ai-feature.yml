@@ -7,7 +7,6 @@ body:
   - type: markdown
     attributes:
       value: |
-        <!-- synupsis-ai-request:v1 -->
         Décris le besoin avec tes mots. Tu n'as pas besoin de proposer une solution technique : les agents s'en chargeront.
 
   - type: textarea

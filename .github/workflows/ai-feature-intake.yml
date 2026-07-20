@@ -6,19 +6,28 @@ on:
       - opened
       - edited
       - reopened
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Numéro de l’Issue à retraiter
+        required: true
+        type: string
 
 permissions:
   contents: read
   issues: write
 
 concurrency:
-  group: ai-feature-intake-${{ github.event.issue.number }}
+  group: ai-feature-intake-${{ github.event.issue.number || inputs.issue_number }}
   cancel-in-progress: true
 
 jobs:
   normalize:
     name: Validate and normalize the request
-    if: contains(github.event.issue.body, '<!-- synupsis-ai-request:v1 -->')
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.issue.title, '[Feature IA]') ||
+      contains(github.event.issue.body, '### Problème à résoudre')
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
