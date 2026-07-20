@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "ready",
+        "needs_clarification"
+      ]
+    },
+    "specification": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 45000
+    },
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      },
+      "maxItems": 10
+    }
+  },
+  "required": [
+    "status",
+    "specification",
+    "questions"
+  ]
+}

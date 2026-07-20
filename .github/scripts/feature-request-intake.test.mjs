@@ -150,5 +150,5 @@ test('handleFeatureRequest creates labels and one reusable status comment', asyn
   assert.deepEqual(addedLabels.sort(), ['ai:ready-for-spec', 'ai:request'])
   assert.equal(comments.length, 1)
   assert.match(comments[0], /Demande prête pour spécification/)
-  assert.equal(outputs.get('intake-status'), 'ai:ready-for-spec')
+  assert.equal(outputs.get('intake_status'), 'ai:ready-for-spec')
 })

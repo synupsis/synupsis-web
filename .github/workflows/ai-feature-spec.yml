@@ -1,0 +1,111 @@
+name: AI feature specification
+
+on:
+  workflow_call:
+    inputs:
+      issue_number:
+        required: true
+        type: string
+    secrets:
+      OPENAI_API_KEY:
+        required: true
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Numéro de l’Issue à spécifier
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: ai-feature-spec-${{ inputs.issue_number }}
+  cancel-in-progress: true
+
+jobs:
+  specify:
+    name: Produce a read-only specification
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      final_message: ${{ steps.codex.outputs.final-message }}
+
+    steps:
+      - name: Checkout the requested branch
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Prepare the trusted agent prompt
+        id: prepare
+        uses: actions/github-script@v9
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+        with:
+          script: |
+            const fs = await import('node:fs/promises')
+            const { pathToFileURL } = await import('node:url')
+            const moduleUrl = pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/feature-specification.mjs`,
+            )
+            const { prepareFeatureSpecification } = await import(moduleUrl.href)
+            const templatePath = `${process.env.GITHUB_WORKSPACE}/.github/codex/prompts/specification.md`
+            const promptPath = `${process.env.GITHUB_WORKSPACE}/.github/codex/runtime-spec-prompt.md`
+            const template = await fs.readFile(templatePath, 'utf8')
+            const { prompt } = await prepareFeatureSpecification({
+              github,
+              context,
+              issueNumber: process.env.ISSUE_NUMBER,
+              template,
+            })
+            await fs.writeFile(promptPath, prompt, { encoding: 'utf8', mode: 0o600 })
+
+      - name: Analyze the repository and write the specification
+        id: codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: .github/codex/runtime-spec-prompt.md
+          model: gpt-5.6-sol
+          effort: medium
+          sandbox: read-only
+          safety-strategy: drop-sudo
+          codex-args: '["--ephemeral","--output-schema",".github/codex/spec-output.schema.json"]'
+
+  publish:
+    name: Publish the specification for human review
+    needs: specify
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout the requested branch
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Validate and publish the specification
+        uses: actions/github-script@v9
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          SPECIFICATION_RESULT: ${{ needs.specify.outputs.final_message }}
+        with:
+          script: |
+            const { pathToFileURL } = await import('node:url')
+            const moduleUrl = pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/feature-specification.mjs`,
+            )
+            const { publishFeatureSpecification } = await import(moduleUrl.href)
+            await publishFeatureSpecification({
+              github,
+              context,
+              core,
+              issueNumber: process.env.ISSUE_NUMBER,
+              rawResult: process.env.SPECIFICATION_RESULT,
+            })

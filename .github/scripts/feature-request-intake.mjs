@@ -288,6 +288,6 @@ export async function handleFeatureRequest({ github, context, core }) {
     })
   }
 
-  core.setOutput('intake-status', statusLabel.name)
+  core.setOutput('intake_status', statusLabel.name)
   core.info(`Feature request #${issueNumber} classified as ${statusLabel.name}.`)
 }
