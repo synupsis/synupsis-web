@@ -6,13 +6,15 @@ const supabasePublishableKey =
   process.env.NUXT_PUBLIC_SUPABASE_KEY ||
   process.env.SUPABASE_PUBLISHABLE_KEY ||
   process.env.SUPABASE_ANON_KEY
-const supabaseSecretKey =
-  process.env.NUXT_SUPABASE_SECRET_KEY ||
-  process.env.SUPABASE_SECRET_KEY ||
-  process.env.SUPABASE_SERVICE_KEY ||
-  process.env.SUPABASE_SERVICE_ROLE_KEY
 
 export default defineNuxtConfig({
+  runtimeConfig: {
+    supabase: {
+      // Keep secrets out of the build artifact. Nitro resolves
+      // NUXT_SUPABASE_SECRET_KEY from the runtime environment instead.
+      secretKey: ''
+    }
+  },
   pages: true,
   routeRules: {
     '/api/image-proxy/**': {
@@ -41,7 +43,6 @@ export default defineNuxtConfig({
   supabase: {
     url: supabaseUrl,
     key: supabasePublishableKey,
-    secretKey: supabaseSecretKey,
     redirect: true,
     redirectOptions: {
       login: '/login',
