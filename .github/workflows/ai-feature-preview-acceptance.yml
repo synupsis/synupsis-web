@@ -1,0 +1,93 @@
+name: AI feature preview acceptance
+
+on:
+  issue_comment:
+    types:
+      - created
+
+permissions: {}
+
+concurrency:
+  group: ai-feature-preview-acceptance-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  authorize:
+    name: Validate and record the human preview approval
+    if: >-
+      github.event.issue.pull_request != null &&
+      github.event.comment.body == '/approve-preview'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      checks: read
+      contents: read
+      issues: write
+      pull-requests: read
+      statuses: read
+    outputs:
+      approval_status: ${{ steps.authorize.outputs.approval_status }}
+      pull_request_number: ${{ steps.authorize.outputs.pull_request_number }}
+      issue_number: ${{ steps.authorize.outputs.issue_number }}
+      head_sha: ${{ steps.authorize.outputs.head_sha }}
+      preview_url: ${{ steps.authorize.outputs.preview_url }}
+
+    steps:
+      - name: Checkout trusted pipeline code from develop
+        uses: actions/checkout@v7
+        with:
+          ref: develop
+          persist-credentials: false
+
+      - name: Revalidate and record preview approval
+        id: authorize
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { pathToFileURL } = await import('node:url')
+            const moduleUrl = pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/feature-preview-acceptance.mjs`,
+            )
+            const { handlePreviewApproval } = await import(moduleUrl.href)
+            await handlePreviewApproval({ github, context, core })
+
+  merge:
+    name: Merge the accepted preview into develop
+    needs: authorize
+    if: needs.authorize.outputs.approval_status == 'ai:preview-approved'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      checks: read
+      contents: write
+      issues: write
+      pull-requests: write
+      statuses: read
+
+    steps:
+      - name: Checkout trusted pipeline code from develop
+        uses: actions/checkout@v7
+        with:
+          ref: develop
+          persist-credentials: false
+
+      - name: Revalidate and integrate the approved preview
+        uses: actions/github-script@v9
+        env:
+          PULL_REQUEST_NUMBER: ${{ needs.authorize.outputs.pull_request_number }}
+          EXPECTED_HEAD_SHA: ${{ needs.authorize.outputs.head_sha }}
+        with:
+          script: |
+            const { pathToFileURL } = await import('node:url')
+            const moduleUrl = pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/feature-preview-acceptance.mjs`,
+            )
+            const { mergeAcceptedPreview } = await import(moduleUrl.href)
+            await mergeAcceptedPreview({
+              github,
+              context,
+              core,
+              pullRequestNumber: process.env.PULL_REQUEST_NUMBER,
+              expectedHeadSha: process.env.EXPECTED_HEAD_SHA,
+            })
