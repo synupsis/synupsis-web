@@ -1,0 +1,106 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "approved",
+        "changes_requested",
+        "blocked"
+      ]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 5000
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "details": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 3000
+          },
+          "recommendation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 3000
+          }
+        },
+        "required": [
+          "severity",
+          "path",
+          "line",
+          "title",
+          "details",
+          "recommendation"
+        ]
+      },
+      "maxItems": 20
+    },
+    "strengths": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      },
+      "maxItems": 10
+    },
+    "verification_steps": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      },
+      "maxItems": 20
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      },
+      "maxItems": 10
+    }
+  },
+  "required": [
+    "verdict",
+    "summary",
+    "findings",
+    "strengths",
+    "verification_steps",
+    "blockers"
+  ]
+}

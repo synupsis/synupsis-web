@@ -1,0 +1,126 @@
+name: AI feature review
+
+on:
+  pull_request:
+    branches:
+      - develop
+    types:
+      - opened
+      - synchronize
+      - reopened
+  workflow_dispatch:
+    inputs:
+      pull_request_number:
+        description: Numéro de la Pull Request d’implémentation à reviewer
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: ai-feature-review-${{ github.event.pull_request.number || inputs.pull_request_number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Review the implementation without write access
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        startsWith(github.event.pull_request.head.ref, 'codex/issue-')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    outputs:
+      final_message: ${{ steps.codex.outputs.final-message }}
+      head_sha: ${{ steps.prepare.outputs.head_sha }}
+      issue_number: ${{ steps.prepare.outputs.issue_number }}
+
+    steps:
+      - name: Checkout trusted pipeline code from develop
+        uses: actions/checkout@v7
+        with:
+          ref: develop
+          persist-credentials: false
+
+      - name: Prepare the isolated review prompt
+        id: prepare
+        uses: actions/github-script@v9
+        env:
+          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number || inputs.pull_request_number }}
+        with:
+          script: |
+            const fs = await import('node:fs/promises')
+            const { pathToFileURL } = await import('node:url')
+            const moduleUrl = pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/feature-review.mjs`,
+            )
+            const { prepareFeatureReview } = await import(moduleUrl.href)
+            const templatePath = `${process.env.GITHUB_WORKSPACE}/.github/codex/prompts/review.md`
+            const promptPath = `${process.env.GITHUB_WORKSPACE}/.github/codex/runtime-review-prompt.md`
+            const template = await fs.readFile(templatePath, 'utf8')
+            const prepared = await prepareFeatureReview({
+              github,
+              context,
+              pullRequestNumber: process.env.PULL_REQUEST_NUMBER,
+              template,
+            })
+            core.setOutput('head_sha', prepared.headSha)
+            core.setOutput('issue_number', String(prepared.issueNumber))
+            await fs.writeFile(promptPath, prepared.prompt, { encoding: 'utf8', mode: 0o600 })
+
+      - name: Analyze the approved implementation
+        id: codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: .github/codex/runtime-review-prompt.md
+          model: gpt-5.6-sol
+          effort: high
+          sandbox: read-only
+          safety-strategy: drop-sudo
+          codex-args: '["--ephemeral","--output-schema",".github/codex/review-output.schema.json"]'
+
+  publish:
+    name: Publish the structured review
+    needs: review
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout trusted pipeline code from develop
+        uses: actions/checkout@v7
+        with:
+          ref: develop
+          persist-credentials: false
+
+      - name: Revalidate and publish the review
+        uses: actions/github-script@v9
+        env:
+          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number || inputs.pull_request_number }}
+          EXPECTED_HEAD_SHA: ${{ needs.review.outputs.head_sha }}
+          REVIEW_RESULT: ${{ needs.review.outputs.final_message }}
+        with:
+          script: |
+            const { pathToFileURL } = await import('node:url')
+            const moduleUrl = pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/feature-review.mjs`,
+            )
+            const { publishFeatureReview } = await import(moduleUrl.href)
+            await publishFeatureReview({
+              github,
+              context,
+              core,
+              pullRequestNumber: process.env.PULL_REQUEST_NUMBER,
+              expectedHeadSha: process.env.EXPECTED_HEAD_SHA,
+              rawResult: process.env.REVIEW_RESULT,
+            })
