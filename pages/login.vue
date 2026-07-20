@@ -90,7 +90,7 @@ const isLoading = ref(false);
 
 const login = async () => {
   isLoading.value = true;
-  let { data, error: loginError } = await supabase.auth.signInWithPassword({
+  const { error: loginError } = await supabase.auth.signInWithPassword({
     email: email.value,
     password: password.value
   });

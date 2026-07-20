@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
       show:show_id ( id, name ),
       season:season_id ( id, number )
     `)
-    .eq('user_id', user.id)
+    .eq('user_id', user.sub)
     .order('created_at', { ascending: false });
 
   if (error) {

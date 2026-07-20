@@ -14,10 +14,15 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'No file provided' });
   }
 
+  const uploadedFile = file[0];
+  if (!uploadedFile) {
+    throw createError({ statusCode: 400, statusMessage: 'No file provided' });
+  }
+
   const { data, error } = await supabase.storage
     .from('avatars')
-    .upload(`${user.id}/${Date.now()}`, file[0].data, {
-      contentType: file[0].type,
+    .upload(`${user.sub}/${Date.now()}`, uploadedFile.data, {
+      contentType: uploadedFile.type,
       upsert: true,
     });
 

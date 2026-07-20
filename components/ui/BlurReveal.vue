@@ -1,15 +1,14 @@
 <template>
-  <div ref="container" :class="props.class">
+  <div :class="props.class">
     <Motion
       v-for="(child, index) in children"
       :key="index"
-      ref="childElements"
       :in-view="getAnimate()"
       :initial="getInitial()"
       :transition="{
         duration: props.duration,
         easing: 'easeInOut',
-        delay: props.delay * index
+        delay: props.delay * Number(index)
       }"
       as="div"
     >
@@ -36,8 +35,6 @@ const props = withDefaults(defineProps<Props>(), {
   yOffset: 20
 });
 
-const container = ref(null);
-const childElements = ref([]);
 const slots = useSlots();
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

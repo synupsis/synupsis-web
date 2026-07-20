@@ -19,7 +19,7 @@ export default defineEventHandler(async event => {
     .from('recap')
     .select('status')
     .eq('season_id', seasonId)
-    .eq('user_id', user.id)
+    .eq('user_id', user.sub)
     .maybeSingle();
 
   // 2. Upsert the recap, preserving the existing status or defaulting to 'draft'
@@ -29,7 +29,7 @@ export default defineEventHandler(async event => {
       {
         show_id: showId,
         season_id: seasonId,
-        user_id: user.id,
+        user_id: user.sub,
         status: existingRecap?.status || 'draft' // Preserve status
       },
       { onConflict: 'show_id, season_id, user_id', ignoreDuplicates: false }

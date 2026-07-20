@@ -3,6 +3,7 @@ import type { Database } from '~/types/database.types';
 import OpenAI from 'openai';
 import axios from 'axios';
 import { defaultRecapPromptTemplate } from '~/lib/prompts/defaultPrompt';
+import { isEnabledSetting } from '~/server/utils/app-settings';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -31,7 +32,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: 'Failed to fetch prompt settings.' });
   }
 
-  const useDefaultPrompt = defaultPromptSetting?.value?.enabled === true;
+  const useDefaultPrompt = isEnabledSetting(defaultPromptSetting?.value);
 
   // Fetch active prompt
   let activePromptRecord: { id: string; content: string } | null = null;
@@ -166,7 +167,7 @@ export default defineEventHandler(async (event) => {
       response_format: { type: 'json_object' },
     });
 
-    const content = response.choices[0].message.content;
+    const content = response.choices[0]?.message.content;
 
     if (!content) {
       throw new Error('OpenAI returned an empty content.');
@@ -367,7 +368,7 @@ function clampText(text: string | undefined, maxLength: number): string {
 function safeFormatDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toISOString().split('T')[0];
+  return date.toISOString().split('T')[0] ?? value;
 }
 
 function deriveToneGuidance(genres?: string[] | null): string {

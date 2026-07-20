@@ -9,7 +9,7 @@
           :placeholder="placeholder"
           class="grow border-none outline-none focus:outline-none focus:ring-0"
           type="text"
-          @change="search = $event.target.value"
+          @change="search = readInputValue($event)"
         />
         <span v-if="itemsLoading" class="loading loading-spinner loading-sm opacity-70"></span>
         <HeadlessComboboxButton
@@ -71,42 +71,45 @@
 <script lang="ts" setup>
 import { ref } from 'vue';
 import { CheckIcon, ChevronUpDownIcon } from '@heroicons/vue/20/solid';
-import useUtils from '~/composables/useUtils';
+import { useDebounceFn } from '@vueuse/core';
 
-const { debounce } = useUtils();
+type ComboboxItem = {
+  username: string | number;
+  name: string;
+  secondary?: string;
+};
 
-const props = defineProps({
-  showChevronIcon: {
-    type: Boolean,
-    default: true
-  },
-  label: {
-    type: String,
-    default: ''
-  },
-  placeholder: {
-    type: String,
-    default: ''
-  },
-  items: {
-    type: Array,
-    default: () => []
-  },
-  fetchItems: { type: Function },
-  modelValue: { type: [String, Array, Number, Date], default: undefined },
-  itemsLoading: { type: Boolean, default: false },
-  clickAction: { type: Function }
+type ModelValue = ComboboxItem | string | number | Date | unknown[] | null;
+
+const props = withDefaults(defineProps<{
+  showChevronIcon?: boolean;
+  label?: string;
+  placeholder?: string;
+  items?: ComboboxItem[];
+  fetchItems?: (search: ModelValue) => void | Promise<void>;
+  modelValue?: ModelValue;
+  itemsLoading?: boolean;
+  clickAction?: (item: ComboboxItem | null) => void;
+}>(), {
+  showChevronIcon: true,
+  label: '',
+  placeholder: '',
+  items: () => [],
+  modelValue: null,
+  itemsLoading: false,
 });
 
 const emit = defineEmits(['update:modelValue']);
 
-const search = ref(props.modelValue);
+const search = ref<ModelValue>(props.modelValue);
 
-const selected = ref(null);
+const selected = ref<ComboboxItem | null>(null);
+
+const readInputValue = (event: Event) => (event.target as HTMLInputElement).value;
 
 watch(
   search,
-  debounce(() => props.fetchItems && props.fetchItems(search.value))
+  useDebounceFn(() => props.fetchItems?.(search.value), 300)
 );
 
 const select = () => {

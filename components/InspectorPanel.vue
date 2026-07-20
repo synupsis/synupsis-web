@@ -10,7 +10,7 @@
           <label class="text-sm font-medium">Text Content</label>
           <textarea
             :value="selectedElement.text.text"
-            @input="updateText($event.target.value)"
+            @input="updateText(readInputValue($event))"
             class="w-full p-2 rounded-md bg-muted border border-border"
             rows="4"
           />
@@ -20,7 +20,7 @@
           <input
             type="number"
             :value="selectedElement.text.fontSize"
-            @input="update('fontSize', parseInt($event.target.value))"
+            @input="update('fontSize', readNumberValue($event))"
             class="w-full p-2 rounded-md bg-muted border border-border"
           />
         </div>
@@ -29,7 +29,7 @@
           <input
             type="color"
             :value="selectedElement.text.fill"
-            @input="update('fill', $event.target.value)"
+            @input="update('fill', readInputValue($event))"
             class="w-full p-2 rounded-md bg-muted border border-border"
           />
         </div>
@@ -42,7 +42,7 @@
             <input
               type="number"
               :value="selectedElement.x"
-              @input="update('x', parseInt($event.target.value))"
+              @input="update('x', readNumberValue($event))"
               class="w-full p-2 rounded-md bg-muted border border-border"
             />
           </div>
@@ -51,7 +51,7 @@
             <input
               type="number"
               :value="selectedElement.y"
-              @input="update('y', parseInt($event.target.value))"
+              @input="update('y', readNumberValue($event))"
               class="w-full p-2 rounded-md bg-muted border border-border"
             />
           </div>
@@ -88,6 +88,9 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits(['update:selectedElement', 'update', 'select-by-id', 'deselect']);
+
+const readInputValue = (event: Event) => (event.target as HTMLInputElement | HTMLTextAreaElement).value;
+const readNumberValue = (event: Event) => Number.parseInt(readInputValue(event), 10);
 
 const update = (key: string, value: any) => {
   const newAttrs = { ...props.selectedElement };

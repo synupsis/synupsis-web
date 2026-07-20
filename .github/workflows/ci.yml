@@ -25,8 +25,8 @@ jobs:
     timeout-minutes: 15
     env:
       NUXT_TELEMETRY_DISABLED: 1
-      SUPABASE_URL: http://127.0.0.1:54321
-      SUPABASE_ANON_KEY: ci-placeholder
+      NUXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NUXT_PUBLIC_SUPABASE_KEY: ci-placeholder
 
     steps:
       - name: Checkout repository

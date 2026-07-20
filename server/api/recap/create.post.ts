@@ -27,7 +27,7 @@ export default defineEventHandler(async event => {
         {
           show_id: showId,
           season_id: seasonId,
-          user_id: user.id,
+          user_id: user.sub,
           status: 'published'
         },
         { onConflict: 'show_id, season_id, user_id', ignoreDuplicates: false }

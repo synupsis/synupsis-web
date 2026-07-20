@@ -5,7 +5,7 @@
   </div>
   <div v-else-if="error" class="w-screen h-dvh bg-background text-foreground flex flex-col items-center justify-center gap-4">
     <p class="text-destructive">Could not load the recap.</p>
-    <p class="text-sm">{{ error.data?.message }}</p>
+    <p class="text-sm">{{ errorMessage }}</p>
     <Button @click="goBack">Go Back</Button>
   </div>
   <div
@@ -29,8 +29,7 @@
     <!-- Header -->
     <header class="absolute top-4 left-4 right-4 z-20 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <img v-if="data.show.logo" :src="data.show.logo" alt="Show Logo" class="h-8 object-contain" />
-        <div v-else>
+        <div>
           <h1 class="text-lg font-bold">{{ data.show.name }}</h1>
           <p class="text-sm text-white/80">Season {{ data.season.number }}</p>
         </div>
@@ -45,6 +44,7 @@
       <!-- Background Image with Ken Burns Effect -->
       <Transition name="fade" mode="out-in">
         <CachedImage
+          v-if="currentSlide.image_url"
           :key="currentSlide.id"
           :src="currentSlide.image_url"
           alt="Slide background"
@@ -68,7 +68,7 @@
 
     <!-- Navigation Areas -->
     <div class="absolute top-0 left-0 h-full w-1/3 z-10" @click="prevSlide" />
-    <div class="absolute top-0 right-0 h-full w-1/3 z-10" @click="nextSlide" />
+    <div class="absolute top-0 right-0 h-full w-1/3 z-10" @click="nextSlide()" />
   </div>
   <div v-else class="w-screen h-dvh bg-background text-foreground flex flex-col items-center justify-center gap-4">
     <p class="text-muted-foreground">This recap has no content yet.</p>
@@ -83,6 +83,20 @@ import { XMarkIcon } from '@heroicons/vue/24/outline';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import RecapCanvas from '~/components/RecapCanvas.client.vue';
 import CachedImage from '~/components/CachedImage.vue';
+import type { Json } from '~/types/database.types';
+
+type RecapResponse = {
+  id: string;
+  status: string;
+  show: { name: string; trakt_id: number };
+  season: { number: number; image: string | null };
+  slides: Array<{
+    id: string;
+    order: number;
+    canvas_data: Json | null;
+    image_url?: string | null;
+  }>;
+};
 
 const SLIDE_DURATION = 7000; // 7 seconds per slide
 
@@ -90,14 +104,19 @@ const route = useRoute();
 const router = useRouter();
 const recapId = route.params.id as string;
 
-const { data, pending, error } = useFetch(`/api/recap/${recapId}`, {
+const { data, pending, error } = useFetch<RecapResponse>(`/api/recap/${recapId}`, {
   lazy: true,
 });
 
 const currentSlideIndex = ref(0);
 const progress = ref(0);
 const isPaused = ref(false);
-let timer: NodeJS.Timeout | null = null;
+let timer: ReturnType<typeof setInterval> | null = null;
+
+const errorMessage = computed(() => {
+  const payload = error.value?.data as { message?: string; statusMessage?: string } | undefined;
+  return payload?.message ?? payload?.statusMessage ?? error.value?.message ?? '';
+});
 
 const currentSlide = computed(() => {
   if (!data.value || !data.value.slides) return null;
@@ -105,8 +124,8 @@ const currentSlide = computed(() => {
 });
 
 const goBack = () => {
-  if (data.value?.show?.slug) {
-    router.push(`/shows/${data.value.show.slug}`);
+  if (data.value?.show?.trakt_id) {
+    router.push(`/shows/${data.value.show.trakt_id}`);
   } else {
     router.back();
   }

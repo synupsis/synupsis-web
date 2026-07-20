@@ -5,7 +5,8 @@ import type { Database } from '~/types/database.types';
 
 export default defineEventHandler(async (event: H3Event) => {
   const supabase = await serverSupabaseClient<Database>(event);
-  const { seasonId } = getQuery(event);
+  const { seasonId: rawSeasonId } = getQuery(event);
+  const seasonId = typeof rawSeasonId === 'string' ? rawSeasonId : null;
 
   if (!seasonId) {
     return {

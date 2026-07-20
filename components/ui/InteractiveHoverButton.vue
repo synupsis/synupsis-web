@@ -1,6 +1,5 @@
 <template>
   <button
-    ref="buttonRef"
     :class="
       cn(
         'group relative w-32 cursor-pointer overflow-hidden rounded-full border p-2 text-center font-semibold',
@@ -51,8 +50,6 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   text: 'Button'
 });
-
-const buttonRef = ref<HTMLButtonElement>();
 </script>
 
 <style></style>

@@ -124,7 +124,7 @@
             class="relative aspect-[9/19.5] h-full max-w-full bg-background rounded-3xl shadow-lg"
           >
             <RecapCanvas
-              :key="selectedSlideId"
+              :key="selectedSlideId ?? 'no-slide'"
               v-model="activeSlideCanvas"
               :loading="loading"
               :season-id="seasonId"
@@ -226,7 +226,7 @@ definePageMeta({
 });
 
 type Slide = {
-  id: number;
+  id: string | number;
   canvas: string;
 };
 
@@ -239,7 +239,7 @@ const showId = computed(() => route.query.show as string | undefined);
 const seasonId = computed(() => route.query.season as string | undefined);
 
 const slides = ref<Slide[]>([]);
-const selectedSlideId = ref<number | null>(null);
+const selectedSlideId = ref<string | number | null>(null);
 const existingRecapId = ref<string | null>(null);
 const recapStatus = ref<'draft' | 'published' | null>(null);
 const selectedElement = ref<any>(null);
@@ -254,7 +254,7 @@ const {
   pending: loading,
   error
 } = useAsyncData(
-  `recap-editor-data-${showId.value}-${seasonId.value}-${user.value?.id}`,
+  `recap-editor-data-${showId.value}-${seasonId.value}-${user.value?.sub}`,
   async () => {
     if (!user.value || !showId.value || !seasonId.value) {
       return null;
@@ -266,7 +266,7 @@ const {
       .from('recap')
       .select('id, status, slide(*)')
       .eq('season_id', seasonId.value)
-      .eq('user_id', user.value.id)
+      .eq('user_id', user.value.sub)
       .maybeSingle();
 
     const [showResult, seasonResult, recapResult] = await Promise.all([showPromise, seasonPromise, recapPromise]);
@@ -319,7 +319,7 @@ watchEffect(() => {
     }
     
     if (slides.value.length > 0) {
-      selectedSlideId.value = slides.value[0].id;
+      selectedSlideId.value = slides.value[0]?.id ?? null;
     } else {
       selectedSlideId.value = null;
     }
@@ -351,8 +351,9 @@ const activeSlideCanvas = computed({
   set(newValue) {
     if (selectedSlideId.value === null) return;
     const slideIndex = slides.value.findIndex(s => s.id === selectedSlideId.value);
-    if (slideIndex !== -1) {
-      slides.value[slideIndex].canvas = newValue;
+    const slide = slides.value[slideIndex];
+    if (slideIndex !== -1 && slide) {
+      slide.canvas = newValue;
     }
   }
 });
@@ -426,7 +427,7 @@ const removeSlide = (slideToRemove: Slide) => {
   if (slides.value.length <= 1) return;
   if (selectedSlideId.value === slideToRemove.id) {
     const currentIndex = slides.value.findIndex(s => s.id === slideToRemove.id);
-    selectedSlideId.value = slides.value[currentIndex - 1]?.id ?? slides.value[0]?.id;
+    selectedSlideId.value = slides.value[currentIndex - 1]?.id ?? slides.value[0]?.id ?? null;
   }
   slides.value = slides.value.filter(s => s.id !== slideToRemove.id);
 };
@@ -531,4 +532,3 @@ const copyJsonToClipboard = async () => {
   }
 };
 </script>
-

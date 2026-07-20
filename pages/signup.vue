@@ -102,7 +102,7 @@ const register = async () => {
   }
 
   isLoading.value = true;
-  let { data, error: signUpError } = await supabase.auth.signUp({
+  const { data, error: signUpError } = await supabase.auth.signUp({
     email: email.value,
     password: password.value,
     options: {
@@ -115,11 +115,16 @@ const register = async () => {
     })
     isLoading.value = false;
     return;
-  } else {
+  } else if (data.user) {
     navigateTo({
       path: '/email-confirmation',
       query: { email: data.user.email }
     });
+  } else {
+    toast.error('Error', {
+      description: 'Supabase did not return a user for this signup.'
+    });
+    isLoading.value = false;
   }
 };
 

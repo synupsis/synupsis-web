@@ -1,6 +1,46 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.110.7'
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024
+
+function readKeySet(variableName: string): string[] {
+  const rawValue = Deno.env.get(variableName)
+
+  if (!rawValue) {
+    return []
+  }
+
+  try {
+    const parsedValue = JSON.parse(rawValue) as Record<string, unknown>
+    return Object.values(parsedValue).filter((value): value is string => typeof value === 'string')
+  } catch {
+    return []
+  }
+}
+
+function isAuthorizedRequest(req: Request): boolean {
+  const providedKey = req.headers.get('apikey')
+
+  if (!providedKey) {
+    return false
+  }
+
+  const publishableKeys = readKeySet('SUPABASE_PUBLISHABLE_KEYS')
+  const legacyAnonKey = Deno.env.get('SUPABASE_ANON_KEY')
+
+  return publishableKeys.includes(providedKey) || providedKey === legacyAnonKey
+}
+
+function getSupabaseSecretKey(): string {
+  const secretKeys = readKeySet('SUPABASE_SECRET_KEYS')
+  const legacyServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  const secretKey = secretKeys[0] || legacyServiceRoleKey
+
+  if (!secretKey) {
+    throw new Error('Missing Supabase secret key')
+  }
+
+  return secretKey
+}
 
 function parseTrustedImageUrl(rawUrl: string): URL {
   const parsedUrl = new URL(rawUrl)
@@ -15,6 +55,10 @@ function parseTrustedImageUrl(rawUrl: string): URL {
 }
 
 Deno.serve(async (req) => {
+  if (!isAuthorizedRequest(req)) {
+    return new Response('Unauthorized', { status: 401 })
+  }
+
   const requestUrl = new URL(req.url)
   const rawImageUrl = requestUrl.searchParams.get('url')
 
@@ -35,7 +79,7 @@ Deno.serve(async (req) => {
 
   const supabaseClient = createClient(
     Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    getSupabaseSecretKey()
   )
 
   try {
@@ -56,7 +100,8 @@ Deno.serve(async (req) => {
     }
   } catch (error) {
     // Ignore download errors (e.g., file not found) and proceed to fetch
-    console.warn(`Cache download error for ${storagePath}:`, error.message)
+    const message = error instanceof Error ? error.message : String(error)
+    console.warn(`Cache download error for ${storagePath}:`, message)
   }
 
 
@@ -77,6 +122,10 @@ Deno.serve(async (req) => {
   }
 
   const imageBlob = await traktRes.blob()
+
+  if (imageBlob.size > MAX_IMAGE_BYTES) {
+    return new Response('Image too large', { status: 413 })
+  }
 
   // Upload to cache
   const { error: uploadError } = await supabaseClient

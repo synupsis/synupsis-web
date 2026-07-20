@@ -13,10 +13,10 @@
           <Card class="sticky top-8">
             <CardHeader class="items-center text-center">
               <Avatar class="h-24 w-24 mb-4">
-                <AvatarImage v-if="user?.user_metadata.avatar_url" :src="user?.user_metadata.avatar_url" :alt="user?.user_metadata.username" />
-                <AvatarFallback>{{ user?.user_metadata.username?.charAt(0) }}</AvatarFallback>
+                <AvatarImage v-if="avatarUrl" :src="avatarUrl" :alt="displayName" />
+                <AvatarFallback>{{ displayName.charAt(0) }}</AvatarFallback>
               </Avatar>
-              <CardTitle>{{ user?.user_metadata.username }}</CardTitle>
+              <CardTitle>{{ displayName }}</CardTitle>
               <CardDescription>{{ user?.email }}</CardDescription>
             </CardHeader>
             <CardContent>
@@ -157,6 +157,15 @@ const supabase = useSupabaseClient();
 const router = useRouter();
 const activeTab = ref('recaps');
 const isAvatarModalOpen = ref(false);
+const userMetadata = computed<Record<string, unknown>>(() => user.value?.user_metadata ?? {});
+const displayName = computed(() => {
+  const username = userMetadata.value.username;
+  return typeof username === 'string' && username ? username : (user.value?.email ?? 'User');
+});
+const avatarUrl = computed(() => {
+  const value = userMetadata.value.avatar_url;
+  return typeof value === 'string' ? value : '';
+});
 
 // Fetch recaps
 const { data: recaps, pending: recapsPending, error: recapsError } = useFetch('/api/user/recaps');
