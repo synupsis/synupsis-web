@@ -8,6 +8,11 @@ const DOWNSTREAM_LABELS = [
   'ai:spec-approved',
   'ai:implementation-pr',
   'ai:dev-blocked',
+  'ai:review-passed',
+  'ai:review-changes',
+  'ai:review-blocked',
+  'ai:fix-in-progress',
+  'ai:fix-blocked',
 ]
 
 const LABELS = {

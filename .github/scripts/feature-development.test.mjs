@@ -223,6 +223,12 @@ test('patch validation accepts application code and blocks sensitive changes', (
   const dependencyPatch = validPatch.replaceAll('pages/recap/[id].vue', 'package.json')
   assert.throws(() => validateDevelopmentPatch(dependencyPatch), /protected path/)
 
+  const trustedPipelinePatch = validPatch.replaceAll(
+    'pages/recap/[id].vue',
+    '.trusted-pipeline/instructions.md',
+  )
+  assert.throws(() => validateDevelopmentPatch(trustedPipelinePatch), /protected path/)
+
   const agentInstructionsPatch = validPatch.replaceAll(
     'pages/recap/[id].vue',
     'components/AGENTS.md',
@@ -239,6 +245,7 @@ test('publishing creates a draft PR and one reusable Issue comment', async () =>
   const createdPullRequests = []
   const addedLabels = []
   const comments = []
+  const workflowDispatches = []
   const outputs = new Map()
   const github = {
     rest: {
@@ -263,6 +270,9 @@ test('publishing creates a draft PR and one reusable Issue comment', async () =>
           }
         },
       },
+      actions: {
+        createWorkflowDispatch: async (dispatch) => workflowDispatches.push(dispatch),
+      },
     },
     paginate: async () => [specificationComment, approvalComment],
   }
@@ -286,5 +296,11 @@ test('publishing creates a draft PR and one reusable Issue comment', async () =>
   assert.deepEqual(addedLabels, ['ai:implementation-pr'])
   assert.equal(comments.length, 1)
   assert.match(comments[0], /Pull Request brouillon \[#16\]/)
+  assert.deepEqual(workflowDispatches.map((dispatch) => dispatch.workflow_id), [
+    'ci.yml',
+    'ai-feature-review.yml',
+  ])
+  assert.equal(workflowDispatches[0].ref, 'codex/issue-12')
+  assert.deepEqual(workflowDispatches[1].inputs, { pull_request_number: '16' })
   assert.equal(outputs.get('pull_request_number'), '16')
 })
