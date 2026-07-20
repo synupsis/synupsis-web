@@ -1,0 +1,40 @@
+name: AI feature intake
+
+on:
+  issues:
+    types:
+      - opened
+      - edited
+      - reopened
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: ai-feature-intake-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  normalize:
+    name: Validate and normalize the request
+    if: contains(github.event.issue.body, '<!-- synupsis-ai-request:v1 -->')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout the default branch
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Classify the feature request
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { pathToFileURL } = await import('node:url')
+            const moduleUrl = pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/feature-request-intake.mjs`,
+            )
+            const { handleFeatureRequest } = await import(moduleUrl.href)
+            await handleFeatureRequest({ github, context, core })

@@ -50,5 +50,8 @@ jobs:
       - name: Typecheck
         run: yarn typecheck
 
+      - name: Pipeline tests
+        run: yarn test:pipeline
+
       - name: Build
         run: yarn build

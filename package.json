@@ -12,6 +12,7 @@
     "lint:fix": "eslint . --ext .js,.ts,.vue --fix",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
+    "test:pipeline": "node --test .github/scripts/*.test.mjs",
     "typecheck": "nuxt typecheck"
   },
   "devDependencies": {
