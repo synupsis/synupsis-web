@@ -30,6 +30,8 @@ jobs:
       contains(github.event.issue.body, '### Problème à résoudre')
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      intake_status: ${{ steps.classify.outputs.intake_status }}
 
     steps:
       - name: Checkout the default branch
@@ -38,6 +40,7 @@ jobs:
           persist-credentials: false
 
       - name: Classify the feature request
+        id: classify
         uses: actions/github-script@v9
         with:
           script: |
@@ -47,3 +50,12 @@ jobs:
             )
             const { handleFeatureRequest } = await import(moduleUrl.href)
             await handleFeatureRequest({ github, context, core })
+
+  specify:
+    name: Request an implementation-ready specification
+    needs: normalize
+    if: needs.normalize.outputs.intake_status == 'ai:ready-for-spec'
+    uses: ./.github/workflows/ai-feature-spec.yml
+    with:
+      issue_number: ${{ format('{0}', github.event.issue.number || inputs.issue_number) }}
+    secrets: inherit
