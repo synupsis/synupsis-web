@@ -31,3 +31,26 @@ test('automated AI reviews trust only the GitHub Actions bot', () => {
   assert.match(reviewJob, /^          allow-bot-users: 'github-actions\[bot\]'$/m)
   assert.doesNotMatch(reviewJob, /^          allow-bots: true$/m)
 })
+
+test('production release separates approval from the final merge permission', () => {
+  const workflow = '.github/workflows/production-release.yml'
+  const source = readFileSync(workflow, 'utf8')
+  const prepareJob = workflowJob(workflow, 'prepare')
+  const authorizeJob = workflowJob(workflow, 'authorize')
+  const mergeJob = workflowJob(workflow, 'merge')
+
+  assert.match(source, /^permissions: \{\}$/m)
+  assert.match(source, /^  group: production-release$/m)
+  assert.match(prepareJob, /^      actions: write$/m)
+  assert.match(prepareJob, /^      contents: write$/m)
+  assert.match(authorizeJob, /^      actions: read$/m)
+  assert.match(authorizeJob, /^      checks: read$/m)
+  assert.match(authorizeJob, /^      contents: read$/m)
+  assert.doesNotMatch(authorizeJob, /^      contents: write$/m)
+  assert.match(mergeJob, /^      contents: write$/m)
+  assert.match(mergeJob, /needs\.authorize\.outputs\.approval_status == 'ai:release-approved'/)
+
+  for (const job of [prepareJob, authorizeJob, mergeJob]) {
+    assert.match(job, /^          persist-credentials: false$/m)
+  }
+})
