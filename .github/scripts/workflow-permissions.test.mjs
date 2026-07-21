@@ -32,6 +32,15 @@ test('automated AI reviews trust only the GitHub Actions bot', () => {
   assert.doesNotMatch(reviewJob, /^          allow-bots: true$/m)
 })
 
+test('specification approval can grant every permission required by development', () => {
+  const approval = readFileSync('.github/workflows/ai-feature-approval.yml', 'utf8')
+
+  assert.match(approval, /^  actions: write$/m)
+  assert.match(approval, /^  contents: write$/m)
+  assert.match(approval, /^  issues: write$/m)
+  assert.match(approval, /^  pull-requests: write$/m)
+})
+
 test('production release separates approval from the final merge permission', () => {
   const workflow = '.github/workflows/production-release.yml'
   const source = readFileSync(workflow, 'utf8')
