@@ -41,6 +41,12 @@ test('specification approval can grant every permission required by development'
   assert.match(approval, /^  pull-requests: write$/m)
 })
 
+test('correction workflow accepts trusted preview feedback comments', () => {
+  const source = readFileSync('.github/workflows/ai-feature-correction.yml', 'utf8')
+
+  assert.match(source, /startsWith\(github\.event\.comment\.body, '<!-- synupsis-ai-preview-feedback:v1 -->'\)/)
+})
+
 test('production release separates approval from the final merge permission', () => {
   const workflow = '.github/workflows/production-release.yml'
   const source = readFileSync(workflow, 'utf8')

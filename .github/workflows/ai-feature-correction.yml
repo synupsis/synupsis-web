@@ -16,7 +16,8 @@ jobs:
     name: Record human correction approval
     if: >-
       github.event.issue.pull_request != null &&
-      github.event.comment.body == '/apply-review-fixes'
+      (github.event.comment.body == '/apply-review-fixes' ||
+      startsWith(github.event.comment.body, '<!-- synupsis-ai-preview-feedback:v1 -->'))
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -119,7 +120,7 @@ jobs:
             core.setOutput('allowed_paths', JSON.stringify(prepared.allowedPaths))
             await fs.writeFile(promptPath, prepared.prompt, { encoding: 'utf8', mode: 0o600 })
 
-      - name: Correct the approved review findings
+      - name: Correct the approved review or preview feedback
         id: codex
         uses: openai/codex-action@v1
         with:
@@ -428,7 +429,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -u -- .
-          git -c core.hooksPath=/dev/null commit -m "fix: address AI review for issue #${ISSUE_NUMBER}"
+          git -c core.hooksPath=/dev/null commit -m "fix: address approved feedback for issue #${ISSUE_NUMBER}"
           git push origin "HEAD:${BRANCH_NAME}"
           echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 

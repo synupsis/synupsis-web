@@ -5,11 +5,14 @@ import {
 import {
   issueNumberFromReviewBranch,
   reviewHeadMarker,
+  reviewVerdictMarker,
 } from './feature-review.mjs'
 import { isTrustedActor } from './trusted-actor.mjs'
 
 const CORRECTION_COMMAND = '/apply-review-fixes'
 const REVIEW_COMMENT_MARKER = '<!-- synupsis-ai-review:v1 -->'
+const PREVIEW_FEEDBACK_MARKER = '<!-- synupsis-ai-preview-feedback:v1 -->'
+const PREVIEW_FEEDBACK_SOURCE_MARKER = '<!-- synupsis-ai-fix-source:preview-feedback -->'
 const CORRECTION_APPROVAL_MARKER = '<!-- synupsis-ai-fix-approval:v1 -->'
 const CORRECTION_RESULT_MARKER = '<!-- synupsis-ai-fix-result:v1 -->'
 const CORRECTION_BLOCKED_MARKER = '<!-- synupsis-ai-fix-blocked:v1 -->'
@@ -20,6 +23,7 @@ const SPECIFICATION_APPROVAL_MARKER = '<!-- synupsis-ai-approval:v1 -->'
 const APPROVED_LABEL = 'ai:spec-approved'
 const IMPLEMENTATION_LABEL = 'ai:implementation-pr'
 const REVIEW_CHANGES_LABEL = 'ai:review-changes'
+const REVIEW_PASSED_LABEL = 'ai:review-passed'
 const MAX_PATCH_LENGTH = 75000
 const CORRECTION_LABELS = {
   inProgress: {
@@ -65,8 +69,16 @@ export function correctionApprovalHeadMarker(headSha) {
   return `<!-- synupsis-ai-fix-approval-head:${validateHeadSha(headSha)} -->`
 }
 
+export function previewFeedbackHeadMarker(headSha) {
+  return `<!-- synupsis-ai-preview-feedback-head:${validateHeadSha(headSha)} -->`
+}
+
 export function isCorrectionApprovalCommand(body = '') {
   return body === CORRECTION_COMMAND
+}
+
+export function isPreviewFeedbackRequest(body = '') {
+  return body.startsWith(`${PREVIEW_FEEDBACK_MARKER}\n`)
 }
 
 function assertCorrectablePullRequest({ pullRequest, context }) {
@@ -145,6 +157,19 @@ function findCurrentReviewComment(comments, headSha, pullRequestNumber) {
   return reviewComment
 }
 
+function findCurrentPreviewFeedback(comments, headSha, pullRequestNumber) {
+  const headMarker = previewFeedbackHeadMarker(headSha)
+  const feedbackComment = [...comments].reverse().find((comment) =>
+    isTrustedActor(comment)
+    && comment.body?.includes(PREVIEW_FEEDBACK_MARKER)
+    && comment.body?.includes(headMarker),
+  )
+  if (!feedbackComment) {
+    throw new Error(`Pull Request #${pullRequestNumber} has no trusted preview feedback tied to its current head SHA.`)
+  }
+  return feedbackComment
+}
+
 async function ensureLabel(github, owner, repo, label) {
   try {
     await github.rest.issues.getLabel({ owner, repo, name: label.name })
@@ -182,6 +207,23 @@ async function setCorrectionLabel({ github, owner, repo, itemNumber, currentLabe
   }
 }
 
+async function transitionPreviewToChanges({ github, owner, repo, itemNumber, currentLabels }) {
+  await github.rest.issues.addLabels({
+    owner,
+    repo,
+    issue_number: itemNumber,
+    labels: [REVIEW_CHANGES_LABEL],
+  })
+  if (currentLabels.has(REVIEW_PASSED_LABEL)) {
+    await github.rest.issues.removeLabel({
+      owner,
+      repo,
+      issue_number: itemNumber,
+      name: REVIEW_PASSED_LABEL,
+    })
+  }
+}
+
 async function upsertBotComment({ github, owner, repo, itemNumber, marker, body }) {
   const comments = await github.paginate(github.rest.issues.listComments, {
     owner,
@@ -209,13 +251,16 @@ async function upsertBotComment({ github, owner, repo, itemNumber, marker, body 
   }
 }
 
-export function buildCorrectionApprovalComment(headSha) {
+export function buildCorrectionApprovalComment(headSha, source = 'review') {
   return [
     CORRECTION_APPROVAL_MARKER,
     correctionApprovalHeadMarker(headSha),
+    ...(source === 'preview-feedback' ? [PREVIEW_FEEDBACK_SOURCE_MARKER] : []),
     '### Corrections autorisées',
     '',
-    'La validation humaine est enregistrée pour les findings de la review courante.',
+    source === 'preview-feedback'
+      ? 'La validation humaine est enregistrée pour les modifications demandées après test de la preview courante.'
+      : 'La validation humaine est enregistrée pour les findings de la review courante.',
     '',
     'Un agent correcteur séparé va produire un patch limité aux fichiers déjà modifiés. Le patch devra franchir les validations sans secret avant d’être poussé sur cette branche.',
     '',
@@ -226,7 +271,9 @@ export function buildCorrectionApprovalComment(headSha) {
 export async function handleCorrectionApproval({ github, context, core }) {
   const eventIssue = context.payload.issue
   const comment = context.payload.comment
-  if (!eventIssue || !comment || !isCorrectionApprovalCommand(comment.body)) {
+  const isReviewCorrection = isCorrectionApprovalCommand(comment?.body)
+  const isPreviewCorrection = isPreviewFeedbackRequest(comment?.body)
+  if (!eventIssue || !comment || (!isReviewCorrection && !isPreviewCorrection)) {
     core.info('This comment is not a correction approval command.')
     core.setOutput('approval_status', 'ignored')
     return
@@ -251,9 +298,7 @@ export async function handleCorrectionApproval({ github, context, core }) {
   })
   const pullRequest = pullRequestResponse.data
   const issueNumber = assertCorrectablePullRequest({ pullRequest, context })
-  if (!labelsOf(pullRequest).has(REVIEW_CHANGES_LABEL)) {
-    throw new Error(`Pull Request #${pullRequestNumber} is not labelled ${REVIEW_CHANGES_LABEL}.`)
-  }
+  const pullRequestLabels = labelsOf(pullRequest)
 
   const issueResponse = await github.rest.issues.get({
     owner,
@@ -262,9 +307,6 @@ export async function handleCorrectionApproval({ github, context, core }) {
   })
   const issue = issueResponse.data
   const issueLabels = assertApprovedImplementationIssue(issue, issueNumber)
-  if (!issueLabels.has(REVIEW_CHANGES_LABEL)) {
-    throw new Error(`#${issueNumber} is not labelled ${REVIEW_CHANGES_LABEL}.`)
-  }
 
   const pullRequestComments = await github.paginate(github.rest.issues.listComments, {
     owner,
@@ -272,7 +314,27 @@ export async function handleCorrectionApproval({ github, context, core }) {
     issue_number: pullRequestNumber,
     per_page: 100,
   })
-  findCurrentReviewComment(pullRequestComments, pullRequest.head.sha, pullRequestNumber)
+  const reviewComment = findCurrentReviewComment(
+    pullRequestComments,
+    pullRequest.head.sha,
+    pullRequestNumber,
+  )
+  if (isReviewCorrection) {
+    if (!pullRequestLabels.has(REVIEW_CHANGES_LABEL)) {
+      throw new Error(`Pull Request #${pullRequestNumber} is not labelled ${REVIEW_CHANGES_LABEL}.`)
+    }
+    if (!issueLabels.has(REVIEW_CHANGES_LABEL)) {
+      throw new Error(`#${issueNumber} is not labelled ${REVIEW_CHANGES_LABEL}.`)
+    }
+  } else {
+    if (!pullRequestLabels.has(REVIEW_PASSED_LABEL) || !issueLabels.has(REVIEW_PASSED_LABEL)) {
+      throw new Error(`Pull Request #${pullRequestNumber} is not ready for preview feedback.`)
+    }
+    if (!reviewComment.body?.includes(reviewVerdictMarker('approved'))) {
+      throw new Error(`Pull Request #${pullRequestNumber} has no approved review for its preview feedback.`)
+    }
+    findCurrentPreviewFeedback(pullRequestComments, pullRequest.head.sha, pullRequestNumber)
+  }
   const approvalHeadMarker = correctionApprovalHeadMarker(pullRequest.head.sha)
   const existingApproval = pullRequestComments.find((candidate) =>
     candidate.user?.type === 'Bot'
@@ -288,12 +350,28 @@ export async function handleCorrectionApproval({ github, context, core }) {
   await Promise.all(
     Object.values(CORRECTION_LABELS).map((label) => ensureLabel(github, owner, repo, label)),
   )
+  if (isPreviewCorrection) {
+    await transitionPreviewToChanges({
+      github,
+      owner,
+      repo,
+      itemNumber: pullRequestNumber,
+      currentLabels: pullRequestLabels,
+    })
+    await transitionPreviewToChanges({
+      github,
+      owner,
+      repo,
+      itemNumber: issueNumber,
+      currentLabels: issueLabels,
+    })
+  }
   await setCorrectionLabel({
     github,
     owner,
     repo,
     itemNumber: pullRequestNumber,
-    currentLabels: labelsOf(pullRequest),
+    currentLabels: pullRequestLabels,
     status: 'inProgress',
   })
   await setCorrectionLabel({
@@ -308,7 +386,10 @@ export async function handleCorrectionApproval({ github, context, core }) {
     owner,
     repo,
     issue_number: pullRequestNumber,
-    body: buildCorrectionApprovalComment(pullRequest.head.sha),
+    body: buildCorrectionApprovalComment(
+      pullRequest.head.sha,
+      isPreviewCorrection ? 'preview-feedback' : 'review',
+    ),
   })
 
   core.setOutput('approval_status', CORRECTION_LABELS.inProgress.name)
@@ -324,6 +405,7 @@ export function buildCorrectionPrompt({
   issue,
   specification,
   reviewComment,
+  previewFeedback,
   currentPatch,
   allowedPaths,
 }) {
@@ -342,6 +424,9 @@ export function buildCorrectionPrompt({
     },
     approvedSpecification: sanitizeProductText(specification, 50000),
     approvedReviewReport: sanitizeProductText(reviewComment, 50000),
+    requestedPreviewChanges: previewFeedback
+      ? sanitizeProductText(previewFeedback, 10000)
+      : null,
     allowedCorrectionPaths: allowedPaths,
     currentPullRequestPatch: currentPatch,
   }
@@ -405,12 +490,12 @@ export async function prepareFeatureCorrection({
     normalizedHeadSha,
     normalizedPullRequestNumber,
   )
-  const approved = pullRequestComments.some((candidate) =>
+  const approval = pullRequestComments.find((candidate) =>
     candidate.user?.type === 'Bot'
     && candidate.body?.includes(CORRECTION_APPROVAL_MARKER)
     && candidate.body?.includes(correctionApprovalHeadMarker(normalizedHeadSha)),
   )
-  if (!approved) {
+  if (!approval) {
     throw new Error(`Pull Request #${normalizedPullRequestNumber} has no human correction approval for this SHA.`)
   }
 
@@ -428,6 +513,13 @@ export async function prepareFeatureCorrection({
     pullRequestNumber: normalizedPullRequestNumber,
   })
   const allowedPaths = validateDevelopmentPatch(currentPatch)
+  const previewFeedback = approval.body?.includes(PREVIEW_FEEDBACK_SOURCE_MARKER)
+    ? findCurrentPreviewFeedback(
+        pullRequestComments,
+        normalizedHeadSha,
+        normalizedPullRequestNumber,
+      ).body
+    : undefined
 
   return {
     issueNumber,
@@ -440,6 +532,7 @@ export async function prepareFeatureCorrection({
       issue,
       specification,
       reviewComment: reviewComment.body,
+      previewFeedback,
       currentPatch,
       allowedPaths,
     }),
@@ -584,13 +677,20 @@ async function revalidateCorrectionContext({
     per_page: 100,
   })
   findCurrentReviewComment(pullRequestComments, normalizedHeadSha, normalizedPullRequestNumber)
-  const approved = pullRequestComments.some((candidate) =>
+  const approval = pullRequestComments.find((candidate) =>
     candidate.user?.type === 'Bot'
     && candidate.body?.includes(CORRECTION_APPROVAL_MARKER)
     && candidate.body?.includes(correctionApprovalHeadMarker(normalizedHeadSha)),
   )
-  if (!approved) {
+  if (!approval) {
     throw new Error(`Pull Request #${normalizedPullRequestNumber} has no correction approval for this SHA.`)
+  }
+  if (approval.body?.includes(PREVIEW_FEEDBACK_SOURCE_MARKER)) {
+    findCurrentPreviewFeedback(
+      pullRequestComments,
+      normalizedHeadSha,
+      normalizedPullRequestNumber,
+    )
   }
   return {
     owner,

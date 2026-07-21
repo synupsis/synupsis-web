@@ -7,14 +7,16 @@ import {
   correctionApprovalHeadMarker,
   handleCorrectionApproval,
   isCorrectionApprovalCommand,
+  isPreviewFeedbackRequest,
   parseCorrectionResult,
+  previewFeedbackHeadMarker,
   prepareCorrectionPublication,
   prepareFeatureCorrection,
   publishCorrectionBlocked,
   publishCorrectionSuccess,
   validateCorrectionPatch,
 } from './feature-correction.mjs'
-import { reviewHeadMarker } from './feature-review.mjs'
+import { reviewHeadMarker, reviewVerdictMarker } from './feature-review.mjs'
 
 const headSha = 'a'.repeat(40)
 const correctionSha = 'c'.repeat(40)
@@ -73,6 +75,36 @@ const reviewComment = {
     '### Corrections demandées par la review IA',
     '',
     'Le contrôle ne possède pas de nom accessible.',
+  ].join('\n'),
+}
+
+const approvedReviewComment = {
+  id: 202,
+  user: { type: 'Bot' },
+  body: [
+    '<!-- synupsis-ai-review:v1 -->',
+    reviewHeadMarker(headSha),
+    reviewVerdictMarker('approved'),
+    '### Revue validée',
+    '',
+    'La version respecte la spécification.',
+  ].join('\n'),
+}
+
+const previewFeedbackComment = {
+  id: 203,
+  user: {
+    id: 307557269,
+    login: 'synupsis-orchestrator[bot]',
+    type: 'Bot',
+  },
+  author_association: 'NONE',
+  body: [
+    '<!-- synupsis-ai-preview-feedback:v1 -->',
+    previewFeedbackHeadMarker(headSha),
+    '### Modifications demandées depuis la preview',
+    '',
+    'Centrer les boutons et raccourcir le libellé.',
   ].join('\n'),
 }
 
@@ -137,6 +169,8 @@ test('only the exact human correction command is accepted', () => {
   assert.equal(isCorrectionApprovalCommand('/apply-review-fixes maintenant'), false)
   assert.equal(isCorrectionApprovalCommand(' /apply-review-fixes'), false)
   assert.match(correctionApprovalHeadMarker(headSha), new RegExp(headSha))
+  assert.equal(isPreviewFeedbackRequest(previewFeedbackComment.body), true)
+  assert.equal(isPreviewFeedbackRequest('Texte libre'), false)
 })
 
 test('correction approval requires a trusted author and a current changes review', async () => {
@@ -233,6 +267,113 @@ test('correction preparation is tied to the approved SHA, review and specificati
     }),
     /no human correction approval/,
   )
+})
+
+test('trusted preview feedback starts a correction tied to the tested SHA', async () => {
+  const previewPullRequest = {
+    ...pullRequest,
+    labels: [{ name: 'ai:review-passed' }],
+  }
+  const previewIssue = {
+    ...issue,
+    labels: [
+      { name: 'ai:spec-approved' },
+      { name: 'ai:implementation-pr' },
+      { name: 'ai:review-passed' },
+    ],
+  }
+  const outputs = new Map()
+  const addedLabels = []
+  const removedLabels = []
+  const comments = []
+  const github = correctionGithub({
+    currentPullRequest: previewPullRequest,
+    currentIssue: previewIssue,
+    pullRequestComments: [approvedReviewComment, previewFeedbackComment],
+  })
+  github.rest.issues.getLabel = async () => ({ data: {} })
+  github.rest.issues.addLabels = async ({ issue_number: issueNumber, labels }) => {
+    addedLabels.push({ issueNumber, labels })
+  }
+  github.rest.issues.removeLabel = async ({ issue_number: issueNumber, name }) => {
+    removedLabels.push({ issueNumber, name })
+  }
+  github.rest.issues.createComment = async ({ body }) => comments.push(body)
+
+  await handleCorrectionApproval({
+    github,
+    context: {
+      repo: { owner: 'synupsis', repo: 'synupsis-web' },
+      payload: {
+        issue: { number: 17, pull_request: {} },
+        comment: previewFeedbackComment,
+      },
+    },
+    core: {
+      info: () => {},
+      warning: () => {},
+      setOutput: (name, value) => outputs.set(name, value),
+    },
+  })
+
+  assert.equal(outputs.get('approval_status'), 'ai:fix-in-progress')
+  assert.deepEqual(addedLabels, [
+    { issueNumber: 17, labels: ['ai:review-changes'] },
+    { issueNumber: 12, labels: ['ai:review-changes'] },
+    { issueNumber: 17, labels: ['ai:fix-in-progress'] },
+    { issueNumber: 12, labels: ['ai:fix-in-progress'] },
+  ])
+  assert.deepEqual(removedLabels, [
+    { issueNumber: 17, name: 'ai:review-passed' },
+    { issueNumber: 12, name: 'ai:review-passed' },
+  ])
+  assert.match(comments[0], /modifications demandées après test de la preview/)
+
+  const rejectedOutputs = new Map()
+  await handleCorrectionApproval({
+    github: correctionGithub(),
+    context: {
+      repo: { owner: 'synupsis', repo: 'synupsis-web' },
+      payload: {
+        issue: { number: 17, pull_request: {} },
+        comment: {
+          ...previewFeedbackComment,
+          user: { id: 999, login: 'lookalike[bot]', type: 'Bot' },
+        },
+      },
+    },
+    core: {
+      info: () => {},
+      warning: () => {},
+      setOutput: (name, value) => rejectedOutputs.set(name, value),
+    },
+  })
+  assert.equal(rejectedOutputs.get('approval_status'), 'rejected')
+})
+
+test('preview feedback is isolated in the approved correction prompt', async () => {
+  const previewApprovalComment = {
+    id: 204,
+    user: { type: 'Bot' },
+    body: buildCorrectionApprovalComment(headSha, 'preview-feedback'),
+  }
+  const prepared = await prepareFeatureCorrection({
+    github: correctionGithub({
+      pullRequestComments: [
+        approvedReviewComment,
+        previewFeedbackComment,
+        previewApprovalComment,
+      ],
+    }),
+    context: { repo: { owner: 'synupsis', repo: 'synupsis-web' } },
+    pullRequestNumber: 17,
+    expectedHeadSha: headSha,
+    template: '# Mission',
+  })
+
+  assert.match(prepared.prompt, /requestedPreviewChanges/)
+  assert.match(prepared.prompt, /Centrer les boutons et raccourcir le libellé/)
+  assert.equal(prepared.prompt.includes('synupsis-ai-preview-feedback-head'), false)
 })
 
 test('correction prompts sanitize and isolate untrusted data', () => {
