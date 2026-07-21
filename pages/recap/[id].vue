@@ -24,12 +24,12 @@
       <div
         class="space-y-3"
       >
-        <h1 class="text-3xl font-bold">Fin de la story</h1>
+        <h1 class="text-3xl font-bold">Fin du récap</h1>
         <p class="text-white/80">{{ data.show.name }} · Saison {{ data.season.number }}</p>
       </div>
       <div class="flex w-full max-w-md flex-col gap-3 sm:flex-row sm:justify-center">
         <Button size="lg" class="min-h-11 w-full sm:w-auto" @click="restartStory">
-          Recommencer la story
+          Recommencer le récap
         </Button>
         <Button
           variant="outline"
