@@ -1,3 +1,5 @@
+import { isTrustedActor, isTrustedAssociation } from './trusted-actor.mjs'
+
 const REQUEST_MARKER = '<!-- synupsis-ai-request:v1 -->'
 const COMMENT_MARKER = '<!-- synupsis-ai-intake:v1 -->'
 const FEATURE_TITLE_PREFIX = '[Feature IA]'
@@ -36,7 +38,6 @@ const LABELS = {
   },
 }
 
-const TRUSTED_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
 const EMPTY_RESPONSES = new Set(['', '_No response_'])
 
 function cleanResponse(value = '') {
@@ -87,9 +88,7 @@ export function validateFeatureRequest(featureRequest) {
     .map(({ heading }) => heading)
 }
 
-export function isTrustedAssociation(association = '') {
-  return TRUSTED_ASSOCIATIONS.has(association.toUpperCase())
-}
+export { isTrustedAssociation }
 
 export function isFeatureRequestIssue(issue = {}) {
   const title = typeof issue.title === 'string' ? issue.title.trimStart() : ''
@@ -226,7 +225,7 @@ export async function handleFeatureRequest({ github, context, core }) {
   const issueNumber = issue.number
   const featureRequest = normalizeFeatureRequest(issue.body)
   const missingFields = validateFeatureRequest(featureRequest)
-  const trusted = isTrustedAssociation(issue.author_association)
+  const trusted = isTrustedActor(issue)
   const statusLabel = !trusted
     ? LABELS.needsApproval
     : missingFields.length > 0

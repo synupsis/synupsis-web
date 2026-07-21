@@ -1,3 +1,5 @@
+import { isTrustedActor } from './trusted-actor.mjs'
+
 const APPROVAL_COMMAND = '/approve-spec'
 const SPECIFICATION_COMMENT_MARKER = '<!-- synupsis-ai-spec:v1 -->'
 const APPROVAL_COMMENT_MARKER = '<!-- synupsis-ai-approval:v1 -->'
@@ -7,12 +9,6 @@ const APPROVED_LABEL = {
   name: 'ai:spec-approved',
   color: '1f883d',
   description: 'Spécification validée par un membre du dépôt',
-}
-
-const TRUSTED_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
-
-function isTrustedAssociation(association = '') {
-  return TRUSTED_ASSOCIATIONS.has(association.toUpperCase())
 }
 
 function labelsOf(issue) {
@@ -73,7 +69,7 @@ export async function handleSpecificationApproval({ github, context, core }) {
     return
   }
 
-  if (!isTrustedAssociation(comment.author_association)) {
+  if (!isTrustedActor(comment)) {
     core.warning('The approval command was posted by an untrusted account.')
     core.setOutput('approval_status', 'rejected')
     return
@@ -92,7 +88,7 @@ export async function handleSpecificationApproval({ github, context, core }) {
   })
   const issue = issueResponse.data
 
-  if (!isTrustedAssociation(issue.author_association)) {
+  if (!isTrustedActor(issue)) {
     throw new Error(`#${issueNumber} was not created by a trusted repository member.`)
   }
 

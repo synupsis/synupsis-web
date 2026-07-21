@@ -1,3 +1,5 @@
+import { isTrustedActor } from './trusted-actor.mjs'
+
 const PREPARE_PRODUCTION_COMMAND = '/prepare-production'
 const APPROVE_PRODUCTION_COMMAND = '/approve-production'
 const RELEASE_METADATA_MARKER = '<!-- synupsis-production-release:v1 -->'
@@ -7,8 +9,6 @@ const RELEASE_CONTROL_LABEL = 'ai:release-control'
 const CI_CHECK_NAME = 'Lint, typecheck and build'
 const CI_WORKFLOW_NAME = 'CI'
 const GITHUB_ACTIONS_BOT_LOGIN = 'github-actions[bot]'
-const TRUSTED_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
-
 const RELEASE_LABELS = {
   candidate: {
     name: 'ai:release-candidate',
@@ -45,10 +45,6 @@ function validateHeadSha(value, name = 'head SHA') {
     throw new Error(`The ${name} is invalid.`)
   }
   return value.toLowerCase()
-}
-
-function isTrustedAssociation(association = '') {
-  return TRUSTED_ASSOCIATIONS.has(association.toUpperCase())
 }
 
 function labelsOf(item) {
@@ -255,7 +251,7 @@ async function getReleaseControlIssue({ github, context, issueNumber }) {
   if (issue.state !== 'open') {
     throw new Error(`Release control Issue #${normalizedIssueNumber} is not open.`)
   }
-  if (!isTrustedAssociation(issue.author_association)) {
+  if (!isTrustedActor(issue)) {
     throw new Error(`Release control Issue #${normalizedIssueNumber} was not created by a trusted member.`)
   }
   if (!labelsOf(issue).has(RELEASE_CONTROL_LABEL)) {
@@ -286,7 +282,7 @@ export async function handleProductionPreparation({ github, context, core, now =
     core.setOutput('preparation_status', 'rejected')
     return
   }
-  if (!isTrustedAssociation(comment.author_association)) {
+  if (!isTrustedActor(comment)) {
     core.warning('The production preparation command was posted by an untrusted account.')
     core.setOutput('preparation_status', 'rejected')
     return
@@ -586,7 +582,7 @@ export async function handleProductionApproval({ github, context, core }) {
     core.setOutput('approval_status', 'rejected')
     return
   }
-  if (!isTrustedAssociation(comment.author_association)) {
+  if (!isTrustedActor(comment)) {
     core.warning('The production approval command was posted by an untrusted account.')
     core.setOutput('approval_status', 'rejected')
     return

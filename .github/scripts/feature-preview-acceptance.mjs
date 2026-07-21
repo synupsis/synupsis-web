@@ -4,6 +4,7 @@ import {
   reviewHeadMarker,
   reviewVerdictMarker,
 } from './feature-review.mjs'
+import { isTrustedActor } from './trusted-actor.mjs'
 
 const PREVIEW_APPROVAL_COMMAND = '/approve-preview'
 const REVIEW_COMMENT_MARKER = '<!-- synupsis-ai-review:v1 -->'
@@ -18,8 +19,6 @@ const CORRECTION_IN_PROGRESS_LABEL = 'ai:fix-in-progress'
 const CORRECTION_BLOCKED_LABEL = 'ai:fix-blocked'
 const NETLIFY_STATUS_CONTEXT = 'netlify/dev-synupsis/deploy-preview'
 const CI_CHECK_NAME = 'Lint, typecheck and build'
-const TRUSTED_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
-
 const ACCEPTANCE_LABELS = {
   approved: {
     name: 'ai:preview-approved',
@@ -56,10 +55,6 @@ function labelsOf(item) {
   )
 }
 
-function isTrustedAssociation(association = '') {
-  return TRUSTED_ASSOCIATIONS.has(association.toUpperCase())
-}
-
 function neutralizeMentions(value) {
   return value.replaceAll('@', '@\u200b')
 }
@@ -89,7 +84,7 @@ function assertAcceptablePullRequest({ pullRequest, context }) {
 function assertAcceptedLabels({ pullRequest, issue, issueNumber }) {
   const pullRequestLabels = labelsOf(pullRequest)
   const issueLabels = labelsOf(issue)
-  if (!isTrustedAssociation(issue.author_association)) {
+  if (!isTrustedActor(issue)) {
     throw new Error(`#${issueNumber} was not created by a trusted repository member.`)
   }
   for (const requiredLabel of [APPROVED_LABEL, IMPLEMENTATION_LABEL, REVIEW_PASSED_LABEL]) {
@@ -299,7 +294,7 @@ export async function handlePreviewApproval({ github, context, core }) {
     core.setOutput('approval_status', 'rejected')
     return
   }
-  if (!isTrustedAssociation(comment.author_association)) {
+  if (!isTrustedActor(comment)) {
     core.warning('The preview approval command was posted by an untrusted account.')
     core.setOutput('approval_status', 'rejected')
     return

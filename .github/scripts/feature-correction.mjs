@@ -6,6 +6,7 @@ import {
   issueNumberFromReviewBranch,
   reviewHeadMarker,
 } from './feature-review.mjs'
+import { isTrustedActor } from './trusted-actor.mjs'
 
 const CORRECTION_COMMAND = '/apply-review-fixes'
 const REVIEW_COMMENT_MARKER = '<!-- synupsis-ai-review:v1 -->'
@@ -20,8 +21,6 @@ const APPROVED_LABEL = 'ai:spec-approved'
 const IMPLEMENTATION_LABEL = 'ai:implementation-pr'
 const REVIEW_CHANGES_LABEL = 'ai:review-changes'
 const MAX_PATCH_LENGTH = 75000
-const TRUSTED_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
-
 const CORRECTION_LABELS = {
   inProgress: {
     name: 'ai:fix-in-progress',
@@ -49,10 +48,6 @@ function labelsOf(item) {
       .map((label) => typeof label === 'string' ? label : label.name)
       .filter(Boolean),
   )
-}
-
-function isTrustedAssociation(association = '') {
-  return TRUSTED_ASSOCIATIONS.has(association.toUpperCase())
 }
 
 function neutralizeMentions(value) {
@@ -90,7 +85,7 @@ function assertCorrectablePullRequest({ pullRequest, context }) {
 
 function assertApprovedImplementationIssue(issue, issueNumber) {
   const labels = labelsOf(issue)
-  if (!isTrustedAssociation(issue.author_association)) {
+  if (!isTrustedActor(issue)) {
     throw new Error(`#${issueNumber} was not created by a trusted repository member.`)
   }
   if (!labels.has(APPROVED_LABEL) || !labels.has(IMPLEMENTATION_LABEL)) {
@@ -241,7 +236,7 @@ export async function handleCorrectionApproval({ github, context, core }) {
     core.setOutput('approval_status', 'rejected')
     return
   }
-  if (!isTrustedAssociation(comment.author_association)) {
+  if (!isTrustedActor(comment)) {
     core.warning('The correction command was posted by an untrusted account.')
     core.setOutput('approval_status', 'rejected')
     return

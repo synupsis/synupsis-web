@@ -4,6 +4,7 @@ import {
   sanitizeProductText,
   validateDevelopmentPatch,
 } from './feature-development.mjs'
+import { isTrustedActor } from './trusted-actor.mjs'
 
 const REVIEW_COMMENT_MARKER = '<!-- synupsis-ai-review:v1 -->'
 const REVIEW_HEAD_MARKER_PREFIX = 'synupsis-ai-review-head:'
@@ -12,7 +13,6 @@ const SPECIFICATION_COMMENT_MARKER = '<!-- synupsis-ai-spec:v1 -->'
 const APPROVAL_COMMENT_MARKER = '<!-- synupsis-ai-approval:v1 -->'
 const APPROVED_LABEL = 'ai:spec-approved'
 const IMPLEMENTATION_LABEL = 'ai:implementation-pr'
-const TRUSTED_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
 const REVIEW_VERDICTS = new Set(['approved', 'changes_requested', 'blocked'])
 const FINDING_SEVERITIES = new Set(['critical', 'high', 'medium', 'low'])
 const CORRECTION_LABEL_NAMES = ['ai:fix-in-progress', 'ai:fix-blocked']
@@ -49,10 +49,6 @@ function labelsOf(item) {
       .map((label) => typeof label === 'string' ? label : label.name)
       .filter(Boolean),
   )
-}
-
-function isTrustedAssociation(association = '') {
-  return TRUSTED_ASSOCIATIONS.has(association.toUpperCase())
 }
 
 function neutralizeMentions(value) {
@@ -200,7 +196,7 @@ export async function prepareFeatureReview({ github, context, pullRequestNumber,
   })
   const issue = issueResponse.data
   const issueLabels = labelsOf(issue)
-  if (!isTrustedAssociation(issue.author_association)) {
+  if (!isTrustedActor(issue)) {
     throw new Error(`#${issueNumber} was not created by a trusted repository member.`)
   }
   if (!issueLabels.has(APPROVED_LABEL) || !issueLabels.has(IMPLEMENTATION_LABEL)) {
@@ -530,7 +526,7 @@ export async function publishFeatureReview({
   const issue = issueResponse.data
   const issueLabels = labelsOf(issue)
   if (
-    !isTrustedAssociation(issue.author_association)
+    !isTrustedActor(issue)
     || !issueLabels.has(APPROVED_LABEL)
     || !issueLabels.has(IMPLEMENTATION_LABEL)
   ) {

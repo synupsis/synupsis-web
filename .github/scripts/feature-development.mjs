@@ -1,5 +1,7 @@
 import path from 'node:path'
 
+import { isTrustedActor } from './trusted-actor.mjs'
+
 const SPECIFICATION_COMMENT_MARKER = '<!-- synupsis-ai-spec:v1 -->'
 const APPROVAL_COMMENT_MARKER = '<!-- synupsis-ai-approval:v1 -->'
 const DEVELOPMENT_COMMENT_MARKER = '<!-- synupsis-ai-development-pr:v1 -->'
@@ -22,7 +24,6 @@ const LABELS = {
   },
 }
 
-const TRUSTED_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
 const PROTECTED_PREFIXES = ['.codex/', '.git/', '.github/', '.trusted-pipeline/', 'supabase/']
 const PROTECTED_FILES = new Set([
   '.gitattributes',
@@ -35,10 +36,6 @@ const PROTECTED_FILES = new Set([
   'package.json',
   'yarn.lock',
 ])
-
-function isTrustedAssociation(association = '') {
-  return TRUSTED_ASSOCIATIONS.has(association.toUpperCase())
-}
 
 function labelsOf(issue) {
   return new Set(
@@ -111,7 +108,7 @@ export async function prepareFeatureDevelopment({ github, context, issueNumber, 
     throw new Error(`#${normalizedIssueNumber} is a pull request, not a feature Issue.`)
   }
 
-  if (!isTrustedAssociation(issue.author_association)) {
+  if (!isTrustedActor(issue)) {
     throw new Error(`#${normalizedIssueNumber} was not created by a trusted repository member.`)
   }
 
@@ -421,7 +418,7 @@ export async function publishDevelopmentBlocked({ github, context, core, issueNu
     issue_number: normalizedIssueNumber,
   })
   const issue = issueResponse.data
-  if (!isTrustedAssociation(issue.author_association) || !labelsOf(issue).has(APPROVED_LABEL)) {
+  if (!isTrustedActor(issue) || !labelsOf(issue).has(APPROVED_LABEL)) {
     throw new Error(`#${normalizedIssueNumber} is no longer approved for development.`)
   }
 
@@ -484,7 +481,7 @@ export async function publishDevelopmentPullRequest({
     issue_number: normalizedIssueNumber,
   })
   const issue = issueResponse.data
-  if (!isTrustedAssociation(issue.author_association) || !labelsOf(issue).has(APPROVED_LABEL)) {
+  if (!isTrustedActor(issue) || !labelsOf(issue).has(APPROVED_LABEL)) {
     throw new Error(`#${normalizedIssueNumber} is no longer approved for development.`)
   }
 

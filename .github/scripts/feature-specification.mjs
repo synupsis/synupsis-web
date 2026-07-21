@@ -1,3 +1,5 @@
+import { isTrustedActor } from './trusted-actor.mjs'
+
 const COMMENT_MARKER = '<!-- synupsis-ai-spec:v1 -->'
 const SOURCE_LABEL = 'ai:ready-for-spec'
 const MAX_ISSUE_BODY_LENGTH = 30000
@@ -30,7 +32,6 @@ const LABELS = {
   },
 }
 
-const TRUSTED_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
 const VALID_STATUSES = new Set(['ready', 'needs_clarification'])
 
 function labelsOf(issue) {
@@ -92,7 +93,7 @@ export async function prepareFeatureSpecification({ github, context, issueNumber
     throw new Error(`#${normalizedIssueNumber} is a pull request, not a feature Issue.`)
   }
 
-  if (!TRUSTED_ASSOCIATIONS.has((issue.author_association ?? '').toUpperCase())) {
+  if (!isTrustedActor(issue)) {
     throw new Error(`#${normalizedIssueNumber} was not created by a trusted repository member.`)
   }
 
@@ -219,7 +220,7 @@ export async function publishFeatureSpecification({ github, context, core, issue
   })
   const issue = issueResponse.data
 
-  if (!TRUSTED_ASSOCIATIONS.has((issue.author_association ?? '').toUpperCase())) {
+  if (!isTrustedActor(issue)) {
     throw new Error(`#${normalizedIssueNumber} is no longer trusted.`)
   }
 
