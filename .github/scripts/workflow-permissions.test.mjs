@@ -24,3 +24,10 @@ test('PR comment authorization jobs can update Pull Request labels', () => {
     assert.match(authorizeJob, /^      pull-requests: write$/m)
   }
 })
+
+test('automated AI reviews trust only the GitHub Actions bot', () => {
+  const reviewJob = workflowJob('.github/workflows/ai-feature-review.yml', 'review')
+
+  assert.match(reviewJob, /^          allow-bot-users: 'github-actions\[bot\]'$/m)
+  assert.doesNotMatch(reviewJob, /^          allow-bots: true$/m)
+})
