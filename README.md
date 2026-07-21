@@ -52,9 +52,11 @@ Run Edge Functions locally
 
 ## Deployment
 
-The `develop` branch is automatically deployed to the shared development environment on Netlify. Pull requests get an isolated Netlify Deploy Preview.
+The `develop` branch is automatically deployed to the shared development environment on Netlify. Pull requests get an isolated Netlify Deploy Preview. The `main` branch is reserved for the separate Netlify and Supabase production projects.
 
-After testing a generated Pull Request's Deploy Preview, an authorized repository member can approve it with `/approve-preview`. The pipeline then squash-merges it into `develop` only. No automatic production deployment is configured yet.
+After testing a generated Pull Request's Deploy Preview, an authorized repository member can approve it with `/approve-preview`. The pipeline then squash-merges it into `develop` only.
+
+Production uses a second, explicit gate: `/prepare-production` freezes the current `develop` SHA into a draft release Pull Request targeting `main`; `/approve-production` revalidates that immutable SHA, the recorded `main` base and release CI before merging with a merge commit. External Netlify and Supabase deployments must still be checked after the merge.
 
 ## AI feature pipeline
 

@@ -1,8 +1,8 @@
 # Pipeline IA Synupsis
 
-Le pipeline permet à un membre non développeur de proposer une fonctionnalité, de faire produire et reviewer son implémentation, puis de tester une Deploy Preview avant son intégration dans l’environnement de développement partagé.
+Le pipeline permet à un membre non développeur de proposer une fonctionnalité, de faire produire et reviewer son implémentation, puis de tester une Deploy Preview avant son intégration dans l’environnement de développement partagé. Une procédure séparée permet ensuite de préparer et d’approuver explicitement un lot de changements pour la production.
 
-La production n’est pas encore configurée. Aucune commande décrite ici ne déploie sur `main` ou en production.
+Les projets Netlify et Supabase de production sont distincts de leurs équivalents de développement. La promotion reste désactivée tant que l’Issue de contrôle portant `ai:release-control` n’a pas été créée par un membre autorisé.
 
 ## Vue d’ensemble
 
@@ -13,7 +13,9 @@ La production n’est pas encore configurée. Aucune commande décrite ici ne d�
 5. laisser la CI, Netlify et l’agent reviewer analyser la proposition ;
 6. si nécessaire, autoriser les corrections avec `/apply-review-fixes` ;
 7. tester manuellement la Deploy Preview Netlify ;
-8. accepter son intégration dans `develop` avec `/approve-preview`.
+8. accepter son intégration dans `develop` avec `/approve-preview` ;
+9. préparer un snapshot de `develop` avec `/prepare-production` ;
+10. vérifier la release puis autoriser sa fusion dans `main` avec `/approve-production`.
 
 ## Étape 1 — Collecte de la demande
 
@@ -124,8 +126,34 @@ yarn test:pipeline
 
 Les workflows de collecte, spécification, développement et review peuvent aussi être relancés manuellement depuis l’onglet **Actions** avec le numéro d’Issue ou de Pull Request demandé. Les commandes `/approve-spec`, `/apply-review-fixes` et `/approve-preview` restent volontairement publiques et humaines afin de conserver une trace d’autorisation explicite.
 
-## Frontière avec la production
+## Promotion vers la production
 
-À ce stade, Netlify déploie automatiquement `develop` vers l’environnement de développement partagé et crée une Deploy Preview pour chaque Pull Request. Aucun environnement GitHub Production, aucun déploiement automatique de `main` et aucune promotion vers la production ne font partie de ce pipeline.
+La production est volontairement séparée de l’acceptation d’une fonctionnalité. `/approve-preview` ne peut fusionner que dans `develop`. Une mise en production regroupe donc tous les commits déjà acceptés dans `develop` mais encore absents de `main`.
 
-La prochaine étape sera de créer une fondation de production séparée : environnement Netlify dédié, secrets et Supabase de production distincts, remise à niveau contrôlée de `main`, règles de protection et commande de promotion indépendante. Cette étape devra conserver une validation humaine supplémentaire et ne réutilisera pas `/approve-preview`.
+Un membre autorisé prépare ce lot en commentant exactement ceci sur l’Issue permanente portant le label `ai:release-control` :
+
+```text
+/prepare-production
+```
+
+Le workflow `Production release` revalide l’auteur et l’Issue, puis :
+
+- lit les SHA courants de `develop` et `main` ;
+- crée une branche immuable `release/<date>-<heure>-<sha>` sur le SHA exact de `develop` ;
+- ouvre une Pull Request brouillon de cette branche vers `main` ;
+- liste les commits, fichiers et changements sensibles, dont les migrations et fonctions Supabase ;
+- déclenche explicitement la CI sur la branche de release.
+
+Cette première commande ne fusionne rien et ne déploie rien. Elle fournit un candidat stable à relire. L’équipe doit notamment vérifier la CI, le fonctionnement actuel de l’environnement de développement partagé et tout changement Supabase signalé dans la PR.
+
+Après cette validation, un membre autorisé peut commenter exactement ceci sur la Pull Request de release :
+
+```text
+/approve-production
+```
+
+Juste avant la fusion, le workflow vérifie de nouveau l’auteur, la provenance de la branche, le SHA figé, le SHA de `main` enregistré lors de la préparation, les métadonnées publiées par GitHub Actions, l’absence de conflit et la réussite de la CI propre à cette branche. Si l’un de ces éléments a changé, la promotion s’arrête et il faut préparer une nouvelle release.
+
+Une release valide est fusionnée dans `main` avec un **merge commit**, sans squash. Netlify et l’intégration Supabase liée à `main` peuvent alors démarrer leurs déploiements. Le commentaire final demande explicitement de vérifier ces deux déploiements et d’effectuer un smoke test sur `https://synupsis.com` : une fusion réussie ne prouve pas à elle seule que la production est saine.
+
+Le projet Supabase gratuit ne fournit pas de branche de preview de base de données. Toute migration doit donc rester rétrocompatible autant que possible, être relue dans la PR de release et avoir une stratégie de retour arrière avant l’approbation. Le déploiement de production Supabase et les règles de protection de `main` doivent être activés avant la première utilisation réelle de `/prepare-production`.
