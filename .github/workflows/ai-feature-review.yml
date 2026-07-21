@@ -79,6 +79,8 @@ jobs:
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          # The correction publisher dispatches this workflow with its GITHUB_TOKEN.
+          allow-bot-users: 'github-actions[bot]'
           prompt-file: .github/codex/runtime-review-prompt.md
           model: gpt-5.6-sol
           effort: high
