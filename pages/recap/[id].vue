@@ -17,8 +17,21 @@
     @touchend.passive="resumeStory"
   >
     <!-- Progress Bars -->
-    <div class="absolute top-2 left-2 right-2 z-20 flex gap-1">
-      <div v-for="(_, index) in data.slides" :key="index" class="h-1 bg-white/30 flex-1 rounded-full overflow-hidden">
+    <div
+      class="pointer-events-none absolute top-[calc(env(safe-area-inset-top)_+_0.5rem)] left-2 right-2 z-20 flex gap-1 bg-black"
+      role="progressbar"
+      aria-valuemin="1"
+      :aria-valuemax="data.slides.length"
+      :aria-valuenow="currentSlideIndex + 1"
+      :aria-valuetext="`Slide ${currentSlideIndex + 1} sur ${data.slides.length}`"
+    >
+      <div
+        v-for="(slide, index) in data.slides"
+        :key="slide.id"
+        class="h-1 flex-1 overflow-hidden rounded-full bg-white/40 data-[state=current]:bg-white/60"
+        :data-state="getProgressBarState(index)"
+        aria-hidden="true"
+      >
         <div
           class="h-full bg-white transition-transform duration-100 origin-left"
           :style="{ transform: `scaleX(${getProgressBarValue(index)})` }"
@@ -27,7 +40,9 @@
     </div>
 
     <!-- Header -->
-    <header class="absolute top-4 left-4 right-4 z-20 flex items-center justify-between">
+    <header
+      class="absolute top-[calc(env(safe-area-inset-top)_+_1rem)] left-4 right-4 z-20 flex items-center justify-between"
+    >
       <div class="flex items-center gap-3">
         <div>
           <h1 class="text-lg font-bold">{{ data.show.name }}</h1>
@@ -176,7 +191,13 @@ const resumeStory = () => {
 const getProgressBarValue = (index: number) => {
   if (index < currentSlideIndex.value) return 1;
   if (index > currentSlideIndex.value) return 0;
-  return progress.value / 100;
+  return Math.min(1, Math.max(0, progress.value / 100));
+};
+
+const getProgressBarState = (index: number) => {
+  if (index < currentSlideIndex.value) return 'completed';
+  if (index > currentSlideIndex.value) return 'remaining';
+  return 'current';
 };
 
 const handleKeydown = (e: KeyboardEvent) => {
