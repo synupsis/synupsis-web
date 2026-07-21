@@ -16,74 +16,102 @@
     @touchstart.passive="pauseStory"
     @touchend.passive="resumeStory"
   >
-    <!-- Progress Bars -->
     <div
-      class="pointer-events-none absolute top-[calc(env(safe-area-inset-top)_+_0.5rem)] left-2 right-2 z-20 flex gap-1 bg-black"
-      role="progressbar"
-      aria-valuemin="1"
-      :aria-valuemax="data.slides.length"
-      :aria-valuenow="currentSlideIndex + 1"
-      :aria-valuetext="`Slide ${currentSlideIndex + 1} sur ${data.slides.length}`"
+      v-if="isEndScreen"
+      ref="endScreen"
+      class="flex h-full w-full flex-col items-center justify-center gap-8 px-6 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] text-center"
     >
       <div
-        v-for="(slide, index) in data.slides"
-        :key="slide.id"
-        class="h-1 flex-1 overflow-hidden rounded-full bg-white/40 data-[state=current]:bg-white/60"
-        :data-state="getProgressBarState(index)"
-        aria-hidden="true"
+        class="space-y-3"
+      >
+        <h1 class="text-3xl font-bold">Fin de la story</h1>
+        <p class="text-white/80">{{ data.show.name }} · Saison {{ data.season.number }}</p>
+      </div>
+      <div class="flex w-full max-w-md flex-col gap-3 sm:flex-row sm:justify-center">
+        <Button size="lg" class="min-h-11 w-full sm:w-auto" @click="restartStory">
+          Recommencer la story
+        </Button>
+        <Button
+          variant="outline"
+          size="lg"
+          class="min-h-11 w-full border-white/40 bg-transparent text-white hover:bg-white/10 hover:text-white sm:w-auto"
+          @click="goBack"
+        >
+          Retourner à la fiche de la série
+        </Button>
+      </div>
+    </div>
+
+    <template v-else>
+      <!-- Progress Bars -->
+      <div
+        class="pointer-events-none absolute top-[calc(env(safe-area-inset-top)_+_0.5rem)] left-2 right-2 z-20 flex gap-1 bg-black"
+        role="progressbar"
+        aria-valuemin="1"
+        :aria-valuemax="data.slides.length"
+        :aria-valuenow="currentSlideIndex + 1"
+        :aria-valuetext="`Slide ${currentSlideIndex + 1} sur ${data.slides.length}`"
       >
         <div
-          class="h-full bg-white transition-transform duration-100 origin-left"
-          :style="{ transform: `scaleX(${getProgressBarValue(index)})` }"
-        />
-      </div>
-    </div>
-
-    <!-- Header -->
-    <header
-      class="absolute top-[calc(env(safe-area-inset-top)_+_1rem)] left-4 right-4 z-20 flex items-center justify-between"
-    >
-      <div class="flex items-center gap-3">
-        <div>
-          <h1 class="text-lg font-bold">{{ data.show.name }}</h1>
-          <p class="text-sm text-white/80">Season {{ data.season.number }}</p>
+          v-for="(slide, index) in data.slides"
+          :key="slide.id"
+          class="h-1 flex-1 overflow-hidden rounded-full bg-white/40 data-[state=current]:bg-white/60"
+          :data-state="getProgressBarState(index)"
+          aria-hidden="true"
+        >
+          <div
+            class="h-full bg-white transition-transform duration-100 origin-left"
+            :style="{ transform: `scaleX(${getProgressBarValue(index)})` }"
+          />
         </div>
       </div>
-      <Button variant="ghost" size="icon" @click="goBack" class="bg-black/20 hover:bg-black/40">
-        <XMarkIcon class="h-6 w-6" />
-      </Button>
-    </header>
 
-    <!-- Story Content -->
-    <div class="relative w-full h-full">
-      <!-- Background Image with Ken Burns Effect -->
-      <Transition name="fade" mode="out-in">
-        <CachedImage
-          v-if="currentSlide.image_url"
-          :key="currentSlide.id"
-          :src="currentSlide.image_url"
-          alt="Slide background"
-          class="absolute inset-0 w-full h-full object-cover animate-kenburns"
-        />
-      </Transition>
-      <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+      <!-- Header -->
+      <header
+        class="absolute top-[calc(env(safe-area-inset-top)_+_1rem)] left-4 right-4 z-20 flex items-center justify-between"
+      >
+        <div class="flex items-center gap-3">
+          <div>
+            <h1 class="text-lg font-bold">{{ data.show.name }}</h1>
+            <p class="text-sm text-white/80">Season {{ data.season.number }}</p>
+          </div>
+        </div>
+        <Button variant="ghost" size="icon" @click="goBack" class="bg-black/20 hover:bg-black/40">
+          <XMarkIcon class="h-6 w-6" />
+        </Button>
+      </header>
 
-      <!-- Canvas Data -->
-      <div class="absolute inset-0 flex items-center justify-center">
-        <ClientOnly>
-          <RecapCanvas
+      <!-- Story Content -->
+      <div class="relative w-full h-full">
+        <!-- Background Image with Ken Burns Effect -->
+        <Transition name="fade" mode="out-in">
+          <CachedImage
+            v-if="currentSlide.image_url"
             :key="currentSlide.id"
-            :model-value="JSON.stringify(currentSlide.canvas_data)"
-            :read-only="true"
-            class="w-full h-full animate-fade-in-up"
+            :src="currentSlide.image_url"
+            alt="Slide background"
+            class="absolute inset-0 w-full h-full object-cover animate-kenburns"
           />
-        </ClientOnly>
-      </div>
-    </div>
+        </Transition>
+        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
 
-    <!-- Navigation Areas -->
-    <div class="absolute top-0 left-0 h-full w-1/3 z-10" @click="prevSlide" />
-    <div class="absolute top-0 right-0 h-full w-1/3 z-10" @click="nextSlide()" />
+        <!-- Canvas Data -->
+        <div class="absolute inset-0 flex items-center justify-center">
+          <ClientOnly>
+            <RecapCanvas
+              :key="currentSlide.id"
+              :model-value="JSON.stringify(currentSlide.canvas_data)"
+              :read-only="true"
+              class="w-full h-full animate-fade-in-up"
+            />
+          </ClientOnly>
+        </div>
+      </div>
+
+      <!-- Navigation Areas -->
+      <div class="absolute top-0 left-0 h-full w-1/3 z-10" @click="prevSlide" />
+      <div class="absolute top-0 right-0 h-full w-1/3 z-10" @click="nextSlide()" />
+    </template>
   </div>
   <div v-else class="w-screen h-dvh bg-background text-foreground flex flex-col items-center justify-center gap-4">
     <p class="text-muted-foreground">This recap has no content yet.</p>
@@ -92,7 +120,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue';
 import { Button } from '~/components/shadcn/button';
 import { XMarkIcon } from '@heroicons/vue/24/outline';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
@@ -126,6 +154,8 @@ const { data, pending, error } = useFetch<RecapResponse>(`/api/recap/${recapId}`
 const currentSlideIndex = ref(0);
 const progress = ref(0);
 const isPaused = ref(false);
+const isEndScreen = ref(false);
+const endScreen = ref<HTMLElement | null>(null);
 let timer: ReturnType<typeof setInterval> | null = null;
 
 const errorMessage = computed(() => {
@@ -146,8 +176,15 @@ const goBack = () => {
   }
 };
 
+const stopTimer = () => {
+  if (timer) {
+    clearInterval(timer);
+    timer = null;
+  }
+};
+
 const startTimer = () => {
-  if (timer) clearInterval(timer);
+  stopTimer();
   timer = setInterval(() => {
     if (!isPaused.value) {
       progress.value += (100 / (SLIDE_DURATION / 100));
@@ -169,8 +206,21 @@ const nextSlide = (isAutomatic = false) => {
     currentSlideIndex.value++;
     resetTimer();
   } else if (isAutomatic) {
-    goBack(); // Go back if it was the last slide and it finished automatically
+    progress.value = 100;
+    stopTimer();
+  } else {
+    stopTimer();
+    isEndScreen.value = true;
   }
+};
+
+const restartStory = () => {
+  stopTimer();
+  isEndScreen.value = false;
+  currentSlideIndex.value = 0;
+  progress.value = 0;
+  isPaused.value = false;
+  startTimer();
 };
 
 const prevSlide = () => {
@@ -201,10 +251,17 @@ const getProgressBarState = (index: number) => {
 };
 
 const handleKeydown = (e: KeyboardEvent) => {
-  if (e.key === 'ArrowRight') nextSlide();
-  if (e.key === 'ArrowLeft') prevSlide();
+  if (!isEndScreen.value && e.key === 'ArrowRight') nextSlide();
+  if (!isEndScreen.value && e.key === 'ArrowLeft') prevSlide();
   if (e.key === 'Escape') goBack();
 };
+
+watch(isEndScreen, async (isVisible) => {
+  if (isVisible) {
+    await nextTick();
+    endScreen.value?.querySelector<HTMLButtonElement>('button')?.focus();
+  }
+});
 
 onMounted(() => {
   if (data.value && data.value.slides.length > 0) {
@@ -214,7 +271,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  if (timer) clearInterval(timer);
+  stopTimer();
   window.removeEventListener('keydown', handleKeydown);
 });
 
