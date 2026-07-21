@@ -124,6 +124,7 @@ jobs:
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          allow-bot-users: 'synupsis-orchestrator[bot]'
           prompt-file: .trusted-pipeline/.github/codex/runtime-correction-prompt.md
           model: gpt-5.6-sol
           effort: high

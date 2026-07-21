@@ -7,6 +7,7 @@ import {
   parseSpecificationResult,
   prepareFeatureSpecification,
   publishFeatureSpecification,
+  publishFeatureSpecificationFailure,
   sanitizeIssueText,
 } from './feature-specification.mjs'
 
@@ -170,11 +171,66 @@ test('publishFeatureSpecification creates labels and one reusable comment', asyn
     }),
   })
 
-  assert.deepEqual(createdLabels.sort(), ['ai:spec-needs-info', 'ai:spec-ready'])
+  assert.deepEqual(createdLabels.sort(), ['ai:spec-blocked', 'ai:spec-needs-info', 'ai:spec-ready'])
   assert.deepEqual(addedLabels, ['ai:spec-ready'])
   assert.deepEqual(removedLabels.sort(), ['ai:spec-approved', 'ai:spec-needs-info'])
   assert.equal(comments.length, 1)
   assert.match(comments[0], /Spécification proposée/)
   assert.match(comments[0], /\/approve-spec/)
   assert.equal(outputs.get('specification-status'), 'ai:spec-ready')
+})
+
+test('publishFeatureSpecificationFailure exposes the blocker to the Issue', async () => {
+  const createdLabels = []
+  const addedLabels = []
+  const removedLabels = []
+  const comments = []
+  const outputs = new Map()
+  const github = {
+    rest: {
+      issues: {
+        get: async () => ({
+          data: {
+            ...readyIssue,
+            labels: [
+              { name: 'ai:ready-for-spec' },
+              { name: 'ai:spec-ready' },
+              { name: 'ai:spec-needs-info' },
+            ],
+          },
+        }),
+        getLabel: async () => {
+          const error = new Error('Not found')
+          error.status = 404
+          throw error
+        },
+        createLabel: async ({ name }) => createdLabels.push(name),
+        addLabels: async ({ labels }) => addedLabels.push(...labels),
+        removeLabel: async ({ name }) => removedLabels.push(name),
+        listComments: async () => {},
+        createComment: async ({ body }) => comments.push(body),
+        updateComment: async () => {},
+      },
+    },
+    paginate: async () => [],
+  }
+  const context = {
+    repo: { owner: 'synupsis', repo: 'synupsis-web' },
+    serverUrl: 'https://github.com',
+    runId: 12345,
+  }
+  const core = {
+    warning: () => {},
+    setOutput: (name, value) => outputs.set(name, value),
+  }
+
+  await publishFeatureSpecificationFailure({ github, context, core, issueNumber: 12 })
+
+  assert.deepEqual(createdLabels, ['ai:spec-blocked'])
+  assert.deepEqual(addedLabels, ['ai:spec-blocked'])
+  assert.deepEqual(removedLabels.sort(), ['ai:spec-needs-info', 'ai:spec-ready'])
+  assert.equal(comments.length, 1)
+  assert.match(comments[0], /synupsis-ai-spec-blocked:v1/)
+  assert.match(comments[0], /actions\/runs\/12345/)
+  assert.equal(outputs.get('specification-status'), 'ai:spec-blocked')
 })

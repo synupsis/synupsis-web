@@ -1,6 +1,7 @@
 import { isTrustedActor } from './trusted-actor.mjs'
 
 const COMMENT_MARKER = '<!-- synupsis-ai-spec:v1 -->'
+const FAILURE_COMMENT_MARKER = '<!-- synupsis-ai-spec-blocked:v1 -->'
 const SOURCE_LABEL = 'ai:ready-for-spec'
 const MAX_ISSUE_BODY_LENGTH = 30000
 const MAX_SPECIFICATION_LENGTH = 45000
@@ -29,6 +30,11 @@ const LABELS = {
     name: 'ai:spec-needs-info',
     color: 'bf8700',
     description: 'Questions bloquantes soulevées par l’agent de spécification',
+  },
+  blocked: {
+    name: 'ai:spec-blocked',
+    color: 'cf222e',
+    description: 'La génération de la spécification a échoué',
   },
 }
 
@@ -228,7 +234,7 @@ export async function publishFeatureSpecification({ github, context, core, issue
     throw new Error(`#${normalizedIssueNumber} is no longer labelled ${SOURCE_LABEL}.`)
   }
 
-  const managedLabels = [LABELS.ready, LABELS.needsClarification]
+  const managedLabels = [LABELS.ready, LABELS.needsClarification, LABELS.blocked]
   const statusLabel = result.status === 'ready' ? LABELS.ready : LABELS.needsClarification
   await Promise.all(managedLabels.map((label) => ensureLabel(github, owner, repo, label)))
 
@@ -291,4 +297,82 @@ export async function publishFeatureSpecification({ github, context, core, issue
 
   core.setOutput('specification-status', statusLabel.name)
   core.info(`Specification for #${normalizedIssueNumber} published as ${statusLabel.name}.`)
+}
+
+export async function publishFeatureSpecificationFailure({ github, context, core, issueNumber }) {
+  const normalizedIssueNumber = Number(issueNumber)
+  if (!Number.isInteger(normalizedIssueNumber) || normalizedIssueNumber <= 0) {
+    throw new Error('The issue_number input must be a positive integer.')
+  }
+
+  const { owner, repo } = context.repo
+  const issueResponse = await github.rest.issues.get({
+    owner,
+    repo,
+    issue_number: normalizedIssueNumber,
+  })
+  const issue = issueResponse.data
+  if (!isTrustedActor(issue)) {
+    throw new Error(`#${normalizedIssueNumber} is no longer trusted.`)
+  }
+  const currentLabels = labelsOf(issue)
+  if (!currentLabels.has(SOURCE_LABEL)) {
+    throw new Error(`#${normalizedIssueNumber} is no longer labelled ${SOURCE_LABEL}.`)
+  }
+
+  await ensureLabel(github, owner, repo, LABELS.blocked)
+  await github.rest.issues.addLabels({
+    owner,
+    repo,
+    issue_number: normalizedIssueNumber,
+    labels: [LABELS.blocked.name],
+  })
+  for (const label of [LABELS.ready, LABELS.needsClarification]) {
+    if (currentLabels.has(label.name)) {
+      await github.rest.issues.removeLabel({
+        owner,
+        repo,
+        issue_number: normalizedIssueNumber,
+        name: label.name,
+      })
+    }
+  }
+
+  const runUrl = `${context.serverUrl ?? 'https://github.com'}/${owner}/${repo}/actions/runs/${context.runId}`
+  const body = [
+    FAILURE_COMMENT_MARKER,
+    '### Spécification bloquée',
+    '',
+    'L’agent de spécification n’a pas terminé son analyse. Aucun code n’a été généré et aucune modification n’a été appliquée.',
+    '',
+    `Exécution concernée : ${runUrl}`,
+    '',
+    'La demande reste prête à être relancée après correction du pipeline.',
+  ].join('\n')
+  const comments = await github.paginate(github.rest.issues.listComments, {
+    owner,
+    repo,
+    issue_number: normalizedIssueNumber,
+    per_page: 100,
+  })
+  const previousComment = comments.find((comment) =>
+    comment.user?.type === 'Bot' && comment.body?.includes(FAILURE_COMMENT_MARKER),
+  )
+  if (previousComment) {
+    await github.rest.issues.updateComment({
+      owner,
+      repo,
+      comment_id: previousComment.id,
+      body,
+    })
+  } else {
+    await github.rest.issues.createComment({
+      owner,
+      repo,
+      issue_number: normalizedIssueNumber,
+      body,
+    })
+  }
+  core.setOutput('specification-status', LABELS.blocked.name)
+  core.warning(`Specification for #${normalizedIssueNumber} failed and was reported.`)
 }
