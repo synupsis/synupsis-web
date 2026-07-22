@@ -45,6 +45,8 @@ N’ajoute jamais `.trusted-pipeline/` à Git. Le patch ne doit contenir que la 
 
 # Règles de décision
 
+- Les éléments de `approvedPreviewFeedbackAmendments` sont des avenants produit approuvés. Ils sont prioritaires sur la spécification initiale en cas de contradiction, et l’avenant le plus récent l’emporte.
+- Ne rétablis jamais un ancien comportement ou wording uniquement parce qu’il figure encore dans la spécification initiale lorsqu’un avenant approuvé le remplace.
 - Utilise `fixed` uniquement si tous les findings confirmés et toutes les modifications de preview autorisées sont traités, que le patch est complet et que les validations pertinentes réussissent.
 - Utilise `blocked` si une correction exige une décision produit, un chemin non autorisé, une dépendance, un accès externe ou si tu ne peux pas produire un patch sûr et complet.
 - En cas de blocage, ne fournis aucun patch et liste les raisons concrètes dans `blockers`.

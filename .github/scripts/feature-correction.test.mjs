@@ -354,7 +354,7 @@ test('trusted preview feedback starts a correction tied to the tested SHA', asyn
 test('preview feedback is isolated in the approved correction prompt', async () => {
   const previewApprovalComment = {
     id: 204,
-    user: { type: 'Bot' },
+    user: { id: 41898282, login: 'github-actions[bot]', type: 'Bot' },
     body: buildCorrectionApprovalComment(headSha, 'preview-feedback'),
   }
   const prepared = await prepareFeatureCorrection({
@@ -372,6 +372,7 @@ test('preview feedback is isolated in the approved correction prompt', async () 
   })
 
   assert.match(prepared.prompt, /requestedPreviewChanges/)
+  assert.match(prepared.prompt, /approvedPreviewFeedbackAmendments/)
   assert.match(prepared.prompt, /Centrer les boutons et raccourcir le libellé/)
   assert.equal(prepared.prompt.includes('synupsis-ai-preview-feedback-head'), false)
 })

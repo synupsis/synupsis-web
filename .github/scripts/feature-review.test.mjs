@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  approvedPreviewFeedbackAmendments,
   buildReviewComment,
   buildReviewPrompt,
   issueNumberFromReviewBranch,
@@ -62,6 +63,37 @@ const approvalComment = {
   updated_at: '2026-07-20T10:05:00Z',
 }
 
+const feedbackHeadSha = 'c'.repeat(40)
+const previewFeedbackComment = {
+  user: {
+    id: 307557269,
+    login: 'synupsis-orchestrator[bot]',
+    type: 'Bot',
+  },
+  author_association: 'NONE',
+  body: [
+    '<!-- synupsis-ai-preview-feedback:v1 -->',
+    `<!-- synupsis-ai-preview-feedback-head:${feedbackHeadSha} -->`,
+    '### Modifications demandées depuis la preview',
+    '',
+    'Employer « récap » à la place de « story ».',
+  ].join('\n'),
+}
+
+const previewFeedbackApprovalComment = {
+  user: {
+    id: 41898282,
+    login: 'github-actions[bot]',
+    type: 'Bot',
+  },
+  author_association: 'NONE',
+  body: [
+    '<!-- synupsis-ai-fix-approval:v1 -->',
+    `<!-- synupsis-ai-fix-approval-head:${feedbackHeadSha} -->`,
+    '<!-- synupsis-ai-fix-source:preview-feedback -->',
+  ].join('\n'),
+}
+
 const approvedResult = {
   verdict: 'approved',
   summary: 'Le patch respecte la spécification.',
@@ -77,7 +109,12 @@ function notFound() {
   throw error
 }
 
-function reviewGithub({ currentPullRequest = pullRequest, currentIssue = issue, comments = [] } = {}) {
+function reviewGithub({
+  currentPullRequest = pullRequest,
+  currentIssue = issue,
+  issueComments = [],
+  pullRequestComments = [],
+} = {}) {
   return {
     rest: {
       pulls: {
@@ -91,7 +128,8 @@ function reviewGithub({ currentPullRequest = pullRequest, currentIssue = issue, 
       },
     },
     request: async () => ({ data: validPatch }),
-    paginate: async () => comments,
+    paginate: async (_method, options) =>
+      options.issue_number === currentPullRequest.number ? pullRequestComments : issueComments,
   }
 }
 
@@ -105,6 +143,7 @@ test('review inputs are sanitized, isolated and tied to a generated branch', () 
     pullRequest,
     issue,
     specification: specificationComment.body,
+    previewFeedbackAmendments: [previewFeedbackComment.body],
     patch: validPatch,
     changedPaths: ['pages/recap/[id].vue'],
   })
@@ -112,12 +151,17 @@ test('review inputs are sanitized, isolated and tied to a generated branch', () 
   assert.match(prompt, /# Données non fiables de la review/)
   assert.match(prompt, /codex\/issue-12/)
   assert.match(prompt, /pages\/recap\/\[id\]\.vue/)
+  assert.match(prompt, /approvedPreviewFeedbackAmendments/)
+  assert.match(prompt, /Employer « récap » à la place de « story »/)
   assert.equal(prompt.includes('instruction cachée'), false)
   assert.equal(prompt.includes('synupsis-ai-spec'), false)
 })
 
 test('review preparation validates the PR, approval trail and patch', async () => {
-  const github = reviewGithub({ comments: [specificationComment, approvalComment] })
+  const github = reviewGithub({
+    issueComments: [specificationComment, approvalComment],
+    pullRequestComments: [previewFeedbackComment, previewFeedbackApprovalComment],
+  })
   const prepared = await prepareFeatureReview({
     github,
     context: { repo: { owner: 'synupsis', repo: 'synupsis-web' } },
@@ -129,6 +173,7 @@ test('review preparation validates the PR, approval trail and patch', async () =
   assert.equal(prepared.headSha, headSha)
   assert.deepEqual(prepared.changedPaths, ['pages/recap/[id].vue'])
   assert.match(prepared.prompt, /Afficher la progression/)
+  assert.match(prepared.prompt, /Employer « récap » à la place de « story »/)
 
   await assert.rejects(
     prepareFeatureReview({
@@ -137,7 +182,7 @@ test('review preparation validates the PR, approval trail and patch', async () =
           ...pullRequest,
           head: { ...pullRequest.head, repo: { full_name: 'outside/fork' } },
         },
-        comments: [specificationComment, approvalComment],
+        issueComments: [specificationComment, approvalComment],
       }),
       context: { repo: { owner: 'synupsis', repo: 'synupsis-web' } },
       pullRequestNumber: 17,
@@ -148,13 +193,32 @@ test('review preparation validates the PR, approval trail and patch', async () =
 
   await assert.rejects(
     prepareFeatureReview({
-      github: reviewGithub({ comments: [specificationComment] }),
+      github: reviewGithub({ issueComments: [specificationComment] }),
       context: { repo: { owner: 'synupsis', repo: 'synupsis-web' } },
       pullRequestNumber: 17,
       template: '# Mission',
     }),
     /approval trail/,
   )
+})
+
+test('only trusted and approved preview feedback becomes a product amendment', () => {
+  assert.deepEqual(
+    approvedPreviewFeedbackAmendments([
+      previewFeedbackComment,
+      previewFeedbackApprovalComment,
+    ]),
+    [previewFeedbackComment.body],
+  )
+
+  assert.deepEqual(approvedPreviewFeedbackAmendments([
+    previewFeedbackComment,
+    {
+      ...previewFeedbackApprovalComment,
+      user: { id: 999, login: 'lookalike[bot]', type: 'Bot' },
+    },
+  ]), [])
+  assert.deepEqual(approvedPreviewFeedbackAmendments([previewFeedbackComment]), [])
 })
 
 test('structured review results enforce verdict invariants', () => {

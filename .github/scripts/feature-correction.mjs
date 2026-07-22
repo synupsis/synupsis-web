@@ -3,6 +3,7 @@ import {
   validateDevelopmentPatch,
 } from './feature-development.mjs'
 import {
+  approvedPreviewFeedbackAmendments,
   issueNumberFromReviewBranch,
   reviewHeadMarker,
   reviewVerdictMarker,
@@ -406,6 +407,7 @@ export function buildCorrectionPrompt({
   specification,
   reviewComment,
   previewFeedback,
+  previewFeedbackAmendments = [],
   currentPatch,
   allowedPaths,
 }) {
@@ -424,6 +426,9 @@ export function buildCorrectionPrompt({
     },
     approvedSpecification: sanitizeProductText(specification, 50000),
     approvedReviewReport: sanitizeProductText(reviewComment, 50000),
+    approvedPreviewFeedbackAmendments: previewFeedbackAmendments.map((feedback) =>
+      sanitizeProductText(feedback, 10000),
+    ),
     requestedPreviewChanges: previewFeedback
       ? sanitizeProductText(previewFeedback, 10000)
       : null,
@@ -520,6 +525,7 @@ export async function prepareFeatureCorrection({
         normalizedPullRequestNumber,
       ).body
     : undefined
+  const previewFeedbackAmendments = approvedPreviewFeedbackAmendments(pullRequestComments)
 
   return {
     issueNumber,
@@ -533,6 +539,7 @@ export async function prepareFeatureCorrection({
       specification,
       reviewComment: reviewComment.body,
       previewFeedback,
+      previewFeedbackAmendments,
       currentPatch,
       allowedPaths,
     }),

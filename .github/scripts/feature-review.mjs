@@ -9,6 +9,11 @@ import { isTrustedActor } from './trusted-actor.mjs'
 const REVIEW_COMMENT_MARKER = '<!-- synupsis-ai-review:v1 -->'
 const REVIEW_HEAD_MARKER_PREFIX = 'synupsis-ai-review-head:'
 const REVIEW_VERDICT_MARKER_PREFIX = 'synupsis-ai-review-verdict:'
+const PREVIEW_FEEDBACK_MARKER = '<!-- synupsis-ai-preview-feedback:v1 -->'
+const PREVIEW_FEEDBACK_HEAD_MARKER_PREFIX = 'synupsis-ai-preview-feedback-head:'
+const CORRECTION_APPROVAL_MARKER = '<!-- synupsis-ai-fix-approval:v1 -->'
+const CORRECTION_APPROVAL_HEAD_MARKER_PREFIX = 'synupsis-ai-fix-approval-head:'
+const PREVIEW_FEEDBACK_SOURCE_MARKER = '<!-- synupsis-ai-fix-source:preview-feedback -->'
 const SPECIFICATION_COMMENT_MARKER = '<!-- synupsis-ai-spec:v1 -->'
 const APPROVAL_COMMENT_MARKER = '<!-- synupsis-ai-approval:v1 -->'
 const APPROVED_LABEL = 'ai:spec-approved'
@@ -81,11 +86,45 @@ export function reviewVerdictMarker(verdict) {
   return `<!-- ${REVIEW_VERDICT_MARKER_PREFIX}${verdict} -->`
 }
 
+function headShaFromMarker(body = '', prefix) {
+  const match = new RegExp(`<!--\\s*${prefix}([0-9a-f]{40})\\s*-->`, 'i').exec(body)
+  return match?.[1]?.toLowerCase()
+}
+
+function isGithubActionsBot(comment) {
+  return comment.user?.type === 'Bot'
+    && comment.user?.login === 'github-actions[bot]'
+    && Number(comment.user?.id) === 41898282
+}
+
+export function approvedPreviewFeedbackAmendments(comments) {
+  const approvedHeads = new Set(
+    comments
+      .filter((comment) =>
+        isGithubActionsBot(comment)
+        && comment.body?.includes(CORRECTION_APPROVAL_MARKER)
+        && comment.body?.includes(PREVIEW_FEEDBACK_SOURCE_MARKER),
+      )
+      .map((comment) => headShaFromMarker(comment.body, CORRECTION_APPROVAL_HEAD_MARKER_PREFIX))
+      .filter(Boolean),
+  )
+
+  return comments
+    .filter((comment) => {
+      if (!isTrustedActor(comment) || !comment.body?.includes(PREVIEW_FEEDBACK_MARKER)) return false
+      const headSha = headShaFromMarker(comment.body, PREVIEW_FEEDBACK_HEAD_MARKER_PREFIX)
+      return Boolean(headSha && approvedHeads.has(headSha))
+    })
+    .slice(-20)
+    .map((comment) => comment.body)
+}
+
 export function buildReviewPrompt({
   template,
   pullRequest,
   issue,
   specification,
+  previewFeedbackAmendments = [],
   patch,
   changedPaths,
 }) {
@@ -104,6 +143,9 @@ export function buildReviewPrompt({
       body: sanitizeReviewText(issue.body, 15000),
     },
     approvedSpecification: sanitizeReviewText(specification, 50000),
+    approvedPreviewFeedbackAmendments: previewFeedbackAmendments.map((feedback) =>
+      sanitizeReviewText(feedback, 10000),
+    ),
     changedPaths,
     patch,
   }
@@ -203,13 +245,22 @@ export async function prepareFeatureReview({ github, context, pullRequestNumber,
     throw new Error(`#${issueNumber} is not an approved generated implementation.`)
   }
 
-  const comments = await github.paginate(github.rest.issues.listComments, {
-    owner,
-    repo,
-    issue_number: issueNumber,
-    per_page: 100,
-  })
-  const specification = findApprovedSpecification(comments, issueNumber)
+  const [issueComments, pullRequestComments] = await Promise.all([
+    github.paginate(github.rest.issues.listComments, {
+      owner,
+      repo,
+      issue_number: issueNumber,
+      per_page: 100,
+    }),
+    github.paginate(github.rest.issues.listComments, {
+      owner,
+      repo,
+      issue_number: normalizedPullRequestNumber,
+      per_page: 100,
+    }),
+  ])
+  const specification = findApprovedSpecification(issueComments, issueNumber)
+  const previewFeedbackAmendments = approvedPreviewFeedbackAmendments(pullRequestComments)
   const patch = await getPullRequestPatch({
     github,
     owner,
@@ -228,6 +279,7 @@ export async function prepareFeatureReview({ github, context, pullRequestNumber,
       pullRequest,
       issue,
       specification,
+      previewFeedbackAmendments,
       patch,
       changedPaths,
     }),
