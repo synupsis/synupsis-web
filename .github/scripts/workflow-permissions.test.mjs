@@ -41,6 +41,22 @@ test('specification approval can grant every permission required by development'
   assert.match(approval, /^  pull-requests: write$/m)
 })
 
+test('repository analysis separates read-only inspection from report publishing', () => {
+  const workflow = '.github/workflows/ai-repository-analysis.yml'
+  const source = readFileSync(workflow, 'utf8')
+  const analyzeJob = workflowJob(workflow, 'analyze')
+  const publishJob = workflowJob(workflow, 'publish')
+
+  assert.match(source, /^permissions: \{\}$/m)
+  assert.match(analyzeJob, /^      contents: read$/m)
+  assert.match(analyzeJob, /^      issues: read$/m)
+  assert.doesNotMatch(analyzeJob, /^      contents: write$/m)
+  assert.match(analyzeJob, /^          sandbox: read-only$/m)
+  assert.match(analyzeJob, /^          persist-credentials: false$/m)
+  assert.match(publishJob, /^      issues: write$/m)
+  assert.doesNotMatch(publishJob, /^      contents: write$/m)
+})
+
 test('correction workflow accepts trusted preview feedback comments', () => {
   const source = readFileSync('.github/workflows/ai-feature-correction.yml', 'utf8')
 

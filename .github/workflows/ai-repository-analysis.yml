@@ -1,0 +1,151 @@
+name: AI repository analysis
+
+on:
+  issues:
+    types:
+      - opened
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Numéro de l’Issue d’analyse
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: ai-repository-analysis-${{ github.event.issue.number || inputs.issue_number }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze the repository without write access
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.issue.title, '[Analyse IA]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      final_message: ${{ steps.codex.outputs.final-message }}
+
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v7
+        with:
+          ref: develop
+          persist-credentials: false
+
+      - name: Prepare the trusted analysis prompt
+        uses: actions/github-script@v9
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+        with:
+          script: |
+            const fs = await import('node:fs/promises')
+            const { pathToFileURL } = await import('node:url')
+            const moduleUrl = pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/repository-analysis.mjs`,
+            )
+            const { prepareRepositoryAnalysis } = await import(moduleUrl.href)
+            const template = await fs.readFile(
+              `${process.env.GITHUB_WORKSPACE}/.github/codex/prompts/repository-analysis.md`,
+              'utf8',
+            )
+            const { prompt } = await prepareRepositoryAnalysis({
+              github,
+              context,
+              issueNumber: process.env.ISSUE_NUMBER,
+              template,
+            })
+            await fs.writeFile(
+              `${process.env.GITHUB_WORKSPACE}/.github/codex/runtime-analysis-prompt.md`,
+              prompt,
+              { encoding: 'utf8', mode: 0o600 },
+            )
+
+      - name: Inspect the repository and answer the question
+        id: codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          allow-bot-users: 'synupsis-orchestrator[bot]'
+          prompt-file: .github/codex/runtime-analysis-prompt.md
+          model: gpt-5.6-sol
+          effort: medium
+          sandbox: read-only
+          safety-strategy: drop-sudo
+          codex-args: '["--ephemeral","--output-schema",".github/codex/analysis-output.schema.json"]'
+
+  publish:
+    name: Publish the repository analysis
+    needs: analyze
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v7
+        with:
+          ref: develop
+          persist-credentials: false
+
+      - name: Validate and publish the report
+        uses: actions/github-script@v9
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+          ANALYSIS_RESULT: ${{ needs.analyze.outputs.final_message }}
+        with:
+          script: |
+            const { pathToFileURL } = await import('node:url')
+            const moduleUrl = pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/repository-analysis.mjs`,
+            )
+            const { publishRepositoryAnalysis } = await import(moduleUrl.href)
+            await publishRepositoryAnalysis({
+              github,
+              context,
+              core,
+              issueNumber: process.env.ISSUE_NUMBER,
+              rawResult: process.env.ANALYSIS_RESULT,
+            })
+
+  report-failure:
+    name: Report an analysis failure
+    needs: analyze
+    if: ${{ always() && needs.analyze.result == 'failure' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v7
+        with:
+          ref: develop
+          persist-credentials: false
+
+      - name: Publish the analysis blocker
+        uses: actions/github-script@v9
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+        with:
+          script: |
+            const { pathToFileURL } = await import('node:url')
+            const moduleUrl = pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/repository-analysis.mjs`,
+            )
+            const { publishRepositoryAnalysisFailure } = await import(moduleUrl.href)
+            await publishRepositoryAnalysisFailure({
+              github,
+              context,
+              core,
+              issueNumber: process.env.ISSUE_NUMBER,
+            })
