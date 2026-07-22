@@ -10,15 +10,27 @@
   </div>
   <div
     v-else-if="data && currentSlide"
-    class="w-screen h-dvh bg-black text-white flex flex-col relative overflow-hidden select-none"
+    class="fixed inset-0 z-40 flex h-dvh w-screen select-none flex-col overflow-hidden bg-black text-white"
     @mousedown="pauseStory"
     @mouseup="resumeStory"
     @touchstart.passive="pauseStory"
     @touchend.passive="resumeStory"
   >
+    <Transition name="fade" mode="out-in">
+      <img
+        v-if="currentSlide.image_url"
+        :key="`ambient-${currentSlide.id}`"
+        :src="currentSlide.image_url"
+        alt=""
+        aria-hidden="true"
+        class="pointer-events-none absolute -inset-8 h-[calc(100%+4rem)] w-[calc(100%+4rem)] scale-110 object-cover opacity-30 blur-3xl"
+      >
+    </Transition>
+    <div class="pointer-events-none absolute inset-0 bg-black/65" />
+
     <!-- Progress Bars -->
     <div
-      class="pointer-events-none absolute top-[calc(env(safe-area-inset-top)_+_0.5rem)] left-2 right-2 z-20 flex gap-1 bg-black"
+      class="pointer-events-none absolute left-1/2 top-[calc(env(safe-area-inset-top)_+_0.55rem)] z-30 flex w-[calc(100%_-_1rem)] max-w-[360px] -translate-x-1/2 gap-1 px-1"
       role="progressbar"
       aria-valuemin="1"
       :aria-valuemax="data.slides.length"
@@ -41,52 +53,56 @@
 
     <!-- Header -->
     <header
-      class="absolute top-[calc(env(safe-area-inset-top)_+_1rem)] left-4 right-4 z-20 flex items-center justify-between"
+      class="absolute left-1/2 top-[calc(env(safe-area-inset-top)_+_1.15rem)] z-30 flex w-full max-w-[360px] -translate-x-1/2 items-center justify-between px-3"
     >
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-3 rounded-full border border-white/10 bg-black/25 px-3 py-1.5 backdrop-blur-md">
         <div>
-          <h1 class="text-lg font-bold">{{ data.show.name }}</h1>
-          <p class="text-sm text-white/80">Season {{ data.season.number }}</p>
+          <h1 class="text-sm font-semibold leading-tight">{{ data.show.name }}</h1>
+          <p class="text-[10px] uppercase tracking-[0.16em] text-white/60">Saison {{ data.season.number }}</p>
         </div>
       </div>
       <div class="flex items-center gap-2">
         <Button
           variant="ghost"
           size="icon"
-          class="bg-black/20 hover:bg-black/40"
+          class="rounded-full border border-white/10 bg-black/25 backdrop-blur-md hover:bg-black/45"
           aria-label="Voir les sources"
           @click.stop="openSources"
         >
           <InformationCircleIcon class="h-6 w-6" />
         </Button>
-        <Button variant="ghost" size="icon" @click="goBack" class="bg-black/20 hover:bg-black/40">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Fermer le recap"
+          class="rounded-full border border-white/10 bg-black/25 backdrop-blur-md hover:bg-black/45"
+          @click="goBack"
+        >
           <XMarkIcon class="h-6 w-6" />
         </Button>
       </div>
     </header>
 
     <!-- Story Content -->
-    <div class="relative w-full h-full">
-      <!-- Background Image with Ken Burns Effect -->
-      <Transition name="fade" mode="out-in">
-        <CachedImage
-          v-if="currentSlide.image_url"
+    <div class="relative flex h-full w-full items-center justify-center">
+      <div class="relative h-full w-full max-w-full overflow-hidden shadow-2xl sm:aspect-[390/844] sm:w-auto sm:rounded-[30px] sm:ring-1 sm:ring-white/10">
+        <RecapStorySlide
+          v-if="currentSlide.content"
           :key="currentSlide.id"
-          :src="currentSlide.image_url"
-          alt="Slide background"
-          class="absolute inset-0 w-full h-full object-cover animate-kenburns"
+          :content="currentSlide.content"
+          :image-url="currentSlide.image_url || null"
+          :season-number="data.season.number"
+          :slide-number="currentSlideIndex + 1"
+          :total-slides="data.slides.length"
+          :genres="data.show.genres"
+          class="animate-fade-in-up"
         />
-      </Transition>
-      <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-
-      <!-- Canvas Data -->
-      <div class="absolute inset-0 flex items-center justify-center">
-        <ClientOnly>
+        <ClientOnly v-else>
           <RecapCanvas
             :key="currentSlide.id"
             :model-value="JSON.stringify(currentSlide.canvas_data)"
             :read-only="true"
-            class="w-full h-full animate-fade-in-up"
+            class="h-full w-full animate-fade-in-up"
           />
         </ClientOnly>
       </div>
@@ -118,6 +134,18 @@
           </Button>
         </div>
 
+        <div v-if="currentEvents.length" class="mb-4 rounded-xl border bg-muted/40 p-3">
+          <p class="text-sm font-medium">Événements utilisés</p>
+          <ul class="mt-2 space-y-2">
+            <li v-for="storyEvent in currentEvents" :key="storyEvent.id" class="text-sm">
+              <span>{{ storyEvent.title }}</span>
+              <span class="ml-2 text-xs text-muted-foreground">
+                confiance {{ Math.round(storyEvent.confidence * 100) }} %
+              </span>
+            </li>
+          </ul>
+        </div>
+
         <ul v-if="currentSources.length" class="space-y-3">
           <li v-for="source in currentSources" :key="source.key" class="rounded-xl border p-3">
             <p class="font-medium">{{ source.provider }}</p>
@@ -133,9 +161,30 @@
             >
               Consulter la source
             </a>
+            <p v-if="source.revisionId" class="mt-2 text-xs text-muted-foreground">
+              Révision {{ source.revisionId }}
+            </p>
+            <p class="mt-2 text-xs text-muted-foreground">
+              Licence :
+              <a
+                v-if="source.licenseUrl"
+                :href="source.licenseUrl"
+                target="_blank"
+                rel="noreferrer"
+                class="underline underline-offset-2"
+              >
+                {{ source.licenseName }}
+              </a>
+              <span v-else>{{ source.licenseName }}</span>
+            </p>
           </li>
         </ul>
         <p v-else class="text-sm text-muted-foreground">Aucune source publique n'est liée à cette slide.</p>
+
+        <p v-if="data.sourceRights?.warnings?.length" class="mt-4 text-xs text-muted-foreground">
+          Certaines sources restent soumises aux conditions de leur fournisseur. Leur statut est suivi dans le
+          registre de droits Synupsis.
+        </p>
       </section>
     </div>
   </div>
@@ -151,25 +200,48 @@ import { Button } from '~/components/shadcn/button';
 import { InformationCircleIcon, XMarkIcon } from '@heroicons/vue/24/outline';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import RecapCanvas from '~/components/RecapCanvas.client.vue';
-import CachedImage from '~/components/CachedImage.vue';
+import RecapStorySlide from '~/components/RecapStorySlide.vue';
 import type { Json } from '~/types/database.types';
+
+type SlideContent = {
+  kind: 'cover';
+  title: string;
+  subtitle: string;
+  logline: string;
+  episodeCount: number;
+} | {
+  kind: 'beat';
+  headline: string;
+  narration: string;
+  tag: string;
+  episodeNumbers: number[];
+};
 
 type RecapResponse = {
   id: string;
   status: string;
-  show: { name: string; trakt_id: number };
+  show: { name: string; trakt_id: number; genres: string[] };
   season: { number: number; image: string | null };
   slides: Array<{
     id: string;
     order: number;
     canvas_data: Json | null;
     image_url?: string | null;
+    content: SlideContent | null;
+    events: Array<{
+      id: string;
+      title: string;
+      confidence: number;
+    }>;
     evidence: Array<{
       id: string;
       episodeNumber: number | null;
       locale: string;
       provider: string;
       sourceUrl: string | null;
+      revisionId: string | null;
+      licenseName: string;
+      licenseUrl: string | null;
     }>;
   }>;
   sourceProviders: Array<{
@@ -177,11 +249,22 @@ type RecapResponse = {
     label: string;
     sourceUrl: string | null;
     termsUrl: string | null;
+    licenseName: string;
+    licenseUrl: string | null;
+    commercialUse: string;
+    attributionRequired: boolean;
   }>;
+  sourceRights: {
+    registryVersion?: string;
+    mode?: string;
+    ready?: boolean;
+    approvedProviderIds?: string[];
+    warnings?: string[];
+  } | null;
   qualityReport: Json | null;
 };
 
-const DEFAULT_SLIDE_DURATION = 7000;
+const DEFAULT_SLIDE_DURATION = 8000;
 
 const route = useRoute();
 const router = useRouter();
@@ -207,6 +290,8 @@ const currentSlide = computed(() => {
   return data.value.slides[currentSlideIndex.value];
 });
 
+const currentEvents = computed(() => currentSlide.value?.events || []);
+
 const currentSources = computed(() => {
   const evidence = currentSlide.value?.evidence || [];
   if (evidence.length) {
@@ -218,6 +303,9 @@ const currentSources = computed(() => {
     episodeNumber: null,
     locale: 'und',
     sourceUrl: provider.sourceUrl,
+    revisionId: null,
+    licenseName: provider.licenseName,
+    licenseUrl: provider.licenseUrl,
   }));
 });
 
@@ -231,7 +319,7 @@ const currentSlideDuration = computed(() => {
     return DEFAULT_SLIDE_DURATION;
   }
   const duration = Number(attrs.durationMs);
-  return Number.isFinite(duration) ? Math.min(12_000, Math.max(4_000, duration)) : DEFAULT_SLIDE_DURATION;
+  return Number.isFinite(duration) ? Math.min(24_000, Math.max(6_000, duration)) : DEFAULT_SLIDE_DURATION;
 });
 
 const goBack = () => {
@@ -333,21 +421,6 @@ watch(data, (newData) => {
 </script>
 
 <style scoped>
-@keyframes kenburns {
-  0% {
-    transform: scale(1) translate(0, 0);
-    opacity: 0.7;
-  }
-  100% {
-    transform: scale(1.1) translate(-1%, 1%);
-    opacity: 1;
-  }
-}
-
-.animate-kenburns {
-  animation: kenburns 7s ease-in-out infinite alternate-reverse both;
-}
-
 .animate-fade-in-up {
   animation: fadeInUp 0.5s ease-out forwards;
 }

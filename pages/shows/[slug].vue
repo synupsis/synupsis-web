@@ -111,7 +111,7 @@
                 :generation-progress="generationState[season.id]?.progress ?? 0"
                 :is-latest="index === 0"
                 @view="goToRecap"
-                @edit="goToRecapEditor(data.id, season.id)"
+                @edit="goToRecapEditor(data.id, season.id, $event)"
                 @create="goToRecapEditor(data.id, season.id)"
                 @generate="generateRecap(data.id, season.id)"
               />
@@ -312,10 +312,10 @@ const waitForGeneration = async (jobId: string, seasonId: string) => {
     : 'Generation polling stopped because the page was closed.');
 };
 
-const goToRecapEditor = (show?: string, season?: string) => {
+const goToRecapEditor = (show?: string, season?: string, recap?: string) => {
   navigateTo({
     path: '/recap-editor',
-    query: { show, season }
+    query: { show, season, ...(recap ? { recap } : {}) }
   });
 };
 

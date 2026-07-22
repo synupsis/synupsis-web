@@ -54,7 +54,7 @@
                         <CardDescription>Season {{ recap.season.number }}</CardDescription>
                       </CardHeader>
                       <CardFooter>
-                        <Button @click="goToRecapEditor(recap.show.id, recap.season.id)">
+                        <Button @click="goToRecapEditor(recap.show.id, recap.season.id, recap.id)">
                           <PencilIcon class="h-4 w-4 mr-2" />
                           Edit Draft
                         </Button>
@@ -76,7 +76,7 @@
                           <EyeIcon class="h-4 w-4 mr-2" />
                           View
                         </Button>
-                        <Button @click="goToRecapEditor(recap.show.id, recap.season.id)">
+                        <Button @click="goToRecapEditor(recap.show.id, recap.season.id, recap.id)">
                           <PencilIcon class="h-4 w-4 mr-2" />
                           Edit
                         </Button>
@@ -179,8 +179,8 @@ const refreshUser = async () => {
   await supabase.auth.refreshSession();
 };
 
-function goToRecapEditor(showId: string, seasonId: string) {
-  router.push({ path: '/recap-editor', query: { show: showId, season: seasonId } });
+function goToRecapEditor(showId: string, seasonId: string, recapId: string) {
+  router.push({ path: '/recap-editor', query: { show: showId, season: seasonId, recap: recapId } });
 }
 
 function goToRecap(recapId: string) {

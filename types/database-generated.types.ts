@@ -109,12 +109,15 @@ export type Database = {
           created_at: string
           error_code: string | null
           error_message: string | null
+          event_graph: Json | null
           format_version: number
+          generation_phase: string
           id: string
           locale: string
           model: string
           progress: number
           prompt_id: string | null
+          prompt_template: string | null
           prompt_version: string
           provider_response_id: string | null
           quality_report: Json | null
@@ -133,12 +136,15 @@ export type Database = {
           created_at?: string
           error_code?: string | null
           error_message?: string | null
+          event_graph?: Json | null
           format_version?: number
+          generation_phase?: string
           id?: string
           locale?: string
           model: string
           progress?: number
           prompt_id?: string | null
+          prompt_template?: string | null
           prompt_version: string
           provider_response_id?: string | null
           quality_report?: Json | null
@@ -157,12 +163,15 @@ export type Database = {
           created_at?: string
           error_code?: string | null
           error_message?: string | null
+          event_graph?: Json | null
           format_version?: number
+          generation_phase?: string
           id?: string
           locale?: string
           model?: string
           progress?: number
           prompt_id?: string | null
+          prompt_template?: string | null
           prompt_version?: string
           provider_response_id?: string | null
           quality_report?: Json | null
@@ -203,6 +212,7 @@ export type Database = {
       recap: {
         Row: {
           created_at: string
+          event_graph: Json | null
           format_version: number
           id: string
           is_canonical: boolean
@@ -220,6 +230,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          event_graph?: Json | null
           format_version?: number
           id?: string
           is_canonical?: boolean
@@ -237,6 +248,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          event_graph?: Json | null
           format_version?: number
           id?: string
           is_canonical?: boolean
@@ -395,6 +407,7 @@ export type Database = {
       publish_generated_recap: {
         Args: {
           p_format_version: number
+          p_event_graph: Json
           p_locale: string
           p_model: string
           p_prompt_id: string | null

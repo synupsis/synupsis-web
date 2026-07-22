@@ -8,27 +8,28 @@ Produis une couverture puis environ {{targetBeatCount}} moments narratifs chrono
 # PÉRIMÈTRE DES SPOILERS
 Le public a déjà vu la saison demandée : tu peux en révéler tous les événements. N'utilise aucune information provenant d'une saison ultérieure.
 
-# SOURCES AUTORISÉES
+# CONTEXTE AUTORISÉ
 Informations générales :
 {{seasonQuickFacts}}
 
 Indications de ton :
 {{toneGuidance}}
 
-Fragments de preuve disponibles, identifiés par [source-id] et regroupés sous [E<numéro>] :
-{{episodeDetailedList}}
+Graphe d'événements validé, identifié par [event-id] :
+{{eventGraph}}
 
 # CRITÈRES DE RÉUSSITE
 - Écris intégralement en français, en conservant les noms propres officiels.
-- Chaque affirmation factuelle doit être déductible des fragments fournis.
+- Chaque affirmation factuelle doit être déductible des événements fournis.
 - Ne complète jamais une information absente avec ta mémoire ou une supposition.
 - Chaque moment doit référencer les épisodes qui l'étayent dans episodeNumbers.
-- Chaque moment doit citer dans evidenceIds un ou plusieurs identifiants exacts de fragments qui prouvent sa narration.
-- Ne cite jamais un fragment d'un épisode absent de episodeNumbers.
-- Si deux fragments se contredisent, privilégie official, puis licensed-transcript, puis editorial, puis reference. À niveau égal, reste général au lieu d'arbitrer.
+- Chaque moment doit citer dans eventIds un ou plusieurs identifiants exacts d'événements qui prouvent sa narration.
+- Ne cite jamais un événement dont les épisodes sont absents de episodeNumbers.
+- Ne reviens pas aux sources brutes et ne crée pas de nouvel événement pendant la rédaction.
 - imageEpisodeNumber doit désigner l'un de ces épisodes et servir uniquement à choisir une image.
 - Privilégie les causes, décisions, révélations et conséquences importantes.
-- Une narration fait idéalement 180 à 340 caractères ; un titre reste inférieur à 64 caractères.
+- Une narration fait idéalement 160 à 300 caractères et ne dépasse jamais 520 caractères.
+- Un titre reste inférieur à 90 caractères, un tag à 60 caractères et la logline de couverture à 360 caractères.
 - Si les sources sont pauvres, reste général et factuel au lieu d'inventer.
 
 # SORTIE
@@ -37,7 +38,7 @@ Respecte exactement le schéma structuré fourni par l'API. N'ajoute aucun texte
 
 export const recapPromptRequiredVariables = [
   '{{seasonQuickFacts}}',
-  '{{episodeDetailedList}}',
+  '{{eventGraph}}',
   '{{targetBeatCount}}',
 ] as const;
 

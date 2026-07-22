@@ -8,7 +8,7 @@
     >
       <v-stage ref="stageRef" :config="stageConfig" @mousedown="handleStageMouseDown">
         <v-layer>
-          <template v-for="item in canvasItems" :key="item.key">
+          <template v-for="item in visibleCanvasItems" :key="item.key">
             <v-image
               v-if="item.kind === 'image'"
               :config="item.config"
@@ -38,7 +38,7 @@
     </div>
 
     <div v-if="!readOnly" class="absolute top-1/2 -translate-y-1/2 right-full mr-4 z-10 flex flex-col items-start gap-4">
-      <Button class="py-2 px-4" variant="outline" @click="addTextbox">
+      <Button v-if="!visualOnly" class="py-2 px-4" variant="outline" @click="addTextbox">
         <span class="flex items-center gap-2">
           <PlusCircleIcon class="h-5 w-5" />
           Add text
@@ -47,10 +47,10 @@
       <Button class="py-2 px-4" variant="outline" @click="openBackgroundModal">
         <span class="flex items-center gap-2">
           <PhotoIcon class="h-5 w-5" />
-          Add Image
+          {{ visualOnly ? 'Change image' : 'Add Image' }}
         </span>
       </Button>
-      <Button class="py-2 px-4" variant="outline" @click="clearSlide">
+      <Button v-if="!visualOnly" class="py-2 px-4" variant="outline" @click="clearSlide">
         <span class="flex items-center gap-2">
           <ArrowPathRoundedSquareIcon class="h-5 w-5" />
           Reset slide
@@ -79,7 +79,7 @@
 </template>
 
 <script lang="ts" setup>
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import Konva from 'konva';
 import {
   ArrowPathRoundedSquareIcon,
@@ -112,12 +112,14 @@ const props = withDefaults(defineProps<{
   readOnly?: boolean;
   seasonId?: string | null;
   selectedElementId?: string | null;
+  visualOnly?: boolean;
 }>(), {
   modelValue: '',
   loading: false,
   readOnly: false,
   seasonId: null,
   selectedElementId: null,
+  visualOnly: false,
 });
 
 const emit = defineEmits<{
@@ -135,6 +137,9 @@ const selectedShapeName = ref('');
 const isBackgroundModalOpen = ref(false);
 const stageMetadata = ref<Record<string, unknown>>({});
 const stageConfig = ref({ width: originalWidth, height: originalHeight, scaleX: 1, scaleY: 1 });
+const visibleCanvasItems = computed(() => (
+  props.visualOnly ? canvasItems.value.filter(item => item.kind === 'image') : canvasItems.value
+));
 
 let isInternalUpdate = false;
 let imageLoadRevision = 0;
@@ -224,7 +229,12 @@ function loadCanvasFromJSON(json: string) {
       nextItems.push({
         kind: 'group',
         key,
-        config: disableDraggingWhenReadOnly({ ...attrs, id: attrs.id || key, name: attrs.name || key }),
+        config: disableDraggingWhenReadOnly({
+          ...attrs,
+          id: attrs.id || key,
+          name: attrs.name || key,
+          draggable: props.visualOnly ? false : attrs.draggable,
+        }),
         rect: { ...rect },
         text: { ...text },
       });
@@ -363,12 +373,19 @@ function addImageToCanvas(imageUrl: string) {
       draggable: true,
     },
   };
-  const firstForegroundIndex = canvasItems.value.findIndex((candidate) => candidate.kind === 'group');
-  if (firstForegroundIndex === -1) canvasItems.value.push(item);
-  else canvasItems.value.splice(firstForegroundIndex, 0, item);
+  const existingCoverIndex = props.visualOnly
+    ? canvasItems.value.findIndex(candidate => candidate.kind === 'image')
+    : -1;
+  if (existingCoverIndex !== -1) {
+    canvasItems.value.splice(existingCoverIndex, 1, item);
+  } else {
+    const firstForegroundIndex = canvasItems.value.findIndex(candidate => candidate.kind === 'group');
+    if (firstForegroundIndex === -1) canvasItems.value.push(item);
+    else canvasItems.value.splice(firstForegroundIndex, 0, item);
+  }
   loadImage(item, imageLoadRevision);
   nextTick(emitUpdate);
-  toast.success('Image added to canvas!');
+  toast.success(existingCoverIndex === -1 ? 'Image added to canvas!' : 'Image updated!');
 }
 
 function addTextbox() {
@@ -432,9 +449,10 @@ function handleStageMouseDown(event: any) {
   }
   const name = shape.name();
   if (!name) return;
+  const item = canvasItems.value.find(candidate => candidate.config.name === name);
+  if (props.visualOnly && item?.kind !== 'image') return;
   selectedShapeName.value = name;
   updateTransformer();
-  const item = canvasItems.value.find((candidate) => candidate.config.name === name);
   emit('select-element', item?.kind === 'group'
     ? { ...item.config, rect: item.rect, text: item.text }
     : item?.config || null);

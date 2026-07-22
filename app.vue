@@ -3,7 +3,7 @@
     <NuxtRouteAnnouncer />
     <NuxtLoadingIndicator />
     <NuxtPage class="flex-grow" />
-    <Footer />
+    <Footer v-if="showFooter" />
     <Toaster position="top-center" />
   </div>
 </template>
@@ -12,6 +12,9 @@
 import { Toaster } from '~/components/shadcn/sonner'
 import 'vue-sonner/style.css'
 import Footer from '~/components/Footer.vue'
+
+const route = useRoute();
+const showFooter = computed(() => !route.path.startsWith('/recap'));
 
 useHead({
   link: [

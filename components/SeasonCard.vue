@@ -37,7 +37,7 @@
                 v-if="isDraft || isPublished"
                 variant="outline"
                 size="icon"
-                @click="emit('edit', season.id)"
+                @click="emit('edit', publishedRecap?.id || draftRecap?.id)"
               >
                 <PencilIcon class="h-4 w-4" />
               </Button>

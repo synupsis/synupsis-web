@@ -11,6 +11,8 @@
               <Badge v-if="recapStatus" :variant="recapStatus === 'published' ? 'default' : 'secondary'">
                 {{ recapStatus }}
               </Badge>
+              <Badge v-if="isCanonical" variant="outline">Canonical</Badge>
+              <Badge v-if="isVerificationStale" variant="destructive">Verification outdated</Badge>
             </div>
             <p v-if="!loading" class="text-sm text-muted-foreground">
               {{ showName }} - Season {{ seasonNumber }}
@@ -49,11 +51,11 @@
       </header>
 
       <!-- Wrapper to prevent hydration mismatch -->
-      <div v-if="!loading && pageData" class="flex flex-1 overflow-hidden">
+      <div v-if="!loading" class="flex flex-1 overflow-hidden">
         <!-- Slides Sorter (Left) -->
         <aside class="w-64 p-4 border-r border-border flex flex-col gap-4 overflow-y-auto">
           <h2 class="text-xl font-semibold tracking-tight">Slides</h2>
-          <draggable v-model="slides" item-key="id" class="space-y-2">
+          <draggable v-model="slides" item-key="id" class="space-y-2" :disabled="hasSemanticStory">
             <template #item="{ element: slide, index }">
               <div
                 class="relative group"
@@ -67,10 +69,13 @@
                       : 'border-border hover:border-primary/50',
                   ]"
                 >
-                  <p class="font-bold">Slide {{ index + 1 }}</p>
-                  <p class="text-sm text-muted-foreground">ID: {{ slide.id }}</p>
+                  <p class="truncate font-bold">{{ getSlideLabel(index) }}</p>
+                  <p class="mt-1 text-xs text-muted-foreground">
+                    {{ index === 0 && hasSemanticStory ? 'Couverture' : `Slide ${index + 1}` }}
+                  </p>
                 </button>
                 <button
+                  v-if="!hasSemanticStory"
                   class="absolute top-2 right-2 p-1 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
                   @click.stop="removeSlide(slide)"
                 >
@@ -79,8 +84,11 @@
               </div>
             </template>
           </draggable>
+          <div v-if="hasSemanticStory" class="rounded-xl border border-primary/15 bg-primary/5 p-3 text-xs leading-relaxed text-muted-foreground">
+            La structure générée est verrouillée pour garder les textes, les sources et les images synchronisés.
+          </div>
           <div class="mt-auto space-y-2">
-            <Button variant="outline" class="w-full" @click="addSlide">
+            <Button v-if="!hasSemanticStory" variant="outline" class="w-full" @click="addSlide">
               <SquaresPlusIcon class="h-4 w-4 mr-2" />
               Add Slide
             </Button>
@@ -111,29 +119,70 @@
           </div>
         </aside>
 
-        <!-- Main Canvas (Center) -->
-        <main class="flex-1 flex items-center justify-center p-4 sm:p-8 bg-muted/20 overflow-hidden">
+        <!-- Main Preview (Center) -->
+        <main class="flex min-w-0 flex-1 flex-col overflow-hidden bg-muted/20 p-4 sm:p-6">
           <div v-if="error" class="text-destructive">
             <p>{{ error.message }}</p>
             <Button class="mt-2" @click="goBack">Go Back</Button>
           </div>
-          <div
-            v-else
-            class="relative aspect-[9/19.5] h-full max-w-full bg-background rounded-3xl shadow-lg"
-          >
-            <RecapCanvas
-              :key="selectedSlideId ?? 'no-slide'"
-              v-model="activeSlideCanvas"
-              :loading="loading"
-              :season-id="seasonId"
-              :selected-element-id="selectedElement?.id"
-              @select-element="handleSelectElement"
-            />
-          </div>
+          <template v-else>
+            <div v-if="hasSemanticStory" class="mb-4 flex items-center justify-center gap-1 rounded-xl border bg-background/80 p-1 shadow-sm self-center">
+              <Button
+                size="sm"
+                :variant="editorMode === 'story' ? 'default' : 'ghost'"
+                @click="editorMode = 'story'"
+              >
+                <DocumentTextIcon class="mr-2 h-4 w-4" />
+                Story preview
+              </Button>
+              <Button
+                size="sm"
+                :variant="editorMode === 'visual' ? 'default' : 'ghost'"
+                @click="editorMode = 'visual'"
+              >
+                <PhotoIcon class="mr-2 h-4 w-4" />
+                Image
+              </Button>
+            </div>
+
+            <div class="flex min-h-0 flex-1 items-center justify-center">
+              <div class="relative aspect-[9/19.5] h-full max-w-full overflow-hidden rounded-3xl bg-background shadow-xl ring-1 ring-black/5">
+                <RecapStorySlide
+                  v-if="hasSemanticStory && editorMode === 'story' && activeStoryContent"
+                  :content="activeStoryContent"
+                  :image-url="activeSlideImageUrl"
+                  :season-number="seasonNumber || 0"
+                  :slide-number="selectedSlideIndex + 1"
+                  :total-slides="slides.length"
+                  :genres="pageData?.show.genres || []"
+                />
+                <RecapCanvas
+                  v-else
+                  :key="selectedSlideId ?? 'no-slide'"
+                  v-model="activeSlideCanvas"
+                  :loading="loading"
+                  :season-id="seasonId"
+                  :selected-element-id="selectedElement?.id"
+                  :visual-only="hasSemanticStory"
+                  @select-element="handleSelectElement"
+                />
+              </div>
+            </div>
+
+            <p v-if="hasSemanticStory && editorMode === 'visual'" class="mt-3 text-center text-xs text-muted-foreground">
+              Ici, seule l’image de fond est éditée. Les textes se modifient dans « Story preview ».
+            </p>
+          </template>
         </main>
 
         <!-- Inspector Panel (Right) -->
+        <RecapStoryInspector
+          v-if="hasSemanticStory && editorMode === 'story' && activeStoryContent"
+          :content="activeStoryContent"
+          @update="handleUpdateStoryContent"
+        />
         <InspectorPanel
+          v-else
           :selected-element="selectedElement"
           :elements="currentSlideElements"
           @update="handleUpdateElement"
@@ -189,21 +238,28 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, watch, onUnmounted } from 'vue';
+import { ref, computed, watch } from 'vue';
 import {
   ArrowUpCircleIcon,
   DocumentArrowDownIcon,
+  DocumentTextIcon,
   SquaresPlusIcon,
   TrashIcon,
   CheckCircleIcon,
   EyeIcon,
   DocumentDuplicateIcon,
+  PhotoIcon,
 } from '@heroicons/vue/24/outline';
 import draggable from 'vuedraggable';
 import InspectorPanel from '~/components/InspectorPanel.vue';
-import RecapCanvas from "~/components/RecapCanvas.client.vue";
+import RecapCanvas from '~/components/RecapCanvas.client.vue';
+import RecapStoryInspector from '~/components/RecapStoryInspector.vue';
+import RecapStorySlide from '~/components/RecapStorySlide.vue';
 import { useRoute, useRouter } from 'vue-router';
-import type { Show, Season } from '~/types/database.types';
+import type {
+  RecapStory,
+  RecapStorySlideContent,
+} from '~/types/recap-story.types';
 import { toast } from 'vue-sonner'
 import { Button } from '~/components/shadcn/button'
 import { Badge } from '~/components/shadcn/badge'
@@ -220,7 +276,8 @@ import {
 } from '~/components/shadcn/alert-dialog'
 
 definePageMeta({
-  middleware: 'admin'
+  middleware: 'admin',
+  layout: false,
 });
 
 type Slide = {
@@ -228,23 +285,41 @@ type Slide = {
   canvas: string;
 };
 
+type EditorPageData = {
+  show: { id: string; name: string; image: string | null; genres: string[] | null };
+  season: { id: string; number: number; image: string | null; show_id: string };
+  episodeCount: number;
+  recap: null | {
+    id: string;
+    status: string;
+    isCanonical: boolean;
+    formatVersion: number;
+    storyData: unknown;
+    qualityReport: unknown;
+    slides: Array<{ id: string; order: number; canvas_data: unknown }>;
+  };
+};
+
 const route = useRoute();
 const router = useRouter();
-const supabase = useSupabaseClient();
-const user = useSupabaseUser();
 
 const showId = computed(() => route.query.show as string | undefined);
 const seasonId = computed(() => route.query.season as string | undefined);
+const requestedRecapId = computed(() => route.query.recap as string | undefined);
 
 const slides = ref<Slide[]>([]);
 const selectedSlideId = ref<string | number | null>(null);
 const existingRecapId = ref<string | null>(null);
 const recapStatus = ref<'draft' | 'published' | null>(null);
+const storyData = ref<RecapStory | null>(null);
+const qualityReport = ref<Record<string, any> | null>(null);
+const isCanonical = ref(false);
+const editorMode = ref<'story' | 'visual'>('story');
 const selectedElement = ref<any>(null);
 const isInitialized = ref(false);
 
 // State for change detection
-const initialSlidesState = ref('');
+const initialEditorState = ref('');
 const isDirty = ref(false);
 
 const {
@@ -252,35 +327,22 @@ const {
   pending: loading,
   error
 } = useAsyncData(
-  `recap-editor-data-${showId.value}-${seasonId.value}-${user.value?.sub}`,
+  `recap-editor-data-${showId.value}-${seasonId.value}-${requestedRecapId.value || 'auto'}`,
   async () => {
-    if (!user.value || !showId.value || !seasonId.value) {
+    if (!showId.value || !seasonId.value) {
       return null;
     }
-
-    const showPromise = supabase.from('show').select('id, name, image').eq('id', showId.value).single();
-    const seasonPromise = supabase.from('season').select('id, number').eq('id', seasonId.value).single();
-    const recapPromise = supabase
-      .from('recap')
-      .select('id, status, slide(*)')
-      .eq('season_id', seasonId.value)
-      .eq('user_id', user.value.sub)
-      .maybeSingle();
-
-    const [showResult, seasonResult, recapResult] = await Promise.all([showPromise, seasonPromise, recapPromise]);
-
-    if (showResult.error) throw showResult.error;
-    if (seasonResult.error) throw seasonResult.error;
-    if (recapResult.error) throw recapResult.error;
-
-    return {
-      show: showResult.data as Show,
-      season: seasonResult.data as Season,
-      recap: recapResult.data
-    };
+    return await $fetch<EditorPageData>('/api/admin/recap/editor', {
+      query: {
+        showId: showId.value,
+        seasonId: seasonId.value,
+        ...(requestedRecapId.value ? { recapId: requestedRecapId.value } : {}),
+      },
+    });
   },
   {
-    watch: [showId, seasonId, user]
+    server: false,
+    watch: [showId, seasonId, requestedRecapId]
   }
 );
 
@@ -298,13 +360,16 @@ watchEffect(() => {
     if (existingRecap) {
       existingRecapId.value = existingRecap.id;
       recapStatus.value = existingRecap.status as 'draft' | 'published' | null;
-      const existingSlides = existingRecap.slide;
+      isCanonical.value = existingRecap.isCanonical;
+      storyData.value = parseStoryData(existingRecap.storyData);
+      qualityReport.value = asObject(existingRecap.qualityReport);
+      const existingSlides = existingRecap.slides;
       if (existingSlides && existingSlides.length > 0) {
         slides.value = existingSlides
           .sort((a, b) => a.order - b.order)
           .map((slide) => ({
-            id: slide.id, // Use the real ID from the database
-            canvas: JSON.stringify(slide.canvas_data)
+            id: slide.id,
+            canvas: JSON.stringify(slide.canvas_data || {})
           }));
       } else {
         slides.value = [{ id: Date.now(), canvas: '' }];
@@ -313,6 +378,9 @@ watchEffect(() => {
       // Reset if there's no recap
       existingRecapId.value = null;
       recapStatus.value = null;
+      isCanonical.value = false;
+      storyData.value = null;
+      qualityReport.value = null;
       slides.value = [{ id: Date.now(), canvas: '' }];
     }
     
@@ -322,24 +390,57 @@ watchEffect(() => {
       selectedSlideId.value = null;
     }
 
-    initialSlidesState.value = JSON.stringify(slides.value);
+    editorMode.value = storyData.value ? 'story' : 'visual';
+    initialEditorState.value = createEditorSnapshot();
     isDirty.value = false;
     isInitialized.value = true; // Lock the effect
   }
 });
 
-// Watch for any changes in the slides to update the dirty state
-watch(slides, (newSlides) => {
-  isDirty.value = JSON.stringify(newSlides) !== initialSlidesState.value;
+watch([slides, storyData], () => {
+  isDirty.value = createEditorSnapshot() !== initialEditorState.value;
 }, { deep: true });
 
-onUnmounted(() => {
-  // No-op
+watch(selectedSlideId, () => {
+  selectedElement.value = null;
+});
+
+watch(editorMode, () => {
+  selectedElement.value = null;
 });
 
 
 const showName = computed(() => pageData.value?.show?.name);
 const seasonNumber = computed(() => pageData.value?.season?.number);
+const hasSemanticStory = computed(() => Boolean(storyData.value));
+const isVerificationStale = computed(() => Boolean(
+  asObject(qualityReport.value?.editorial)?.automaticVerificationStale,
+));
+const selectedSlideIndex = computed(() => (
+  slides.value.findIndex(slide => slide.id === selectedSlideId.value)
+));
+const activeStoryContent = computed<RecapStorySlideContent | null>(() => {
+  const story = storyData.value;
+  const index = selectedSlideIndex.value;
+  if (!story || index < 0) return null;
+  if (index === 0) {
+    return {
+      kind: 'cover',
+      ...story.cover,
+      episodeCount: pageData.value?.episodeCount || inferEpisodeCount(story),
+    };
+  }
+  const beat = story.beats[index - 1];
+  if (!beat) return null;
+  return {
+    kind: 'beat',
+    headline: beat.headline,
+    narration: beat.narration,
+    tag: beat.tag,
+    episodeNumbers: beat.episodeNumbers,
+  };
+});
+const activeSlideImageUrl = computed(() => extractCanvasImageUrl(activeSlideCanvas.value));
 
 const activeSlideCanvas = computed({
   get() {
@@ -360,7 +461,10 @@ const currentSlideElements = computed(() => {
   if (!activeSlideCanvas.value) return [];
   try {
     const canvasData = JSON.parse(activeSlideCanvas.value);
-    return canvasData.children?.[0]?.children || [];
+    const elements = canvasData.children?.[0]?.children || [];
+    return hasSemanticStory.value
+      ? elements.filter((element: any) => element?.className === 'Image')
+      : elements;
   } catch {
     return [];
   }
@@ -373,13 +477,45 @@ const handleSelectElement = (element: any) => {
 const handleSelectElementById = (elementId: string) => {
   const element = currentSlideElements.value.find((el: any) => el.attrs.id === elementId);
   if (element) {
-    // Reconstruct the element object to match the structure expected by the inspector
-    const textChild = element.children.find((c: any) => c.className === 'Text');
+    const textChild = element.children?.find((c: any) => c.className === 'Text');
     selectedElement.value = {
       ...element.attrs,
       text: textChild?.attrs,
     };
   }
+};
+
+const handleUpdateStoryContent = (content: RecapStorySlideContent) => {
+  const story = storyData.value;
+  const index = selectedSlideIndex.value;
+  if (!story || index < 0) return;
+
+  if (content.kind === 'cover' && index === 0) {
+    story.cover = {
+      title: content.title,
+      subtitle: content.subtitle,
+      logline: content.logline,
+    };
+    return;
+  }
+
+  if (content.kind === 'beat' && index > 0) {
+    const existingBeat = story.beats[index - 1];
+    if (!existingBeat) return;
+    story.beats[index - 1] = {
+      ...existingBeat,
+      headline: content.headline,
+      narration: content.narration,
+      tag: content.tag,
+      episodeNumbers: content.episodeNumbers,
+    };
+  }
+};
+
+const getSlideLabel = (index: number) => {
+  if (!storyData.value) return `Slide ${index + 1}`;
+  if (index === 0) return storyData.value.cover.title || 'Couverture';
+  return storyData.value.beats[index - 1]?.headline || `Moment clé ${index}`;
 };
 
 
@@ -426,12 +562,14 @@ const handleUpdateElement = (updatedElement: any) => {
 const goBack = () => router.back();
 
 const addSlide = () => {
+  if (hasSemanticStory.value) return;
   const newId = Date.now(); // Use a timestamp for a guaranteed unique ID
   slides.value = [...slides.value, { id: newId, canvas: '' }];
   selectedSlideId.value = newId;
 };
 
 const removeSlide = (slideToRemove: Slide) => {
+  if (hasSemanticStory.value) return;
   if (slides.value.length <= 1) return;
   if (selectedSlideId.value === slideToRemove.id) {
     const currentIndex = slides.value.findIndex(s => s.id === slideToRemove.id);
@@ -449,19 +587,29 @@ const saveDraft = async () => {
   isSaving.value = true;
 
   try {
-    const { recapId } = await $fetch('/api/recap/save-draft', {
+    const result = await $fetch<{
+      recapId: string;
+      status: string;
+      storyVerificationStale: boolean;
+    }>('/api/recap/save-draft', {
       method: 'POST',
       body: {
+        recapId: existingRecapId.value,
         showId: showId.value,
         seasonId: seasonId.value,
-        slides: slides.value
+        slides: slides.value,
+        storyData: storyData.value,
       }
     });
-    existingRecapId.value = recapId;
+    existingRecapId.value = result.recapId;
+    recapStatus.value = result.status as 'draft' | 'published';
+    if (result.storyVerificationStale) markLocalVerificationStale();
     toast.success('Success', {
-      description: 'Draft saved successfully!'
+      description: recapStatus.value === 'published'
+        ? 'Recap updated successfully.'
+        : 'Draft saved successfully.'
     })
-    initialSlidesState.value = JSON.stringify(slides.value);
+    initialEditorState.value = createEditorSnapshot();
     isDirty.value = false;
   } catch (e: any) {
     toast.error('Error', {
@@ -476,19 +624,27 @@ const publishRecap = async () => {
   isPublishing.value = true;
 
   try {
-    await $fetch('/api/recap/create', {
+    const result = await $fetch<{
+      recapId: string;
+      status: string;
+      storyVerificationStale: boolean;
+    }>('/api/recap/create', {
       method: 'POST',
       body: {
+        recapId: existingRecapId.value,
         showId: showId.value,
         seasonId: seasonId.value,
-        slides: slides.value
+        slides: slides.value,
+        storyData: storyData.value,
       }
     });
     toast.success('Success', {
       description: 'Recap published successfully!'
     })
+    existingRecapId.value = result.recapId;
     recapStatus.value = 'published';
-    initialSlidesState.value = JSON.stringify(slides.value);
+    if (result.storyVerificationStale) markLocalVerificationStale();
+    initialEditorState.value = createEditorSnapshot();
     isDirty.value = false;
   } catch (e: any) {
     toast.error('Error', {
@@ -527,7 +683,7 @@ const copyJsonToClipboard = async () => {
       order: index + 1,
       canvas: JSON.parse(slide.canvas),
     }));
-    const jsonToCopy = JSON.stringify({ slides: slidesData }, null, 2);
+    const jsonToCopy = JSON.stringify({ storyData: storyData.value, slides: slidesData }, null, 2);
     await navigator.clipboard.writeText(jsonToCopy);
     toast.success('Success', {
       description: 'JSON copied to clipboard!'
@@ -539,4 +695,86 @@ const copyJsonToClipboard = async () => {
     });
   }
 };
+
+function createEditorSnapshot() {
+  return JSON.stringify({ slides: slides.value, storyData: storyData.value });
+}
+
+function parseStoryData(value: unknown): RecapStory | null {
+  const story = asObject(value);
+  const cover = asObject(story?.cover);
+  if (!story || !cover || !Array.isArray(story.beats) || typeof cover.title !== 'string') return null;
+
+  return {
+    locale: typeof story.locale === 'string' ? story.locale : 'fr',
+    spoilerScope: 'through-season',
+    cover: {
+      title: cover.title,
+      subtitle: typeof cover.subtitle === 'string' ? cover.subtitle : '',
+      logline: typeof cover.logline === 'string' ? cover.logline : '',
+    },
+    beats: story.beats.map((item: unknown) => {
+      const beat = asObject(item) || {};
+      const episodeNumbers = Array.isArray(beat.episodeNumbers)
+        ? beat.episodeNumbers.map(Number).filter(number => Number.isInteger(number) && number > 0)
+        : [];
+      return {
+        headline: typeof beat.headline === 'string' ? beat.headline : '',
+        narration: typeof beat.narration === 'string' ? beat.narration : '',
+        tag: typeof beat.tag === 'string' ? beat.tag : '',
+        episodeNumbers,
+        imageEpisodeNumber: Number.isInteger(Number(beat.imageEpisodeNumber))
+          ? Number(beat.imageEpisodeNumber)
+          : (episodeNumbers[0] || 1),
+        eventIds: readStringArray(beat.eventIds),
+        evidenceIds: readStringArray(beat.evidenceIds),
+      };
+    }),
+  };
+}
+
+function inferEpisodeCount(story: RecapStory) {
+  return story.beats.reduce((highest, beat) => Math.max(highest, ...beat.episodeNumbers, 0), 0);
+}
+
+function extractCanvasImageUrl(canvas: string): string | null {
+  if (!canvas) return null;
+  try {
+    const stage = asObject(JSON.parse(canvas));
+    const layers = Array.isArray(stage?.children) ? stage.children : [];
+    for (const layerItem of layers) {
+      const layer = asObject(layerItem);
+      const children = Array.isArray(layer?.children) ? layer.children : [];
+      for (const childItem of children) {
+        const child = asObject(childItem);
+        const attrs = asObject(child?.attrs);
+        if (child?.className === 'Image' && typeof attrs?.src === 'string') return attrs.src;
+      }
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function markLocalVerificationStale() {
+  qualityReport.value = {
+    ...(qualityReport.value || {}),
+    editorial: {
+      edited: true,
+      editedAt: new Date().toISOString(),
+      automaticVerificationStale: true,
+    },
+  };
+}
+
+function readStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter(item => typeof item === 'string') : [];
+}
+
+function asObject(value: unknown): Record<string, any> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, any>
+    : null;
+}
 </script>

@@ -1,30 +1,28 @@
-import { serverSupabaseClient, serverSupabaseUser } from '#supabase/server';
+import { serverSupabaseServiceRole } from '#supabase/server';
 import type { Database } from '~/types/database.types';
+import { requireAdminUser } from '~/server/utils/require-admin';
 
-export default defineEventHandler(async event => {
-  const client = await serverSupabaseClient<Database>(event);
-  const user = await serverSupabaseUser(event);
-  const { recapId } = await readBody(event);
-
-  if (!user) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' });
-  }
+export default defineEventHandler(async (event) => {
+  await requireAdminUser(event);
+  const service = serverSupabaseServiceRole<Database>(event);
+  const { recapId } = await readBody<{ recapId?: string }>(event);
 
   if (!recapId) {
-    throw createError({ statusCode: 400, statusMessage: 'Recap ID is required' });
+    throw createError({ statusCode: 400, statusMessage: 'Recap ID is required.' });
   }
 
-  // Delete the recap, ensuring the user owns it.
-  // RLS policies would also prevent this, but it's good practice to be explicit.
-  const { error } = await client
+  const { data, error } = await service
     .from('recap')
     .delete()
-    .match({ id: recapId, user_id: user.sub });
+    .eq('id', recapId)
+    .select('id')
+    .maybeSingle();
 
   if (error) {
     console.error('Error deleting recap:', error);
-    throw createError({ statusCode: 500, statusMessage: 'Could not delete recap' });
+    throw createError({ statusCode: 500, statusMessage: 'Could not delete recap.' });
   }
+  if (!data) throw createError({ statusCode: 404, statusMessage: 'Recap not found.' });
 
   return { status: 'Recap deleted successfully' };
 });

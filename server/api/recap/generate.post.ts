@@ -9,10 +9,10 @@ import {
   RECAP_FORMAT_VERSION,
   RECAP_LOCALE,
   RECAP_PROMPT_VERSION,
-  createRecapPrompt,
+  createEventExtractionPrompt,
   fetchRecapSourceSnapshot,
   getRecapModel,
-  startRecapGeneration,
+  startEventExtraction,
 } from '~/server/services/recap-generation';
 
 const ACTIVE_JOB_STATUSES = ['queued', 'gathering', 'generating', 'validating', 'rendering'];
@@ -87,6 +87,7 @@ export default defineEventHandler(async (event) => {
       show_id: showId,
       season_id: seasonId,
       prompt_id: promptConfig.promptId,
+      prompt_template: promptConfig.template ?? null,
       locale: RECAP_LOCALE,
       format_version: RECAP_FORMAT_VERSION,
       model,
@@ -107,6 +108,13 @@ export default defineEventHandler(async (event) => {
         return { state: concurrentJob.status, jobId: concurrentJob.id, progress: concurrentJob.progress };
       }
     }
+    if (jobError?.code === 'PGRST204') {
+      console.error('The recap v4 database migration is missing:', jobError);
+      throw createError({
+        statusCode: 503,
+        statusMessage: 'The recap database schema is outdated. Apply migration 20260722210000 before generating.',
+      });
+    }
     console.error('Failed to create recap generation job:', jobError);
     throw createError({ statusCode: 500, statusMessage: 'Could not create the generation job.' });
   }
@@ -124,8 +132,8 @@ export default defineEventHandler(async (event) => {
       seasonFirstAired: season.first_aired,
       seasonImage: season.image,
     });
-    const prompt = createRecapPrompt(snapshot, promptConfig.template);
-    const providerResponse = await startRecapGeneration({ prompt, model, jobId: job.id });
+    const prompt = createEventExtractionPrompt(snapshot);
+    const providerResponse = await startEventExtraction({ prompt, model, jobId: job.id });
 
     const { error: updateError } = await service
       .from('recap_generation_job')
@@ -133,6 +141,7 @@ export default defineEventHandler(async (event) => {
         status: 'generating',
         progress: 40,
         provider_response_id: providerResponse.id,
+        generation_phase: 'extracting_events',
         source_snapshot: snapshot as unknown as Json,
         updated_at: new Date().toISOString(),
       })
