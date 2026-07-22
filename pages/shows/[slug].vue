@@ -101,7 +101,7 @@
 
         <h2 class="text-3xl font-bold tracking-tight text-white sm:text-4xl mb-10">Seasons</h2>
         <!-- Real Seasons -->
-        <Carousel v-if="data && data.seasons.length > 0" class="w-full">
+        <Carousel v-if="data && sortedSeasons.length > 0" class="w-full">
           <CarouselContent class="-ml-4">
             <CarouselItem v-for="(season, index) in sortedSeasons" :key="season.id" class="pl-4 basis-4/5 sm:basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5">
               <SeasonCard
@@ -180,6 +180,7 @@ import UserAuthStatus from '~/components/UserAuthStatus.vue';
 import SeasonCard from '~/components/SeasonCard.vue';
 import CastMemberCard from '~/components/CastMemberCard.vue';
 import { useImageUrl } from '~/composables/useUtils';
+import { isSeasonReleased } from '~/lib/season-availability';
 
 const route = useRoute();
 const isAdmin = useIsAdmin();
@@ -219,7 +220,9 @@ onUnmounted(() => {
 
 const sortedSeasons = computed(() => {
   if (!data.value?.seasons) return [];
-  return [...data.value.seasons].sort((a, b) => b.number - a.number);
+  return data.value.seasons
+    .filter(season => isSeasonReleased(season.first_aired))
+    .sort((a, b) => b.number - a.number);
 });
 
 const latestSeason = computed(() => sortedSeasons.value[0] ?? null);
