@@ -24,12 +24,12 @@
       <div
         class="space-y-3"
       >
-        <h1 class="text-3xl font-bold">Fin du récap</h1>
-        <p class="text-white/80">{{ data.show.name }} · Saison {{ data.season.number }}</p>
+        <h1 class="text-3xl font-bold">Recap complete</h1>
+        <p class="text-white/80">{{ data.show.name }} · Season {{ data.season.number }}</p>
       </div>
       <div class="flex w-full max-w-md flex-col gap-3 sm:flex-row sm:justify-center">
         <Button size="lg" class="min-h-11 w-full sm:w-auto" @click="restartStory">
-          Recommencer le récap
+          Restart recap
         </Button>
         <Button
           variant="outline"
@@ -37,7 +37,7 @@
           class="min-h-11 w-full border-white/40 bg-transparent text-white hover:bg-white/10 hover:text-white sm:w-auto"
           @click="goBack"
         >
-          Retourner à la fiche de la série
+          Back to show details
         </Button>
       </div>
     </div>
