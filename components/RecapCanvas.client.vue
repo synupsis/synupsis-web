@@ -7,34 +7,39 @@
       :style="{ outline: readOnly ? 'none' : '4px solid' }"
     >
       <v-stage ref="stageRef" :config="stageConfig" @mousedown="handleStageMouseDown">
-        <v-layer ref="layerRef">
-          <v-image
-            v-for="item in imageItems"
-            :key="item.id"
-            :config="item"
-            @dragend="handleDragEnd"
-            @transformend="handleTransformEnd"
-          />
-          <v-group
-            v-for="item in groupItems"
-            :key="item.id"
-            :config="item"
-            @dragend="handleDragEnd"
-            @transformend="handleTransformEnd"
-            @dblclick="handleDblClick"
-          >
-            <v-rect :config="item.rect" />
-            <v-text :config="item.text" />
-          </v-group>
-          <v-transformer ref="transformerRef" />
+        <v-layer>
+          <template v-for="item in canvasItems" :key="item.key">
+            <v-image
+              v-if="item.kind === 'image'"
+              :config="item.config"
+              @dragend="handleDragEnd"
+              @transformend="handleTransformEnd"
+            />
+            <v-rect
+              v-else-if="item.kind === 'rect'"
+              :config="item.config"
+              @dragend="handleDragEnd"
+              @transformend="handleTransformEnd"
+            />
+            <v-group
+              v-else
+              :config="item.config"
+              @dragend="handleDragEnd"
+              @transformend="handleTransformEnd"
+              @dblclick="handleDblClick"
+            >
+              <v-rect :config="item.rect" />
+              <v-text :config="item.text" />
+            </v-group>
+          </template>
+          <v-transformer v-if="!readOnly" ref="transformerRef" />
         </v-layer>
       </v-stage>
     </div>
 
     <div v-if="!readOnly" class="absolute top-1/2 -translate-y-1/2 right-full mr-4 z-10 flex flex-col items-start gap-4">
-      <Button class="py-2 px-4" variant="outline" @click="addTextbox()" :disabled="isAddingText">
-        <span v-if="isAddingText" class="loading loading-spinner"></span>
-        <span v-else class="flex items-center gap-2">
+      <Button class="py-2 px-4" variant="outline" @click="addTextbox">
+        <span class="flex items-center gap-2">
           <PlusCircleIcon class="h-5 w-5" />
           Add text
         </span>
@@ -45,7 +50,7 @@
           Add Image
         </span>
       </Button>
-      <Button class="py-2 px-4" variant="outline" @click="clearSlide()">
+      <Button class="py-2 px-4" variant="outline" @click="clearSlide">
         <span class="flex items-center gap-2">
           <ArrowPathRoundedSquareIcon class="h-5 w-5" />
           Reset slide
@@ -55,7 +60,7 @@
         v-if="selectedShapeName"
         class="py-2 px-4"
         variant="destructive"
-        @click="deleteSelectedObject()"
+        @click="deleteSelectedObject"
       >
         <span class="flex items-center gap-2">
           <TrashIcon class="h-5 w-5" />
@@ -74,198 +79,71 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import Konva from 'konva';
 import {
   ArrowPathRoundedSquareIcon,
   PhotoIcon,
   PlusCircleIcon,
-  TrashIcon
+  TrashIcon,
 } from '@heroicons/vue/24/outline';
 import { Button } from '~/components/shadcn/button';
 import { toast } from 'vue-sonner';
 import RecapImageModal from '~/components/RecapImageModal.vue';
 import { hexToRgb } from '~/lib/utils';
 
-const props = defineProps({
-  modelValue: {
-    type: String,
-    default: ''
-  },
-  loading: {
-    type: Boolean,
-    default: false
-  },
-  readOnly: {
-    type: Boolean,
-    default: false
-  },
-  seasonId: {
-    type: String,
-    default: null
-  },
-  selectedElementId: {
-    type: String,
-    default: null
-  }
+type BaseCanvasItem = {
+  key: string;
+  config: Record<string, any>;
+};
+
+type ImageCanvasItem = BaseCanvasItem & { kind: 'image' };
+type RectCanvasItem = BaseCanvasItem & { kind: 'rect' };
+type GroupCanvasItem = BaseCanvasItem & {
+  kind: 'group';
+  rect: Record<string, any>;
+  text: Record<string, any>;
+};
+type CanvasItem = ImageCanvasItem | RectCanvasItem | GroupCanvasItem;
+
+const props = withDefaults(defineProps<{
+  modelValue?: string;
+  loading?: boolean;
+  readOnly?: boolean;
+  seasonId?: string | null;
+  selectedElementId?: string | null;
+}>(), {
+  modelValue: '',
+  loading: false,
+  readOnly: false,
+  seasonId: null,
+  selectedElementId: null,
 });
 
-const emit = defineEmits(['update:modelValue', 'select-element']);
-
-watch(() => props.selectedElementId, (newId) => {
-  if (newId) {
-    selectedShapeName.value = newId;
-    updateTransformer();
-  }
-});
-
-const isBackgroundModalOpen = ref(false);
-const isAddingText = ref(false);
-let isInternalUpdate = false;
-
-const containerRef = ref<HTMLDivElement | null>(null);
-const stageRef = ref<any>(null);
-const transformerRef = ref<any>(null);
+const emit = defineEmits<{
+  'update:modelValue': [value: string];
+  'select-element': [value: any];
+}>();
 
 const originalWidth = 390;
 const originalHeight = 844;
-
-const stageConfig = ref({
-  width: originalWidth,
-  height: originalHeight,
-  scaleX: 1,
-  scaleY: 1,
-});
-
-const imageItems = ref<any[]>([]);
-const groupItems = ref<any[]>([]);
+const containerRef = ref<HTMLDivElement | null>(null);
+const stageRef = ref<any>(null);
+const transformerRef = ref<any>(null);
+const canvasItems = ref<CanvasItem[]>([]);
 const selectedShapeName = ref('');
+const isBackgroundModalOpen = ref(false);
+const stageMetadata = ref<Record<string, unknown>>({});
+const stageConfig = ref({ width: originalWidth, height: originalHeight, scaleX: 1, scaleY: 1 });
 
-const addImageToCanvas = (imageUrl: string) => {
-  const proxiedUrl = `/api/image-proxy/?url=${encodeURIComponent(imageUrl)}`;
-  Konva.Image.fromURL(proxiedUrl, (image) => {
-    const scale = originalWidth / image.width();
-    imageItems.value.push({
-      image: image.image(),
-      x: 0,
-      y: 0,
-      scaleX: scale,
-      scaleY: scale,
-      draggable: !props.readOnly,
-      name: `image-${Date.now()}`,
-      id: `image-${Date.now()}`,
-      src: proxiedUrl,
-    });
-    nextTick(() => {
-      emitUpdate();
-    });
-    toast.success('Image added to canvas!');
-  });
-};
+let isInternalUpdate = false;
+let imageLoadRevision = 0;
+let resizeObserver: ResizeObserver | null = null;
 
-const emitUpdate = () => {
-  if (props.readOnly || !stageRef.value) return;
-  isInternalUpdate = true;
-  const stage = stageRef.value.getNode();
-  const json = stage.toJSON();
-  emit('update:modelValue', json);
-};
-
-const scaleAndPositionCanvas = () => {
-  if (!containerRef.value || !stageRef.value) return;
-  const containerWidth = containerRef.value.clientWidth;
-  const containerHeight = containerRef.value.clientHeight;
-  const scale = Math.min(containerWidth / originalWidth, containerHeight / originalHeight);
-  stageConfig.value.width = originalWidth * scale;
-  stageConfig.value.height = originalHeight * scale;
-  stageConfig.value.scaleX = scale;
-  stageConfig.value.scaleY = scale;
-};
-
-const loadCanvasFromJSON = (json: string) => {
-  if (!json) {
-    groupItems.value = [];
-    imageItems.value = [];
-    return;
-  }
-
-  let data: any;
-  try {
-    data = JSON.parse(json);
-  } catch (error) {
-    console.error('Failed to parse canvas JSON', error);
-    return;
-  }
-
-  const layers = Array.isArray(data?.children) ? data.children : [];
-  const layer = layers[0];
-  if (!layer) {
-    groupItems.value = [];
-    imageItems.value = [];
-    return;
-  }
-
-  const layerChildren = Array.isArray(layer?.children) ? layer.children : [];
-
-  const groupNodes = layerChildren.filter((c: any) => c?.className === 'Group');
-  const imageNodeConfigs = layerChildren
-    .filter((c: any) => c?.className === 'Image')
-    .map((c: any) => c?.attrs)
-    .filter((attrs: any) => !!attrs);
-
-  if (props.readOnly) {
-    groupNodes.forEach((group: any) => {
-      if (group?.attrs) {
-        group.attrs.draggable = false;
-      }
-    });
-    imageNodeConfigs.forEach((config: any) => {
-      config.draggable = false;
-    });
-  }
-
-  transformerRef.value?.getNode().nodes([]);
-  const groups: any[] = [];
-  groupNodes.forEach((groupNode: any, index: number) => {
-    const attrs = groupNode?.attrs || {};
-    const children = Array.isArray(groupNode?.children) ? groupNode.children : [];
-    const rectChild = children.find((c: any) => c?.className === 'Rect');
-    const textChild = children.find((c: any) => c?.className === 'Text');
-
-    if (!rectChild || !textChild) {
-      console.warn('Skipping group with missing Rect/Text nodes', attrs?.id || index);
-      return;
-    }
-
-    groups.push({
-      ...attrs,
-      id: attrs.id || `group-${Date.now()}-${index}`,
-      rect: rectChild.attrs,
-      text: textChild.attrs,
-    });
-  });
-  groupItems.value = groups;
-
-  const loadedImages: any[] = [];
-  let imagesToLoad = imageNodeConfigs.length;
-  if (imagesToLoad === 0) {
-    imageItems.value = [];
-    return;
-  }
-
-  imageNodeConfigs.forEach((config: any) => {
-    Konva.Image.fromURL(config.src, (image) => {
-      loadedImages.push({
-        ...config,
-        image: image.image(),
-      });
-      imagesToLoad--;
-      if (imagesToLoad === 0) {
-        imageItems.value = loadedImages;
-      }
-    });
-  });
-};
+watch(() => props.selectedElementId, (newId) => {
+  selectedShapeName.value = newId || '';
+  updateTransformer();
+});
 
 watch(() => props.modelValue, (newJson) => {
   if (isInternalUpdate) {
@@ -275,263 +153,387 @@ watch(() => props.modelValue, (newJson) => {
   loadCanvasFromJSON(newJson);
 });
 
-let resizeObserver: ResizeObserver | null = null;
-
 onMounted(() => {
   scaleAndPositionCanvas();
-  if (props.modelValue) {
-    loadCanvasFromJSON(props.modelValue);
-  }
+  loadCanvasFromJSON(props.modelValue);
   resizeObserver = new ResizeObserver(scaleAndPositionCanvas);
-  if (containerRef.value) {
-    resizeObserver.observe(containerRef.value);
-  }
+  if (containerRef.value) resizeObserver.observe(containerRef.value);
 });
 
 onUnmounted(() => {
-  if (resizeObserver && containerRef.value) {
-    resizeObserver.unobserve(containerRef.value);
-  }
+  imageLoadRevision += 1;
+  if (resizeObserver && containerRef.value) resizeObserver.unobserve(containerRef.value);
 });
 
-const openBackgroundModal = () => {
-  if (props.readOnly) return;
-  isBackgroundModalOpen.value = true;
-};
+function scaleAndPositionCanvas() {
+  if (!containerRef.value) return;
+  const scale = Math.min(
+    containerRef.value.clientWidth / originalWidth,
+    containerRef.value.clientHeight / originalHeight,
+  );
+  stageConfig.value = {
+    width: originalWidth * scale,
+    height: originalHeight * scale,
+    scaleX: scale,
+    scaleY: scale,
+  };
+}
 
-const addTextbox = () => {
+function loadCanvasFromJSON(json: string) {
+  imageLoadRevision += 1;
+  const revision = imageLoadRevision;
+  selectedShapeName.value = '';
+  transformerRef.value?.getNode()?.nodes([]);
+
+  if (!json) {
+    canvasItems.value = [];
+    stageMetadata.value = {};
+    return;
+  }
+
+  let data: any;
+  try {
+    data = JSON.parse(json);
+  } catch (error) {
+    console.error('Failed to parse canvas JSON', error);
+    canvasItems.value = [];
+    return;
+  }
+
+  stageMetadata.value = {
+    durationMs: data?.attrs?.durationMs,
+    formatVersion: data?.attrs?.formatVersion,
+  };
+  const children = Array.isArray(data?.children?.[0]?.children) ? data.children[0].children : [];
+  const nextItems: CanvasItem[] = [];
+
+  children.forEach((child: any, index: number) => {
+    const attrs = { ...(child?.attrs || {}) };
+    const key = String(attrs.id || attrs.name || `${child?.className || 'node'}-${index}`);
+
+    if (child?.className === 'Rect') {
+      nextItems.push({ kind: 'rect', key, config: disableDraggingWhenReadOnly(attrs) });
+      return;
+    }
+
+    if (child?.className === 'Group') {
+      const groupChildren = Array.isArray(child.children) ? child.children : [];
+      const rect = groupChildren.find((node: any) => node?.className === 'Rect')?.attrs;
+      const text = groupChildren.find((node: any) => node?.className === 'Text')?.attrs;
+      if (!rect || !text) return;
+      nextItems.push({
+        kind: 'group',
+        key,
+        config: disableDraggingWhenReadOnly({ ...attrs, id: attrs.id || key, name: attrs.name || key }),
+        rect: { ...rect },
+        text: { ...text },
+      });
+      return;
+    }
+
+    if (child?.className === 'Image' && typeof attrs.src === 'string') {
+      const item: ImageCanvasItem = {
+        kind: 'image',
+        key,
+        config: disableDraggingWhenReadOnly({ ...attrs, id: attrs.id || key, name: attrs.name || key }),
+      };
+      nextItems.push(item);
+      loadImage(item, revision);
+    }
+  });
+
+  canvasItems.value = nextItems;
+}
+
+function loadImage(item: ImageCanvasItem, revision: number) {
+  Konva.Image.fromURL(
+    item.config.src,
+    (image) => {
+      if (revision !== imageLoadRevision) return;
+      const imageElement = image.image();
+      const configuredFocalX = Number(item.config.focalX);
+      const configuredFocalY = Number(item.config.focalY);
+      const coverConfig = item.config.fit === 'cover'
+        ? calculateCoverCrop(
+            image.width(),
+            image.height(),
+            Number(item.config.width) || originalWidth,
+            Number(item.config.height) || originalHeight,
+            Number.isFinite(configuredFocalX) ? configuredFocalX : 0.5,
+            Number.isFinite(configuredFocalY) ? configuredFocalY : 0.5,
+          )
+        : {};
+      item.config = { ...item.config, ...coverConfig, image: imageElement };
+      canvasItems.value = [...canvasItems.value];
+    },
+    () => {
+      if (revision !== imageLoadRevision || props.readOnly) return;
+      toast.error('The image could not be loaded.');
+    },
+  );
+}
+
+function calculateCoverCrop(
+  sourceWidth: number,
+  sourceHeight: number,
+  targetWidth: number,
+  targetHeight: number,
+  focalX: number,
+  focalY: number,
+) {
+  const sourceRatio = sourceWidth / sourceHeight;
+  const targetRatio = targetWidth / targetHeight;
+  let cropWidth = sourceWidth;
+  let cropHeight = sourceHeight;
+
+  if (sourceRatio > targetRatio) cropWidth = sourceHeight * targetRatio;
+  else cropHeight = sourceWidth / targetRatio;
+
+  const maxCropX = Math.max(0, sourceWidth - cropWidth);
+  const maxCropY = Math.max(0, sourceHeight - cropHeight);
+  return {
+    crop: {
+      x: Math.min(maxCropX, Math.max(0, maxCropX * focalX)),
+      y: Math.min(maxCropY, Math.max(0, maxCropY * focalY)),
+      width: cropWidth,
+      height: cropHeight,
+    },
+    width: targetWidth,
+    height: targetHeight,
+  };
+}
+
+function disableDraggingWhenReadOnly(config: Record<string, any>) {
+  return props.readOnly ? { ...config, draggable: false } : config;
+}
+
+function emitUpdate() {
   if (props.readOnly) return;
-  const id = `group-${Date.now()}`;
+  const serializedChildren = canvasItems.value.map((item) => {
+    const config = stripRuntimeImage(item.config);
+    if (item.kind === 'group') {
+      return {
+        className: 'Group',
+        attrs: config,
+        children: [
+          { className: 'Rect', attrs: item.rect },
+          { className: 'Text', attrs: item.text },
+        ],
+      };
+    }
+    return { className: item.kind === 'image' ? 'Image' : 'Rect', attrs: config };
+  });
+  const json = JSON.stringify({
+    className: 'Stage',
+    attrs: {
+      width: originalWidth,
+      height: originalHeight,
+      scaleX: 1,
+      scaleY: 1,
+      ...stageMetadata.value,
+    },
+    children: [{ className: 'Layer', children: serializedChildren }],
+  });
+  isInternalUpdate = true;
+  emit('update:modelValue', json);
+}
+
+function stripRuntimeImage(config: Record<string, any>) {
+  const { image: _image, ...serializable } = config;
+  return serializable;
+}
+
+function addImageToCanvas(imageUrl: string) {
+  const proxiedUrl = `/api/image-proxy/?url=${encodeURIComponent(imageUrl)}`;
+  const key = `image-${Date.now()}`;
+  const item: ImageCanvasItem = {
+    kind: 'image',
+    key,
+    config: {
+      id: key,
+      name: key,
+      src: proxiedUrl,
+      x: 0,
+      y: 0,
+      width: originalWidth,
+      height: originalHeight,
+      fit: 'cover',
+      focalX: 0.5,
+      focalY: 0.5,
+      draggable: true,
+    },
+  };
+  const firstForegroundIndex = canvasItems.value.findIndex((candidate) => candidate.kind === 'group');
+  if (firstForegroundIndex === -1) canvasItems.value.push(item);
+  else canvasItems.value.splice(firstForegroundIndex, 0, item);
+  loadImage(item, imageLoadRevision);
+  nextTick(emitUpdate);
+  toast.success('Image added to canvas!');
+}
+
+function addTextbox() {
+  const key = `group-${Date.now()}`;
   const textConfig = {
     text: 'Votre texte ici',
     fontSize: 32,
     fontFamily: 'Inter, sans-serif',
     fill: hexToRgb('#000'),
-    padding: 10, // Reduced padding
-    width: 300, // Default width for wrapping
+    padding: 10,
+    width: 300,
     wrap: 'word',
   };
   const text = new Konva.Text(textConfig);
-  const rectConfig = {
-    width: text.width(),
-    height: text.height(),
-    fill: hexToRgb('#fff'),
-    cornerRadius: 10, // Rounded corners
-  };
-  groupItems.value.push({
-    id,
-    name: id,
-    x: 50,
-    y: 50,
-    draggable: !props.readOnly,
-    rect: rectConfig,
+  canvasItems.value.push({
+    kind: 'group',
+    key,
+    config: { id: key, name: key, x: 50, y: 110, draggable: true },
+    rect: { width: text.width(), height: text.height(), fill: hexToRgb('#fff'), cornerRadius: 10 },
     text: textConfig,
   });
-  nextTick(() => {
-    emitUpdate();
-  });
-};
+  nextTick(emitUpdate);
+}
 
-const deleteSelectedObject = () => {
-  if (props.readOnly || !selectedShapeName.value) return;
+function openBackgroundModal() {
+  isBackgroundModalOpen.value = true;
+}
 
-  const isImage = selectedShapeName.value.startsWith('image-');
-  const items = isImage ? imageItems : groupItems;
-  
-  const index = items.value.findIndex(item => item.name === selectedShapeName.value);
-  if (index > -1) {
-    items.value.splice(index, 1);
-    selectedShapeName.value = '';
-    transformerRef.value.getNode().nodes([]);
-    nextTick(() => {
-      emitUpdate();
-    });
-  }
-};
-
-const clearSlide = () => {
-  if (props.readOnly) return;
-  imageItems.value = [];
-  groupItems.value = [];
-  nextTick(() => {
-    emitUpdate();
-  });
+function clearSlide() {
+  canvasItems.value = [];
+  selectedShapeName.value = '';
+  updateTransformer();
+  nextTick(emitUpdate);
   toast.info('Slide has been cleared.');
-};
+}
 
-const handleStageMouseDown = (e: any) => {
+function deleteSelectedObject() {
+  if (!selectedShapeName.value) return;
+  const index = canvasItems.value.findIndex((item) => item.config.name === selectedShapeName.value);
+  if (index === -1) return;
+  canvasItems.value.splice(index, 1);
+  selectedShapeName.value = '';
+  updateTransformer();
+  emit('select-element', null);
+  nextTick(emitUpdate);
+}
+
+function handleStageMouseDown(event: any) {
   if (props.readOnly) return;
-
-  // Clicked on stage to deselect
-  if (e.target === e.target.getStage()) {
+  if (event.target === event.target.getStage()) {
     selectedShapeName.value = '';
     updateTransformer();
     emit('select-element', null);
     return;
   }
+  if (event.target.getParent()?.className === 'Transformer') return;
 
-  // Clicked on transformer
-  const clickedOnTransformer = e.target.getParent() && e.target.getParent().className === 'Transformer';
-  if (clickedOnTransformer) {
-    return;
-  }
-
-  // Find the clicked shape
-  let shape = e.target;
-  if (shape.className === 'Text' || shape.className === 'Rect') {
+  let shape = event.target;
+  if (shape.className === 'Text' || shape.className === 'Rect' && shape.getParent()?.className === 'Group') {
     shape = shape.getParent();
   }
-  
-  selectedShapeName.value = shape.name();
+  const name = shape.name();
+  if (!name) return;
+  selectedShapeName.value = name;
   updateTransformer();
-  emit('select-element', shape.attrs);
-};
+  const item = canvasItems.value.find((candidate) => candidate.config.name === name);
+  emit('select-element', item?.kind === 'group'
+    ? { ...item.config, rect: item.rect, text: item.text }
+    : item?.config || null);
+}
 
-const updateTransformer = () => {
-  const transformerNode = transformerRef.value.getNode();
-  const stage = stageRef.value.getNode();
-  const selectedNode = stage.findOne('.' + selectedShapeName.value);
-  if (selectedNode) {
-    transformerNode.nodes([selectedNode]);
-  } else {
-    transformerNode.nodes([]);
-  }
-};
+function updateTransformer() {
+  const transformer = transformerRef.value?.getNode?.();
+  const stage = stageRef.value?.getNode?.();
+  if (!transformer || !stage) return;
+  const selectedNode = selectedShapeName.value ? stage.findOne(`.${selectedShapeName.value}`) : null;
+  transformer.nodes(selectedNode ? [selectedNode] : []);
+}
 
-const handleDragEnd = (e: any) => {
-  const name = e.target.name();
-  const isImage = name.startsWith('image-');
-  const items = isImage ? imageItems : groupItems;
-  const index = items.value.findIndex(item => item.name === name);
-  if (index > -1) {
-    items.value[index].x = e.target.x();
-    items.value[index].y = e.target.y();
-    emitUpdate();
-  }
-};
+function handleDragEnd(event: any) {
+  const item = findItemByName(event.target.name());
+  if (!item) return;
+  item.config.x = event.target.x();
+  item.config.y = event.target.y();
+  emitUpdate();
+}
 
-const handleTransformEnd = (e: any) => {
-  const name = e.target.name();
-  const isImage = name.startsWith('image-');
-  const items = isImage ? imageItems : groupItems;
-  const index = items.value.findIndex(item => item.name === name);
-  if (index > -1) {
-    const node = e.target;
-    items.value[index].x = node.x();
-    items.value[index].y = node.y();
-    items.value[index].scaleX = node.scaleX();
-    items.value[index].scaleY = node.scaleY();
-    items.value[index].rotation = node.rotation();
-    emitUpdate();
-  }
-};
+function handleTransformEnd(event: any) {
+  const item = findItemByName(event.target.name());
+  if (!item) return;
+  item.config.x = event.target.x();
+  item.config.y = event.target.y();
+  item.config.scaleX = event.target.scaleX();
+  item.config.scaleY = event.target.scaleY();
+  item.config.rotation = event.target.rotation();
+  emitUpdate();
+}
 
-const handleDblClick = (e: any) => {
-  if (props.readOnly || e.target.className !== 'Text') return;
-  const group = e.target.getParent();
-  const textNode = e.target;
-  
+function findItemByName(name: string) {
+  return canvasItems.value.find((item) => item.config.name === name);
+}
+
+function handleDblClick(event: any) {
+  if (props.readOnly || event.target.className !== 'Text') return;
+  const group = event.target.getParent();
+  const textNode = event.target;
+  const item = findItemByName(group.name());
+  if (!item || item.kind !== 'group') return;
+
   group.hide();
-  transformerRef.value.getNode().hide();
-
-  const textPosition = group.absolutePosition();
+  transformerRef.value?.getNode()?.hide();
   const stageBox = stageRef.value.getNode().container().getBoundingClientRect();
   const scale = stageRef.value.getNode().scaleX();
-
-  const areaPosition = {
-    x: stageBox.left + textPosition.x,
-    y: stageBox.top + textPosition.y,
-  };
-
+  const position = group.absolutePosition();
   const textarea = document.createElement('textarea');
   document.body.appendChild(textarea);
-
   textarea.value = textNode.text();
-  textarea.style.position = 'absolute';
-  textarea.style.top = areaPosition.y + 'px';
-  textarea.style.left = areaPosition.x + 'px';
-  textarea.style.border = 'none';
-  textarea.style.padding = textNode.padding() * scale + 'px';
-  textarea.style.margin = '0px';
-  textarea.style.overflow = 'hidden';
-  textarea.style.background = '#fff';
-  textarea.style.borderRadius = '10px';
-  textarea.style.outline = 'none';
-  textarea.style.resize = 'none';
-  textarea.style.lineHeight = textNode.lineHeight();
-  textarea.style.fontFamily = textNode.fontFamily();
-  textarea.style.transformOrigin = 'left top';
-  textarea.style.textAlign = textNode.align();
-  textarea.style.color = textNode.fill();
-  textarea.style.fontSize = textNode.fontSize() * scale + 'px';
-  const konvaTextWidth = textNode.attrs.width || textNode.width();
-  textarea.style.width = konvaTextWidth * scale + 'px';
-  textarea.style.height = textNode.height() * scale + 'px';
-  
-  const rotation = group.rotation();
-  let transform = '';
-  if (rotation) {
-    transform += 'rotateZ(' + rotation + 'deg)';
-  }
-  textarea.style.transform = transform;
-
-  const resizeTextarea = () => {
-    const text = new Konva.Text({
-      text: textarea.value,
-      fontSize: textNode.fontSize(),
-      fontFamily: textNode.fontFamily(),
-      padding: textNode.padding(),
-      width: textNode.attrs.width, // Use the same width as the Konva.Text node
-    });
-    const groupScaleX = group.scaleX();
-    const groupScaleY = group.scaleY();
-    textarea.style.width = text.width() * groupScaleX * scale + 'px';
-    textarea.style.height = text.height() * groupScaleY * scale + 'px';
-  };
-
-  resizeTextarea();
+  Object.assign(textarea.style, {
+    position: 'absolute',
+    top: `${stageBox.top + position.y}px`,
+    left: `${stageBox.left + position.x}px`,
+    width: `${textNode.width() * scale}px`,
+    minHeight: `${textNode.height() * scale}px`,
+    border: 'none',
+    padding: `${textNode.padding() * scale}px`,
+    margin: '0',
+    overflow: 'hidden',
+    background: '#fff',
+    borderRadius: '10px',
+    outline: 'none',
+    resize: 'none',
+    lineHeight: String(textNode.lineHeight()),
+    fontFamily: textNode.fontFamily(),
+    textAlign: textNode.align(),
+    color: textNode.fill(),
+    fontSize: `${textNode.fontSize() * scale}px`,
+    transformOrigin: 'left top',
+  });
   textarea.focus();
 
-  function removeTextarea() {
-    textarea.parentNode?.removeChild(textarea);
-    window.removeEventListener('click', handleOutsideClick);
-    group.show();
-    transformerRef.value.getNode().show();
-    transformerRef.value.getNode().forceUpdate();
-  }
-
-  function handleOutsideClick(e: any) {
-    if (e.target !== textarea) {
-      const index = groupItems.value.findIndex(item => item.name === group.name());
-      if (index > -1) {
-        groupItems.value[index].text.text = textarea.value;
-        const text = new Konva.Text(groupItems.value[index].text);
-        groupItems.value[index].rect.width = text.width();
-        groupItems.value[index].rect.height = text.height();
-        groupItems.value[index].text.width = text.width(); // Update text width
-      }
-      removeTextarea();
+  const close = (save: boolean) => {
+    if (save) {
+      item.text.text = textarea.value;
+      const measuredText = new Konva.Text(item.text);
+      item.rect.width = measuredText.width();
+      item.rect.height = measuredText.height();
       emitUpdate();
     }
-  }
-
-  textarea.addEventListener('input', resizeTextarea);
-
-  textarea.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      handleOutsideClick({ target: null });
-    }
-    if (e.key === 'Escape') {
-      removeTextarea();
-    }
+    textarea.remove();
+    window.removeEventListener('pointerdown', outsideClick);
+    group.show();
+    transformerRef.value?.getNode()?.show();
+    transformerRef.value?.getNode()?.forceUpdate();
+  };
+  const outsideClick = (pointerEvent: PointerEvent) => {
+    if (pointerEvent.target !== textarea) close(true);
+  };
+  textarea.addEventListener('keydown', (keyboardEvent) => {
+    if (keyboardEvent.key === 'Enter' && !keyboardEvent.shiftKey) {
+      keyboardEvent.preventDefault();
+      close(true);
+    } else if (keyboardEvent.key === 'Escape') close(false);
   });
+  setTimeout(() => window.addEventListener('pointerdown', outsideClick));
+}
 
-  setTimeout(() => {
-    window.addEventListener('click', handleOutsideClick);
-  });
-};
-
-defineExpose({
-  redraw: scaleAndPositionCanvas
-});
+defineExpose({ redraw: scaleAndPositionCanvas });
 </script>

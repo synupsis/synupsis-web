@@ -63,7 +63,8 @@
           >
             <SparklesIcon v-if="!isGenerating" class="mr-2 h-4 w-4" />
             <SpinLoader v-else class="mr-2 h-4 w-4" />
-            Generate
+            <template v-if="isGenerating">{{ generationProgress }}%</template>
+            <template v-else>{{ user ? 'Generate' : 'Sign in to generate' }}</template>
           </Button>
         </div>
       </div>
@@ -84,6 +85,7 @@ const props = defineProps<{
   season: any;
   isAdmin: boolean;
   isGenerating: boolean;
+  generationProgress?: number;
   isLatest: boolean;
 }>();
 

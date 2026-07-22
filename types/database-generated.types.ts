@@ -103,33 +103,154 @@ export type Database = {
         }
         Relationships: []
       }
+      recap_generation_job: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_code: string | null
+          error_message: string | null
+          format_version: number
+          id: string
+          locale: string
+          model: string
+          progress: number
+          prompt_id: string | null
+          prompt_version: string
+          provider_response_id: string | null
+          quality_report: Json | null
+          recap_id: string | null
+          requested_by: string | null
+          season_id: string
+          show_id: string
+          source_snapshot: Json | null
+          started_at: string | null
+          status: string
+          story_data: Json | null
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          format_version?: number
+          id?: string
+          locale?: string
+          model: string
+          progress?: number
+          prompt_id?: string | null
+          prompt_version: string
+          provider_response_id?: string | null
+          quality_report?: Json | null
+          recap_id?: string | null
+          requested_by?: string | null
+          season_id: string
+          show_id: string
+          source_snapshot?: Json | null
+          started_at?: string | null
+          status?: string
+          story_data?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          format_version?: number
+          id?: string
+          locale?: string
+          model?: string
+          progress?: number
+          prompt_id?: string | null
+          prompt_version?: string
+          provider_response_id?: string | null
+          quality_report?: Json | null
+          recap_id?: string | null
+          requested_by?: string | null
+          season_id?: string
+          show_id?: string
+          source_snapshot?: Json | null
+          started_at?: string | null
+          status?: string
+          story_data?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recap_generation_job_recap_id_fkey"
+            columns: ["recap_id"]
+            isOneToOne: false
+            referencedRelation: "recap"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recap_generation_job_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "season"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recap_generation_job_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: false
+            referencedRelation: "show"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recap: {
         Row: {
           created_at: string
+          format_version: number
           id: string
+          is_canonical: boolean
+          locale: string
+          model: string | null
           prompt_id: string | null
+          prompt_version: string | null
+          quality_report: Json | null
           season_id: string
           show_id: string
+          source_snapshot: Json | null
           status: string
-          user_id: string
+          story_data: Json | null
+          user_id: string | null
         }
         Insert: {
           created_at?: string
+          format_version?: number
           id?: string
+          is_canonical?: boolean
+          locale?: string
+          model?: string | null
           prompt_id?: string | null
+          prompt_version?: string | null
+          quality_report?: Json | null
           season_id: string
           show_id: string
+          source_snapshot?: Json | null
           status?: string
-          user_id: string
+          story_data?: Json | null
+          user_id?: string | null
         }
         Update: {
           created_at?: string
+          format_version?: number
           id?: string
+          is_canonical?: boolean
+          locale?: string
+          model?: string | null
           prompt_id?: string | null
+          prompt_version?: string | null
+          quality_report?: Json | null
           season_id?: string
           show_id?: string
+          source_snapshot?: Json | null
           status?: string
-          user_id?: string
+          story_data?: Json | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -270,6 +391,22 @@ export type Database = {
       is_admin: {
         Args: { p_user_id: string }
         Returns: boolean
+      }
+      publish_generated_recap: {
+        Args: {
+          p_format_version: number
+          p_locale: string
+          p_model: string
+          p_prompt_id: string | null
+          p_prompt_version: string
+          p_quality_report: Json
+          p_season_id: string
+          p_show_id: string
+          p_slides: Json
+          p_source_snapshot: Json
+          p_story_data: Json
+        }
+        Returns: string
       }
     }
     Enums: {

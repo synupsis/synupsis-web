@@ -192,6 +192,16 @@ To run this project, you will need to add the following environment variables to
 
 `NUXT_SUPABASE_SECRET_KEY` (server only)
 
+`TRAKT_CLIENT_ID` (server only, season metadata and episode artwork)
+
+`OPENAI_API_KEY` (server only, recap story generation)
+
+`OPENAI_RECAP_MODEL` (optional, defaults to `gpt-5.6`)
+
+`TMDB_API_READ_ACCESS_TOKEN` or `TMDB_API_KEY` (optional, adds French and English season/episode evidence; TVmaze enrichment needs no key)
+
+The asynchronous recap generation flow, quality gate, deployment steps and current limitations are documented in [docs/recap-generation.md](docs/recap-generation.md). The source-of-truth strategy and richer narrative roadmap are documented in [docs/recap-source-strategy.md](docs/recap-source-strategy.md).
+
 ## Authors
 
 - [@valentingbt](https://www.github.com/valentingbt)

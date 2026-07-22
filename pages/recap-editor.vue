@@ -393,14 +393,24 @@ const handleUpdateElement = (updatedElement: any) => {
 
     const elementIndex = layer.children.findIndex((c: any) => c.attrs.id === updatedElement.id);
     if (elementIndex !== -1) {
-      // This is a deep update, so we need to be careful
+      const currentElement = layer.children[elementIndex];
+      const { text, rect, ...updatedAttrs } = updatedElement;
+      const updatedChildren = currentElement.className === 'Group'
+        ? currentElement.children.map((child: any) => {
+            if (child.className === 'Text' && text) return { ...child, attrs: text };
+            if (child.className === 'Rect' && rect) return { ...child, attrs: rect };
+            return child;
+          })
+        : currentElement.children;
       const newCanvasData = {
         ...canvasData,
         children: [
           {
             ...layer,
             children: layer.children.map((child: any, index: number) =>
-              index === elementIndex ? { ...child, attrs: updatedElement } : child
+              index === elementIndex
+                ? { ...child, attrs: updatedAttrs, children: updatedChildren }
+                : child
             ),
           },
         ],

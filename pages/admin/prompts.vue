@@ -17,6 +17,7 @@ import { Textarea } from '~/components/shadcn/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '~/components/shadcn/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '~/components/shadcn/dialog';
 import { defaultRecapPromptTemplate } from '~/lib/prompts/defaultPrompt';
+import { getMissingRecapPromptVariables } from '~/lib/prompts/defaultPrompt';
 
 definePageMeta({
   middleware: ['admin'],
@@ -161,6 +162,7 @@ const highlightVariables = (text: string | null) => {
 
 const highlightedPromptContent = computed(() => highlightVariables(viewingPromptContent.value))
 const highlightedDefaultPrompt = computed(() => highlightVariables(defaultRecapPromptTemplate))
+const missingPromptVariables = computed(() => getMissingRecapPromptVariables(activePromptContent.value))
 
 onMounted(async () => {
   await fetchPromptSettings()
@@ -222,6 +224,13 @@ onMounted(async () => {
             </div>
           </div>
           <div v-else>
+            <div
+              v-if="missingPromptVariables.length"
+              class="mb-4 rounded-md border border-amber-500/50 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100"
+            >
+              Ce prompt n'est pas compatible avec le pipeline recap v2 et le prompt par défaut sera utilisé.
+              Variables manquantes : <code>{{ missingPromptVariables.join(', ') }}</code>.
+            </div>
             <Textarea v-model="activePromptContent" rows="10" class="w-full mb-4" />
             <div class="flex gap-2">
               <Button @click="saveActivePrompt">Save Prompt</Button>

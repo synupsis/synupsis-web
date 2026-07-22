@@ -53,14 +53,17 @@ export default defineEventHandler(async (event: H3Event) => {
 
   try {
     const clientId = process.env.TRAKT_CLIENT_ID;
-    const traktUrl = `https://api.trakt.tv/shows/${showData.trakt_id}/seasons/${seasonData.number}?extended=images`;
+    if (!clientId) {
+      throw new Error('TRAKT_CLIENT_ID is not configured.');
+    }
+    const traktUrl = `https://api.trakt.tv/shows/${showData.trakt_id}/seasons/${seasonData.number}?extended=full`;
     const headers = {
       'Content-Type': 'application/json',
       'trakt-api-version': '2',
       'trakt-api-key': clientId
     };
 
-    const { data: traktEpisodes } = await axios.get(traktUrl, { headers });
+    const { data: traktEpisodes } = await axios.get(traktUrl, { headers, timeout: 15_000 });
 
     const images = traktEpisodes.flatMap((episode: any) => {
       const screenshotUrls = episode?.images?.screenshot;

@@ -108,6 +108,7 @@
                 :season="season"
                 :is-admin="isAdmin"
                 :is-generating="generationState[season.id]?.pending ?? false"
+                :generation-progress="generationState[season.id]?.progress ?? 0"
                 :is-latest="index === 0"
                 @view="goToRecap"
                 @edit="goToRecapEditor(data.id, season.id)"
@@ -152,7 +153,7 @@
   </div>
 </template>
 <script lang="ts" setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onUnmounted } from 'vue';
 import type { ShowWithSeasons } from '~/types/database.types';
 import { CalendarIcon, EyeIcon } from '@heroicons/vue/24/outline';
 import { toast } from 'vue-sonner';
@@ -182,6 +183,7 @@ import { useImageUrl } from '~/composables/useUtils';
 
 const route = useRoute();
 const isAdmin = useIsAdmin();
+const user = useSupabaseUser();
 
 const { data, error, refresh } = useAsyncData(
   `show-data-${route.params.slug}`,
@@ -203,7 +205,17 @@ const { data, error, refresh } = useAsyncData(
 );
 
 const isRecapOpen = ref(false);
-const generationState = ref<Record<string, { pending: boolean; error: string | null }>>({});
+const generationState = ref<Record<string, {
+  pending: boolean;
+  progress: number;
+  status: string | null;
+  error: string | null;
+}>>({});
+let pageIsActive = true;
+
+onUnmounted(() => {
+  pageIsActive = false;
+});
 
 const sortedSeasons = computed(() => {
   if (!data.value?.seasons) return [];
@@ -221,22 +233,83 @@ const latestSeasonRecap = computed(() => {
 });
 
 const generateRecap = async (showId: string, seasonId: string) => {
-  generationState.value[seasonId] = { pending: true, error: null };
+  if (!user.value) {
+    toast.info('Sign in to request this recap.');
+    await navigateTo('/login');
+    return;
+  }
+
+  generationState.value[seasonId] = { pending: true, progress: 0, status: 'queued', error: null };
   try {
-    await $fetch('/api/recap/generate', {
+    const generation = await $fetch<{
+      state: string;
+      recapId?: string;
+      jobId?: string;
+      progress?: number;
+    }>('/api/recap/generate', {
       method: 'POST',
       body: { showId, seasonId },
     });
-    toast.success('Recap generated successfully!');
-    await refresh(); // Refresh the page data
+
+    if (generation.state === 'ready' && generation.recapId) {
+      await navigateTo(`/recap/${generation.recapId}`);
+      return;
+    }
+    if (!generation.jobId) throw new Error('The server did not return a generation job.');
+
+    generationState.value[seasonId] = {
+      pending: true,
+      progress: generation.progress ?? 40,
+      status: generation.state,
+      error: null,
+    };
+    toast.info('Your recap is being prepared. You can leave and request it again later.');
+
+    const completedJob = await waitForGeneration(generation.jobId, seasonId);
+    if (completedJob.status === 'completed' && completedJob.recapId) {
+      toast.success('Recap generated successfully!');
+      await refresh();
+      await navigateTo(`/recap/${completedJob.recapId}`);
+      return;
+    }
+    if (completedJob.status === 'needs_review') {
+      throw new Error('The recap needs editorial review because its sources are incomplete.');
+    }
+    throw new Error(completedJob.errorMessage || 'The recap generation failed.');
   } catch (e: any) {
-    generationState.value[seasonId] = { ...generationState.value[seasonId], error: e.message };
+    generationState.value[seasonId] = {
+      ...generationState.value[seasonId],
+      error: e.data?.statusMessage || e.message,
+    };
     toast.error('Failed to generate recap.', {
-      description: e.data?.message || e.message,
+      description: e.data?.statusMessage || e.data?.message || e.message,
     });
   } finally {
     generationState.value[seasonId] = { ...generationState.value[seasonId], pending: false };
   }
+};
+
+const waitForGeneration = async (jobId: string, seasonId: string) => {
+  const terminalStatuses = new Set(['completed', 'failed', 'cancelled', 'needs_review']);
+  for (let attempt = 0; attempt < 150 && pageIsActive; attempt += 1) {
+    await new Promise(resolve => setTimeout(resolve, 2_000));
+    const job = await $fetch<{
+      status: string;
+      progress: number;
+      recapId: string | null;
+      errorMessage: string | null;
+    }>(`/api/recap/generation/${jobId}`);
+    generationState.value[seasonId] = {
+      pending: !terminalStatuses.has(job.status),
+      progress: job.progress,
+      status: job.status,
+      error: job.errorMessage,
+    };
+    if (terminalStatuses.has(job.status)) return job;
+  }
+  throw new Error(pageIsActive
+    ? 'The generation is taking longer than expected. You can request it again later to resume.'
+    : 'Generation polling stopped because the page was closed.');
 };
 
 const goToRecapEditor = (show?: string, season?: string) => {

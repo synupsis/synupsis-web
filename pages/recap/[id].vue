@@ -49,9 +49,20 @@
           <p class="text-sm text-white/80">Season {{ data.season.number }}</p>
         </div>
       </div>
-      <Button variant="ghost" size="icon" @click="goBack" class="bg-black/20 hover:bg-black/40">
-        <XMarkIcon class="h-6 w-6" />
-      </Button>
+      <div class="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          class="bg-black/20 hover:bg-black/40"
+          aria-label="Voir les sources"
+          @click.stop="openSources"
+        >
+          <InformationCircleIcon class="h-6 w-6" />
+        </Button>
+        <Button variant="ghost" size="icon" @click="goBack" class="bg-black/20 hover:bg-black/40">
+          <XMarkIcon class="h-6 w-6" />
+        </Button>
+      </div>
     </header>
 
     <!-- Story Content -->
@@ -84,6 +95,49 @@
     <!-- Navigation Areas -->
     <div class="absolute top-0 left-0 h-full w-1/3 z-10" @click="prevSlide" />
     <div class="absolute top-0 right-0 h-full w-1/3 z-10" @click="nextSlide()" />
+
+    <div
+      v-if="isSourcesOpen"
+      class="absolute inset-0 z-30 flex items-end bg-black/60 p-3 sm:items-center sm:justify-center"
+      @mousedown.stop
+      @mouseup.stop
+      @touchstart.stop
+      @touchend.stop
+      @click.self="closeSources"
+    >
+      <section class="max-h-[70dvh] w-full overflow-y-auto rounded-2xl bg-background p-5 text-foreground shadow-2xl sm:max-w-md">
+        <div class="mb-4 flex items-start justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-semibold">Sources de cette slide</h2>
+            <p class="mt-1 text-sm text-muted-foreground">
+              Le texte généré reformule uniquement les fragments référencés ci-dessous.
+            </p>
+          </div>
+          <Button variant="ghost" size="icon" aria-label="Fermer les sources" @click="closeSources">
+            <XMarkIcon class="h-5 w-5" />
+          </Button>
+        </div>
+
+        <ul v-if="currentSources.length" class="space-y-3">
+          <li v-for="source in currentSources" :key="source.key" class="rounded-xl border p-3">
+            <p class="font-medium">{{ source.provider }}</p>
+            <p v-if="source.episodeNumber" class="text-sm text-muted-foreground">
+              Épisode {{ source.episodeNumber }} · {{ source.locale.toUpperCase() }}
+            </p>
+            <a
+              v-if="source.sourceUrl"
+              :href="source.sourceUrl"
+              target="_blank"
+              rel="noreferrer"
+              class="mt-2 inline-block text-sm text-primary underline underline-offset-4"
+            >
+              Consulter la source
+            </a>
+          </li>
+        </ul>
+        <p v-else class="text-sm text-muted-foreground">Aucune source publique n'est liée à cette slide.</p>
+      </section>
+    </div>
   </div>
   <div v-else class="w-screen h-dvh bg-background text-foreground flex flex-col items-center justify-center gap-4">
     <p class="text-muted-foreground">This recap has no content yet.</p>
@@ -94,7 +148,7 @@
 <script lang="ts" setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { Button } from '~/components/shadcn/button';
-import { XMarkIcon } from '@heroicons/vue/24/outline';
+import { InformationCircleIcon, XMarkIcon } from '@heroicons/vue/24/outline';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import RecapCanvas from '~/components/RecapCanvas.client.vue';
 import CachedImage from '~/components/CachedImage.vue';
@@ -110,10 +164,24 @@ type RecapResponse = {
     order: number;
     canvas_data: Json | null;
     image_url?: string | null;
+    evidence: Array<{
+      id: string;
+      episodeNumber: number | null;
+      locale: string;
+      provider: string;
+      sourceUrl: string | null;
+    }>;
   }>;
+  sourceProviders: Array<{
+    id: string;
+    label: string;
+    sourceUrl: string | null;
+    termsUrl: string | null;
+  }>;
+  qualityReport: Json | null;
 };
 
-const SLIDE_DURATION = 7000; // 7 seconds per slide
+const DEFAULT_SLIDE_DURATION = 7000;
 
 const route = useRoute();
 const router = useRouter();
@@ -126,6 +194,7 @@ const { data, pending, error } = useFetch<RecapResponse>(`/api/recap/${recapId}`
 const currentSlideIndex = ref(0);
 const progress = ref(0);
 const isPaused = ref(false);
+const isSourcesOpen = ref(false);
 let timer: ReturnType<typeof setInterval> | null = null;
 
 const errorMessage = computed(() => {
@@ -136,6 +205,33 @@ const errorMessage = computed(() => {
 const currentSlide = computed(() => {
   if (!data.value || !data.value.slides) return null;
   return data.value.slides[currentSlideIndex.value];
+});
+
+const currentSources = computed(() => {
+  const evidence = currentSlide.value?.evidence || [];
+  if (evidence.length) {
+    return evidence.map(item => ({ ...item, key: item.id }));
+  }
+  return (data.value?.sourceProviders || []).map(provider => ({
+    key: provider.id,
+    provider: provider.label,
+    episodeNumber: null,
+    locale: 'und',
+    sourceUrl: provider.sourceUrl,
+  }));
+});
+
+const currentSlideDuration = computed(() => {
+  const canvasData = currentSlide.value?.canvas_data;
+  if (!canvasData || typeof canvasData !== 'object' || Array.isArray(canvasData)) {
+    return DEFAULT_SLIDE_DURATION;
+  }
+  const attrs = 'attrs' in canvasData ? canvasData.attrs : null;
+  if (!attrs || typeof attrs !== 'object' || Array.isArray(attrs) || !('durationMs' in attrs)) {
+    return DEFAULT_SLIDE_DURATION;
+  }
+  const duration = Number(attrs.durationMs);
+  return Number.isFinite(duration) ? Math.min(12_000, Math.max(4_000, duration)) : DEFAULT_SLIDE_DURATION;
 });
 
 const goBack = () => {
@@ -150,7 +246,7 @@ const startTimer = () => {
   if (timer) clearInterval(timer);
   timer = setInterval(() => {
     if (!isPaused.value) {
-      progress.value += (100 / (SLIDE_DURATION / 100));
+      progress.value += (100 / (currentSlideDuration.value / 100));
       if (progress.value >= 100) {
         nextSlide(true); // Move to next slide automatically
       }
@@ -186,6 +282,16 @@ const pauseStory = () => {
 
 const resumeStory = () => {
   isPaused.value = false;
+};
+
+const openSources = () => {
+  isSourcesOpen.value = true;
+  pauseStory();
+};
+
+const closeSources = () => {
+  isSourcesOpen.value = false;
+  resumeStory();
 };
 
 const getProgressBarValue = (index: number) => {

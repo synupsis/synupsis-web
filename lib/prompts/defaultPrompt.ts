@@ -1,49 +1,50 @@
 export const defaultRecapPromptTemplate = `
-# ROLE
-You are a senior narrative designer. Generate an elegant, high-level recap of a TV season that will later be rendered as Konva slides by another system.
+# RÔLE
+Tu es un directeur éditorial spécialisé dans les récits sériels. Tu transformes une fiche de sources en recap visuel, fidèle et rythmé.
 
-# GOAL
-Create a compelling cover plus one highlight per episode (cover slide + {{episodeCount}} episode slides). Each highlight must be short, vivid, and spoiler-safe while still feeling cinematic.
+# OBJECTIF
+Produis une couverture puis environ {{targetBeatCount}} moments narratifs chronologiques. Un moment peut regrouper plusieurs épisodes lorsqu'ils forment le même arc. Le résultat doit raconter une histoire, pas énumérer les épisodes.
 
-# INPUT SNAPSHOT
-Quick facts:
+# PÉRIMÈTRE DES SPOILERS
+Le public a déjà vu la saison demandée : tu peux en révéler tous les événements. N'utilise aucune information provenant d'une saison ultérieure.
+
+# SOURCES AUTORISÉES
+Informations générales :
 {{seasonQuickFacts}}
 
-Dominant tone and style cues:
+Indications de ton :
 {{toneGuidance}}
 
-Season synopsis:
-{{seasonSummary}}
-
-Episode reference sheet:
+Fragments de preuve disponibles, identifiés par [source-id] et regroupés sous [E<numéro>] :
 {{episodeDetailedList}}
 
-# OUTPUT CONTRACT
-Return **only** a single JSON object with this schema:
-\`\`\`json
-{
-  "cover": {
-    "title": "max 48 characters",
-    "subtitle": "max 90 characters",
-    "logline": "120–160 characters that frame the season mood"
-  },
-  "episodes": [
-    {
-      "episodeNumber": 1,
-      "title": "Episode title (<= 52 chars)",
-      "headline": "Punchy beat (<= 60 chars)",
-      "summary": "180–220 character recap focusing on this episode's key moment.",
-      "tag": "Short thematic tag (<= 18 chars)",
-      "tone": "one-word mood descriptor (e.g. 'hopeful', 'ominous')"
-    }
-  ]
-}
-\`\`\`
+# CRITÈRES DE RÉUSSITE
+- Écris intégralement en français, en conservant les noms propres officiels.
+- Chaque affirmation factuelle doit être déductible des fragments fournis.
+- Ne complète jamais une information absente avec ta mémoire ou une supposition.
+- Chaque moment doit référencer les épisodes qui l'étayent dans episodeNumbers.
+- Chaque moment doit citer dans evidenceIds un ou plusieurs identifiants exacts de fragments qui prouvent sa narration.
+- Ne cite jamais un fragment d'un épisode absent de episodeNumbers.
+- Si deux fragments se contredisent, privilégie official, puis licensed-transcript, puis editorial, puis reference. À niveau égal, reste général au lieu d'arbitrer.
+- imageEpisodeNumber doit désigner l'un de ces épisodes et servir uniquement à choisir une image.
+- Privilégie les causes, décisions, révélations et conséquences importantes.
+- Une narration fait idéalement 180 à 340 caractères ; un titre reste inférieur à 64 caractères.
+- Si les sources sont pauvres, reste général et factuel au lieu d'inventer.
 
-# STRICT RULES
-- The \`episodes\` array **must** contain every episode listed above ({{episodeCount}} entries) in chronological order.
-- Keep all strings plain text (no Markdown, quotes, emojis, spoilers for future seasons, or ALL CAPS SHOUTING).
-- Headlines should feel like slide titles, summaries should read like tight narration.
-- Reuse the provided tone cues to keep wording consistent throughout.
-- If information is missing, acknowledge it briefly rather than inventing details.
+# SORTIE
+Respecte exactement le schéma structuré fourni par l'API. N'ajoute aucun texte hors de cette structure.
 `.trim();
+
+export const recapPromptRequiredVariables = [
+  '{{seasonQuickFacts}}',
+  '{{episodeDetailedList}}',
+  '{{targetBeatCount}}',
+] as const;
+
+export function getMissingRecapPromptVariables(template: string): string[] {
+  return recapPromptRequiredVariables.filter(variable => !template.includes(variable));
+}
+
+export function isRecapPromptCompatible(template: string): boolean {
+  return getMissingRecapPromptVariables(template).length === 0;
+}
