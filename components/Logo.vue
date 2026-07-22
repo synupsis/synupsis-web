@@ -1,57 +1,57 @@
 <template>
-  <router-link to="/" class="flex items-center gap-4">
+  <router-link
+    to="/"
+    :class="[
+      'inline-flex shrink-0 items-center transition-opacity hover:opacity-80',
+      logoClasses.container,
+    ]"
+  >
     <ClientOnly>
-      <img :src="computedLogoUrl" alt="Synupsis Logo" :class="mainLogoClasses" />
-      <img v-if="displayText" :src="computedLogoTextUrl" alt="Synupsis" :class="textLogoClasses" />
+      <img
+        :src="logoWhiteUrl"
+        :alt="displayText ? '' : 'Synupsis'"
+        :class="logoClasses.icon"
+      />
+      <img
+        v-if="displayText"
+        :src="logoTextUrl"
+        alt="Synupsis"
+        :class="logoClasses.wordmark"
+      />
     </ClientOnly>
   </router-link>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import logoDarkUrl from '~/assets/svg/logo_dark.svg';
 import logoWhiteUrl from '~/assets/svg/logo_white.svg';
 import logoTextUrl from '~/assets/svg/logo_text.svg';
 
 const props = withDefaults(defineProps<{
-  variant?: 'dark' | 'white';
   displayText?: boolean;
   size?: 'sm' | 'base' | 'xl';
 }>(), {
-  variant: 'dark',
   displayText: false,
   size: 'base',
 });
 
-const computedLogoUrl = computed(() => {
-  return props.variant === 'white' ? logoWhiteUrl : logoDarkUrl;
-});
+const sizeClasses = {
+  sm: {
+    container: 'gap-2',
+    icon: 'size-8',
+    wordmark: 'h-4 w-auto',
+  },
+  base: {
+    container: 'gap-3',
+    icon: 'size-12',
+    wordmark: 'h-9 w-auto',
+  },
+  xl: {
+    container: 'gap-4',
+    icon: 'size-16',
+    wordmark: 'h-9 w-auto',
+  },
+} as const;
 
-const computedLogoTextUrl = computed(() => {
-  return logoTextUrl;
-});
-
-const mainLogoClasses = computed(() => {
-  switch (props.size) {
-    case 'sm':
-      return 'h-12 w-auto';
-    case 'xl':
-      return 'h-20 w-auto';
-    case 'base':
-    default:
-      return 'h-16 w-auto';
-  }
-});
-
-const textLogoClasses = computed(() => {
-  switch (props.size) {
-    case 'sm':
-      return 'h-8 w-auto';
-    case 'xl':
-      return 'h-12 w-auto';
-    case 'base':
-    default:
-      return 'h-10 w-auto';
-  }
-});
+const logoClasses = computed(() => sizeClasses[props.size]);
 </script>

@@ -1,10 +1,7 @@
 <template>
   <div class="w-full min-h-screen bg-background text-foreground">
     <header class="flex w-full justify-between items-center py-6 px-8 border-b">
-      <router-link to="/" class="flex items-center gap-4">
-        <Logo class="h-12 w-12" />
-        <span class="text-2xl font-bold">Synupsis</span>
-      </router-link>
+      <Logo display-text />
       <UserAuthStatus />
     </header>
     <main class="p-8">

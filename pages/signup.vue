@@ -9,9 +9,7 @@
       <div class="flex flex-col justify-center items-center w-full lg:w-1/2 p-8">
         <div class="max-w-md w-full">
           <div class="flex justify-center mb-8">
-            <router-link to="/">
-              <Logo class="h-24 w-24" />
-            </router-link>
+            <Logo size="xl" />
           </div>
           <h2 class="text-3xl font-bold text-center mb-6">Create an account</h2>
 

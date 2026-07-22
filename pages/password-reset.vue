@@ -2,9 +2,7 @@
   <div class="w-full h-screen flex flex-col items-center justify-center p-4 bg-background">
     <div class="w-full max-w-md">
       <div class="flex justify-center mb-8">
-        <router-link to="/">
-          <Logo class="h-24 w-24" />
-        </router-link>
+        <Logo size="xl" />
       </div>
       <Card>
         <CardHeader class="text-center">

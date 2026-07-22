@@ -4,9 +4,7 @@
       <!-- Header -->
       <header class="flex items-center justify-between p-4 border-b border-border">
         <div class="flex items-center gap-4">
-          <router-link to="/">
-            <Logo variant="white" size="sm" />
-          </router-link>
+          <Logo size="sm" />
           <div>
             <div class="flex items-center gap-2">
               <h1 class="text-lg font-semibold">Recap Editor</h1>

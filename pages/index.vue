@@ -8,7 +8,7 @@
 
     <!-- Header -->
     <header class="relative z-10 flex w-full justify-between items-center py-6 px-8">
-      <Logo class="w-32" display-text />
+      <Logo display-text />
       <UserAuthStatus />
     </header>
 
