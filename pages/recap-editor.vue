@@ -435,7 +435,14 @@ const activeStoryContent = computed<RecapStorySlideContent | null>(() => {
     // Episode slides follow the turning points.
     const episode = story.episodes?.[index - 1 - story.beats.length];
     return episode
-      ? { kind: 'episode', episodeNumber: episode.episodeNumber, headline: episode.headline, moments: episode.moments.map(moment => moment.text) }
+      ? {
+          kind: 'episode',
+          episodeNumber: episode.episodeNumber,
+          headline: episode.headline,
+          moments: episode.moments.map(moment => moment.text),
+          part: episode.part,
+          partCount: episode.partCount,
+        }
       : null;
   }
   return {
@@ -538,7 +545,9 @@ const getSlideLabel = (index: number) => {
   const beat = storyData.value.beats[index - 1];
   if (beat) return beat.headline || `Moment clé ${index}`;
   const episode = storyData.value.episodes?.[index - 1 - storyData.value.beats.length];
-  return episode ? `Épisode ${episode.episodeNumber} · ${episode.headline}` : `Slide ${index + 1}`;
+  if (!episode) return `Slide ${index + 1}`;
+  const part = episode.partCount && episode.partCount > 1 ? ` (${episode.part}/${episode.partCount})` : '';
+  return `Épisode ${episode.episodeNumber}${part} · ${episode.headline}`;
 };
 
 
@@ -767,6 +776,7 @@ function parseStoryData(value: unknown): RecapStory | null {
             };
           }),
           evidenceIds: readStringArray(episode.evidenceIds),
+          ...(Number(episode.partCount) > 1 ? { part: Number(episode.part) || 1, partCount: Number(episode.partCount) } : {}),
         };
       }),
     } : {}),

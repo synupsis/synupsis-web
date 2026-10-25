@@ -6,7 +6,10 @@ Tu es un directeur éditorial spécialisé dans les récits sériels. Tu transfo
 Produis trois parties :
 1. Une couverture.
 2. « L'essentiel » (beats) : environ {{targetBeatCount}} tournants chronologiques de la saison. Un tournant peut regrouper plusieurs épisodes lorsqu'ils forment le même arc.
-3. « Épisode par épisode » (episodes) : pour chaque épisode présent dans les scènes, un titre et 3 à 5 moments clés, dans l'ordre de l'épisode.
+3. « Épisode par épisode » (episodes) : pour chaque épisode présent dans les scènes, un titre et ses moments clés, dans l'ordre de l'épisode, selon l'objectif ci-dessous.
+
+Objectif de moments par épisode (une scène critical ou major par moment) :
+{{episodeMomentTargets}}
 
 # PÉRIMÈTRE DES SPOILERS
 Le public a déjà vu la saison demandée : tu peux en révéler tous les événements. N'utilise aucune information provenant d'une saison ultérieure.
@@ -34,7 +37,7 @@ Scènes vérifiées, identifiées par [id] :
 - Chaque scène d'importance critical doit être citée par au moins un tournant.
 - Une narration de tournant fait idéalement 160 à 300 caractères et ne dépasse jamais 520 caractères.
 - Chaque moment d'épisode est une phrase précise de moins de 220 caractères qui cite dans eventIds les scènes de cet épisode qui la prouvent. Ne cite jamais une scène d'un autre épisode.
-- Chaque scène critical doit aussi être racontée par un moment de son propre épisode, même si un tournant de « L'essentiel » la cite déjà. Choisis ensuite les scènes major les plus marquantes.
+- Chaque scène critical doit aussi être racontée par un moment de son propre épisode, même si un tournant de « L'essentiel » la cite déjà. Raconte ensuite les scènes major, une par moment, jusqu'à l'objectif de l'épisode.
 - Un titre reste inférieur à 90 caractères, un tag à 60 caractères et la logline de couverture à 360 caractères.
 - Ne reviens pas aux sources brutes et ne crée pas de nouvelle scène pendant la rédaction.
 

@@ -66,24 +66,30 @@ export const storyVerificationJsonSchema = {
 
 /** Every reader-facing text of a story, with the scenes it claims to rely on. */
 export function listStoryTexts(story: RecapStory): StoryText[] {
+  // Moments keep their episode-wide position when a dense episode spans two slides.
+  const momentCountByEpisode = new Map<number, number>();
   return [
     { key: 'cover-logline', text: story.cover.logline, eventIds: [] },
     ...story.beats.flatMap((beat, index) => [
       { key: `beat-${index + 1}-headline`, text: beat.headline, eventIds: beat.eventIds },
       { key: `beat-${index + 1}-narration`, text: beat.narration, eventIds: beat.eventIds },
     ]),
-    ...(story.episodes || []).flatMap(episode => [
-      {
-        key: `episode-${episode.episodeNumber}-headline`,
-        text: episode.headline,
-        eventIds: episode.moments.flatMap(moment => moment.eventIds),
-      },
-      ...episode.moments.map((moment, index) => ({
-        key: `episode-${episode.episodeNumber}-moment-${index + 1}`,
-        text: moment.text,
-        eventIds: moment.eventIds,
-      })),
-    ]),
+    ...(story.episodes || []).flatMap((episode) => {
+      const firstMomentNumber = (momentCountByEpisode.get(episode.episodeNumber) ?? 0) + 1;
+      momentCountByEpisode.set(episode.episodeNumber, firstMomentNumber - 1 + episode.moments.length);
+      return [
+        {
+          key: `episode-${episode.episodeNumber}-headline${episode.part && episode.part > 1 ? `-${episode.part}` : ''}`,
+          text: episode.headline,
+          eventIds: episode.moments.flatMap(moment => moment.eventIds),
+        },
+        ...episode.moments.map((moment, index) => ({
+          key: `episode-${episode.episodeNumber}-moment-${firstMomentNumber + index}`,
+          text: moment.text,
+          eventIds: moment.eventIds,
+        })),
+      ];
+    }),
   ];
 }
 

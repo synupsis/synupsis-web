@@ -188,11 +188,16 @@ function validateStoryData(value: unknown): RecapStory | null {
       if (!moments.length) {
         throw createError({ statusCode: 400, statusMessage: `Episode ${episodeNumber} needs at least one moment.` });
       }
+      const partCount = Number(rawEpisode.partCount);
+      const part = Number(rawEpisode.part);
       return {
         episodeNumber,
         headline: readStoryText(rawEpisode.headline, `episode ${episodeNumber} headline`, 90, true),
         moments,
         evidenceIds: readStringArray(rawEpisode.evidenceIds),
+        ...(Number.isInteger(partCount) && partCount > 1 && Number.isInteger(part) && part >= 1 && part <= partCount
+          ? { part, partCount }
+          : {}),
       };
     })
     : undefined;

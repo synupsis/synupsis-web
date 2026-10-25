@@ -176,11 +176,14 @@ function createEpisodeContent(storyEpisode: Record<string, any> | null) {
     .map(moment => String(asObject(moment)?.text || '').trim())
     .filter(Boolean);
   if (!storyEpisode?.headline || !Number.isInteger(episodeNumber) || !moments.length) return null;
+  const partCount = Number(storyEpisode.partCount) || 1;
   return {
     kind: 'episode' as const,
     episodeNumber,
     headline: String(storyEpisode.headline),
     moments,
+    part: Number(storyEpisode.part) || 1,
+    partCount,
   };
 }
 

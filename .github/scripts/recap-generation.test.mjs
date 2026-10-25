@@ -33,11 +33,13 @@ const {
   evaluateRecapStory,
   finalizeRecapStory,
   getEpisodeExtractionTokenBudget,
+  getEpisodeMomentTarget,
   getExtractableEpisodes,
   normalizeRecapEventGraph,
   normalizeRecapStory,
+  splitDenseEpisodes,
 } = await import('../../server/services/recap-generation.ts')
-const { createStoryVerificationPrompt } = await import('../../server/services/recap-story-quality.ts')
+const { createStoryVerificationPrompt, listStoryTexts } = await import('../../server/services/recap-story-quality.ts')
 const {
   createRecapSourceProvider,
   evaluateRecapSourceRights,
@@ -657,14 +659,58 @@ test('bloque un récit dont une affirmation reste non soutenue', () => {
   assert.ok(quality.issues.includes('unsupported_story_claims'))
 })
 
-test('produit des slides ordonnées au format v8', () => {
+test('fixe un objectif de moments par épisode selon ses scènes importantes', () => {
+  const rawEventGraph = createRawEventGraph()
+  rawEventGraph.events.push(...Array.from({ length: 7 }, (_, index) => ({
+    ...rawEventGraph.events[0],
+    id: `event-1${index}`,
+    importance: 'major',
+    causedByEventIds: [],
+    consequenceEventIds: [],
+  })))
+  const eventGraph = normalizeRecapEventGraph(rawEventGraph, snapshot)
+  const prompt = createRecapPrompt(snapshot, eventGraph)
+
+  assert.equal(getEpisodeMomentTarget(eventGraph, 1), 8)
+  assert.equal(getEpisodeMomentTarget(eventGraph, 2), 3)
+  assert.match(prompt, /- Épisode 1 : 8 moments \(répartis automatiquement sur deux slides\)\n- Épisode 2 : 3 moments\n/)
+})
+
+test('répartit un épisode chargé sur deux slides après la vérification', () => {
+  const eventGraph = createEventGraph()
+  const rawStory = createRawStory()
+  rawStory.episodes[0].moments = Array.from({ length: 7 }, (_, index) => ({
+    text: `Personnage 1 vit le moment ${index + 1}.`,
+    eventIds: ['event-001'],
+  }))
+  const draft = normalizeRecapStory(rawStory, snapshot, eventGraph)
+  const { story, quality, slides } = finalizeRecapStory(draft, JSON.stringify({
+    corrections: [{ key: 'episode-1-moment-6', unsupportedClaims: ['un détail'], correctedText: 'Personnage 1 vit le moment corrigé.' }],
+  }), snapshot, eventGraph)
+  const keys = listStoryTexts(story).map(text => text.key)
+
+  assert.deepEqual(
+    story.episodes.slice(0, 3).map(episode => [episode.episodeNumber, episode.part, episode.partCount, episode.moments.length]),
+    [[1, 1, 2, 4], [1, 2, 2, 3], [2, undefined, undefined, 1]],
+  )
+  assert.equal(story.episodes[1].moments[1].text, 'Personnage 1 vit le moment corrigé.')
+  assert.equal(new Set(keys).size, keys.length)
+  assert.ok(keys.includes('episode-1-moment-7'))
+  assert.equal(slides.length, 1 + 5 + 9)
+  assert.ok(slides[6].canvas.children[0].children.some(node => node.children?.some(child => child.attrs?.text === 'Épisode 1 · 1/2')))
+  assert.equal(quality.issues.includes('story_copy_too_long'), false)
+  assert.equal(quality.importantEpisodeCoverage, 1)
+  assert.deepEqual(splitDenseEpisodes(draft).episodes.length, 9)
+})
+
+test('produit des slides ordonnées au format v9', () => {
   const eventGraph = createEventGraph()
   const story = normalizeRecapStory(createRawStory(), snapshot, eventGraph)
   const slides = buildRecapSlides(story, snapshot)
 
   assert.deepEqual(slides.map(slide => slide.order), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])
   assert.ok(slides[6].canvas.children[0].children.some(node => node.attrs?.id === 'group-slide-7-moments'))
-  assert.equal(slides[0].canvas.attrs.formatVersion, 8)
+  assert.equal(slides[0].canvas.attrs.formatVersion, 9)
   assert.equal(slides[0].canvas.attrs.width, 390)
   assert.equal(slides[0].canvas.attrs.height, 844)
   assert.deepEqual(

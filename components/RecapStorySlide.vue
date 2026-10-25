@@ -160,7 +160,10 @@ const displayTag = computed(() => {
 });
 
 const episodeLabel = computed(() => {
-  if (props.content.kind === 'episode') return `Épisode ${props.content.episodeNumber}`;
+  if (props.content.kind === 'episode') {
+    const { episodeNumber, part, partCount } = props.content;
+    return partCount && partCount > 1 ? `Épisode ${episodeNumber} · ${part}/${partCount}` : `Épisode ${episodeNumber}`;
+  }
   if (props.content.kind !== 'beat') return '';
   const numbers = props.content.episodeNumbers;
   return numbers.length === 1 ? `Épisode ${numbers[0]}` : `Épisodes ${numbers.join(' · ')}`;

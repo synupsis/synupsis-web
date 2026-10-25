@@ -151,7 +151,10 @@ const episodeNumbersText = computed(() => (
 ));
 const kindLabel = computed(() => {
   if (props.content.kind === 'cover') return 'Couverture';
-  if (props.content.kind === 'episode') return `Épisode ${props.content.episodeNumber}`;
+  if (props.content.kind === 'episode') {
+    const { episodeNumber, part, partCount } = props.content;
+    return partCount && partCount > 1 ? `Épisode ${episodeNumber} · ${part}/${partCount}` : `Épisode ${episodeNumber}`;
+  }
   return 'Moment clé';
 });
 

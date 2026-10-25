@@ -22,8 +22,8 @@ import type { RecapStory, RecapStoryBeat, RecapStoryEpisode, RecapStoryMoment } 
 
 export type { RecapStory, RecapStoryBeat } from '~/types/recap-story.types';
 
-export const RECAP_FORMAT_VERSION = 8;
-export const RECAP_PROMPT_VERSION = 'recap-story-v8-critical-episodes';
+export const RECAP_FORMAT_VERSION = 9;
+export const RECAP_PROMPT_VERSION = 'recap-story-v9-dense-episodes';
 export const RECAP_EVENT_PROMPT_VERSION = 'recap-scenes-v5-critic';
 export const RECAP_LOCALE = 'fr';
 
@@ -41,7 +41,11 @@ const MAX_SEASON_EVENTS = 300;
 const MIN_QUOTE_WORDS = 4;
 // Below this share of verified scenes, the extraction is paraphrasing instead of quoting.
 const MIN_QUOTE_VERIFICATION_RATIO = 0.75;
-const MAX_MOMENTS_PER_EPISODE = 5;
+// An episode slide stays readable up to five moments; a dense episode gets a
+// second slide, so it can tell up to ten.
+const MAX_MOMENTS_PER_SLIDE = 5;
+const MAX_MOMENTS_PER_EPISODE = 10;
+const MIN_MOMENTS_PER_EPISODE = 3;
 const MAX_MOMENT_CHARS = 240;
 // Share of story texts that must name a character of the scenes they cite.
 const MIN_CHARACTER_MENTION_RATIO = 0.7;
@@ -218,6 +222,8 @@ export type RecapQualityReport = {
   rightsCompliance: number;
   episodeRecapCoverage: number;
   criticalEpisodeCoverage: number;
+  // Share of critical and major scenes told in their own episode slides.
+  importantEpisodeCoverage: number;
   characterMentionRatio: number;
   vaguePhrases: VaguePhrase[];
   claimVerification: StoryClaimVerification | null;
@@ -1095,8 +1101,46 @@ export function createRecapPrompt(
     .replace(/{{seasonQuickFacts}}/g, createSeasonQuickFacts(snapshot))
     .replace(/{{toneGuidance}}/g, deriveToneGuidance(snapshot.show.genres))
     .replace(/{{eventGraph}}/g, eventGraphText)
+    .replace(/{{episodeMomentTargets}}/g, createEpisodeMomentTargets(eventGraph))
     .replace(/{{episodeCount}}/g, String(snapshot.episodes.length))
     .replace(/{{targetBeatCount}}/g, String(targetBeatCount));
+}
+
+/** One moment per critical or major scene, within the readable range of one or two slides. */
+export function getEpisodeMomentTarget(eventGraph: RecapEventGraph, episodeNumber: number): number {
+  const importantScenes = eventGraph.events.filter(event => (
+    event.episodeNumbers.includes(episodeNumber) && event.importance !== 'supporting'
+  )).length;
+  return Math.min(MAX_MOMENTS_PER_EPISODE, Math.max(MIN_MOMENTS_PER_EPISODE, importantScenes));
+}
+
+function createEpisodeMomentTargets(eventGraph: RecapEventGraph): string {
+  const episodeNumbers = [...new Set(eventGraph.events.flatMap(event => event.episodeNumbers))].sort((a, b) => a - b);
+  return episodeNumbers.map((episodeNumber) => {
+    const target = getEpisodeMomentTarget(eventGraph, episodeNumber);
+    return `- Épisode ${episodeNumber} : ${target} moments${target > MAX_MOMENTS_PER_SLIDE ? ' (répartis automatiquement sur deux slides)' : ''}`;
+  }).join('\n');
+}
+
+/**
+ * Splits an episode whose moments exceed one slide into two consecutive
+ * parts, so each story entry still maps to exactly one slide.
+ */
+export function splitDenseEpisodes(story: RecapStory): RecapStory {
+  if (!story.episodes) return story;
+  return {
+    ...story,
+    episodes: story.episodes.flatMap((episode) => {
+      if (episode.moments.length <= MAX_MOMENTS_PER_SLIDE) return [episode];
+      const firstPartLength = Math.ceil(episode.moments.length / 2);
+      return [episode.moments.slice(0, firstPartLength), episode.moments.slice(firstPartLength)].map((moments, index) => ({
+        ...episode,
+        part: index + 1,
+        partCount: 2,
+        moments,
+      }));
+    }),
+  };
 }
 
 export async function startEpisodeExtraction(input: {
@@ -1414,7 +1458,9 @@ export function finalizeRecapStory(
   if (!verificationText) {
     throw new Error('OpenAI returned an empty story verification.');
   }
-  const { story, verification } = applyStoryCorrections(draft, verificationText);
+  const { story: verifiedStory, verification } = applyStoryCorrections(draft, verificationText);
+  // Verification keys follow the draft, so dense episodes are split afterwards.
+  const story = splitDenseEpisodes(verifiedStory);
   const quality = evaluateRecapStory(story, snapshot, eventGraph, eventQuality, verification);
   const slides = buildRecapSlides(story, snapshot);
   return { story, quality, slides };
@@ -1720,7 +1766,8 @@ export function normalizeRecapStory(
           text: sanitizeText(moment?.text),
           eventIds: uniqueIdentifiers(moment?.eventIds, 6),
         }))
-        .filter((moment: RecapStoryMoment) => moment.text);
+        .filter((moment: RecapStoryMoment) => moment.text)
+        .slice(0, MAX_MOMENTS_PER_EPISODE);
       const headline = sanitizeText(value?.headline);
       if (!headline || !moments.length) return null;
       return {
@@ -1802,15 +1849,19 @@ export function evaluateRecapStory(
     episodesWithScenes.size,
   );
   // A turning point must also appear in its own episode slide.
-  const momentEventIdsByEpisode = new Map(storyEpisodes.map(episode => [
-    episode.episodeNumber,
-    new Set(episode.moments.flatMap(moment => moment.eventIds)),
-  ]));
+  // A dense episode spans two story entries: their moments count together.
+  const momentEventIdsByEpisode = new Map<number, Set<string>>();
+  storyEpisodes.forEach((episode) => {
+    const eventIds = momentEventIdsByEpisode.get(episode.episodeNumber) ?? new Set<string>();
+    episode.moments.forEach(moment => moment.eventIds.forEach(id => eventIds.add(id)));
+    momentEventIdsByEpisode.set(episode.episodeNumber, eventIds);
+  });
+  const isToldInItsEpisode = (event: RecapEvent) => Boolean(momentEventIdsByEpisode.get(minimumEpisode(event))?.has(event.id));
+  const importantEpisodeCoverage = majorEvents.length
+    ? ratio(majorEvents.filter(isToldInItsEpisode).length, majorEvents.length)
+    : 1;
   const criticalEpisodeCoverage = criticalEvents.length
-    ? ratio(
-      criticalEvents.filter(event => momentEventIdsByEpisode.get(minimumEpisode(event))?.has(event.id)).length,
-      criticalEvents.length,
-    )
+    ? ratio(criticalEvents.filter(isToldInItsEpisode).length, criticalEvents.length)
     : 1;
   const specificity = measureStorySpecificity(story, eventGraph);
 
@@ -1847,7 +1898,7 @@ export function evaluateRecapStory(
     ))
     || storyEpisodes.some(episode => (
       episode.headline.length > 90
-      || episode.moments.length > MAX_MOMENTS_PER_EPISODE
+      || episode.moments.length > MAX_MOMENTS_PER_SLIDE
       || episode.moments.some(moment => moment.text.length > MAX_MOMENT_CHARS)
     ))
   ) issues.push('story_copy_too_long');
@@ -1894,6 +1945,7 @@ export function evaluateRecapStory(
     rightsCompliance,
     episodeRecapCoverage: roundScore(episodeRecapCoverage),
     criticalEpisodeCoverage: roundScore(criticalEpisodeCoverage),
+    importantEpisodeCoverage: roundScore(importantEpisodeCoverage),
     characterMentionRatio: specificity.characterMentionRatio,
     vaguePhrases: specificity.vaguePhrases,
     claimVerification,
@@ -2124,7 +2176,7 @@ function createEpisodeCanvas(input: {
 
   const badge = createPillGroup({
     id: `group-slide-${input.order}-badge`,
-    text: `Épisode ${input.storyEpisode.episodeNumber}`,
+    text: formatEpisodePartLabel(input.storyEpisode),
     y: currentY,
     palette: input.palette,
     alignRight: false,
@@ -2571,6 +2623,11 @@ function sanitizeIdentifier(value: unknown): string {
     .replace(/[^a-z0-9_-]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 100);
+}
+
+function formatEpisodePartLabel(episode: RecapStoryEpisode): string {
+  const part = episode.partCount && episode.partCount > 1 ? ` · ${episode.part}/${episode.partCount}` : '';
+  return `Épisode ${episode.episodeNumber}${part}`;
 }
 
 function formatEpisodeReferences(episodeNumbers: number[]): string {

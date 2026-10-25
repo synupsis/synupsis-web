@@ -25,6 +25,9 @@ export type RecapStoryEpisode = {
   headline: string;
   moments: RecapStoryMoment[];
   evidenceIds: string[];
+  // A dense episode is told over two consecutive entries, one slide each.
+  part?: number;
+  partCount?: number;
 };
 
 export type RecapStory = {
@@ -48,7 +51,7 @@ export type RecapBeatSlideContent = Pick<
   kind: 'beat';
 };
 
-export type RecapEpisodeSlideContent = Pick<RecapStoryEpisode, 'episodeNumber' | 'headline'> & {
+export type RecapEpisodeSlideContent = Pick<RecapStoryEpisode, 'episodeNumber' | 'headline' | 'part' | 'partCount'> & {
   kind: 'episode';
   moments: string[];
 };
