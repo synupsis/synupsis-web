@@ -2,6 +2,7 @@ import { serverSupabaseClient } from '#supabase/server';
 import type { H3Event } from 'h3';
 import axios from 'axios';
 import type { Database } from '~/types/database.types';
+import { createTraktHeaders } from '~/server/utils/trakt';
 
 export default defineEventHandler(async (event: H3Event) => {
   const supabase = await serverSupabaseClient<Database>(event);
@@ -57,11 +58,7 @@ export default defineEventHandler(async (event: H3Event) => {
       throw new Error('TRAKT_CLIENT_ID is not configured.');
     }
     const traktUrl = `https://api.trakt.tv/shows/${showData.trakt_id}/seasons/${seasonData.number}?extended=full`;
-    const headers = {
-      'Content-Type': 'application/json',
-      'trakt-api-version': '2',
-      'trakt-api-key': clientId
-    };
+    const headers = createTraktHeaders(clientId);
 
     const { data: traktEpisodes } = await axios.get(traktUrl, { headers, timeout: 15_000 });
 

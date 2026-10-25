@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { createTraktHeaders } from '~/server/utils/trakt';
 
 export default defineEventHandler(async event => {
   const { q: query } = getQuery(event);
@@ -14,11 +15,7 @@ export default defineEventHandler(async event => {
     const clientId = process.env.TRAKT_CLIENT_ID;
     const url = `https://api.trakt.tv/search/show?query=${encodeURIComponent(query)}&extended=images`;
 
-    const headers = {
-      'Content-Type': 'application/json',
-      'trakt-api-version': '2',
-      'trakt-api-key': clientId
-    };
+    const headers = createTraktHeaders(clientId);
 
     const { data: searchData } = await axios.get(url, { headers });
 

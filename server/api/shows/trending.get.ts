@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { createTraktHeaders } from '~/server/utils/trakt';
 
 type TraktShowImageSet = {
   poster?: string[];
@@ -47,11 +48,7 @@ export default defineEventHandler(async () => {
     const clientId = process.env.TRAKT_CLIENT_ID;
     const url = 'https://api.trakt.tv/shows/trending?extended=images';
 
-    const headers = {
-      'Content-Type': 'application/json',
-      'trakt-api-version': '2',
-      'trakt-api-key': clientId
-    };
+    const headers = createTraktHeaders(clientId);
 
     const response = await axios.get(url, { headers });
     const shows = Array.isArray(response.data) ? response.data : [];
@@ -69,11 +66,7 @@ export default defineEventHandler(async () => {
       const clientId = process.env.TRAKT_CLIENT_ID;
       const fallbackUrl = 'https://api.trakt.tv/shows/popular?extended=images';
 
-      const headers = {
-        'Content-Type': 'application/json',
-        'trakt-api-version': '2',
-        'trakt-api-key': clientId
-      };
+      const headers = createTraktHeaders(clientId);
 
       const fallbackResponse = await axios.get(fallbackUrl, { headers });
       const fallbackShows = Array.isArray(fallbackResponse.data) ? fallbackResponse.data : [];

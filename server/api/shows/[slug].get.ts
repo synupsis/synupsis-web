@@ -2,6 +2,7 @@ import { serverSupabaseClient } from '#supabase/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '~/types/database.types';
 import axios from 'axios';
+import { createTraktHeaders } from '~/server/utils/trakt';
 
 // Type definitions for clarity
 type SeasonWithRecaps = Database['public']['Tables']['season']['Row'] & {
@@ -43,11 +44,7 @@ async function createShowInDb(supabase: SupabaseClient<Database>, traktShow: any
   // Fetch seasons from Trakt for the newly created show
   const clientId = process.env.TRAKT_CLIENT_ID;
   const seasonsUrl = `https://api.trakt.tv/shows/${ids.trakt}/seasons?extended=full,images`;
-  const headers = {
-    'Content-Type': 'application/json',
-    'trakt-api-version': '2',
-    'trakt-api-key': clientId
-  };
+  const headers = createTraktHeaders(clientId);
   const { data: traktSeasons } = await axios.get(seasonsUrl, { headers });
 
   const seasonsToInsert = traktSeasons.map((s: any) => ({
@@ -90,11 +87,7 @@ export default defineEventHandler(async (event) => {
     } else {
       // 2. If not in DB, fetch from Trakt and create in DB
       const clientId = process.env.TRAKT_CLIENT_ID;
-      const headers = {
-        'Content-Type': 'application/json',
-        'trakt-api-version': '2',
-        'trakt-api-key': clientId
-      };
+      const headers = createTraktHeaders(clientId);
 
       const traktUrl = `https://api.trakt.tv/shows/${traktId}?extended=full,images`;
       const { data: traktShow } = await axios.get(traktUrl, { headers });
@@ -105,11 +98,7 @@ export default defineEventHandler(async (event) => {
 
     // 3. Always fetch cast from Trakt (as it's not stored in DB with show details)
     const clientId = process.env.TRAKT_CLIENT_ID;
-    const headers = {
-      'Content-Type': 'application/json',
-      'trakt-api-version': '2',
-      'trakt-api-key': clientId
-    };
+    const headers = createTraktHeaders(clientId);
     const castUrl = `https://api.trakt.tv/shows/${traktId}/people?extended=images`;
     const { data: traktCast } = await axios.get(castUrl, { headers });
     cast = traktCast.cast; // Assign cast data
