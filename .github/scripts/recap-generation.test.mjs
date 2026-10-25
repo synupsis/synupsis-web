@@ -17,12 +17,16 @@ registerHooks({
 })
 
 const {
+  applyRecoveredScenes,
   applySceneLinks,
   assembleSceneGraph,
   buildRecapSlides,
   createEpisodeExtractionPrompt,
   createRecapPrompt,
+  createSceneCriticPrompt,
   createSceneLinkingPrompt,
+  createSceneRecoveryPrompt,
+  parseCriticGaps,
   describeInsufficientSources,
   evaluateRecapEventGraph,
   evaluateRecapSourceReadiness,
@@ -346,6 +350,59 @@ test('relie les scènes sans ajouter de fait ni de lien vers le futur', () => {
   assert.equal(linked.events[2].description, eventGraph.events[2].description)
 })
 
+test('limite les suggestions du critique aux épisodes connus', () => {
+  const gaps = parseCriticGaps(JSON.stringify({
+    gaps: [
+      { episodeNumber: 1, moment: 'Ned tue Lady.' },
+      { episodeNumber: 1, moment: 'Moment 2.' },
+      { episodeNumber: 1, moment: 'Moment 3.' },
+      { episodeNumber: 1, moment: 'Moment 4 en trop.' },
+      { episodeNumber: 42, moment: 'Épisode inconnu.' },
+      { episodeNumber: 2, moment: '   ' },
+    ],
+  }), snapshot)
+
+  assert.deepEqual(gaps.map(gap => gap.moment), ['Ned tue Lady.', 'Moment 2.', 'Moment 3.'])
+})
+
+test('ajoute seulement les moments du critique que les sources citent mot pour mot', () => {
+  const extracted = assembleSceneGraph(snapshot, new Map([
+    [1, JSON.stringify({ scenes: [createScene(1, 'Les loups sont trouvés'), createScene(1, 'Bran tombe de la tour')] })],
+    [2, JSON.stringify({ scenes: [createScene(2, 'Ned part pour Port-Réal')] })],
+  ]))
+  const gaps = [
+    { episodeNumber: 1, moment: 'Le déserteur est exécuté.' },
+    { episodeNumber: 1, moment: 'Un mariage dothraki.' },
+    { episodeNumber: 2, moment: 'Lady est exécutée.' },
+  ]
+  const pendingGraph = { ...extracted, critic: { status: 'pending', gaps, recoveredScenes: 0, unsupportedGaps: [] } }
+  const criticPrompt = createSceneCriticPrompt(snapshot, extracted)
+  const recoveryPrompt = createSceneRecoveryPrompt(snapshot, snapshot.episodes[0], pendingGraph, gaps.slice(0, 2))
+  const recovered = { ...createScene(1, 'Le déserteur est exécuté'), gapNumber: 1, afterSceneIndex: 0 }
+  const invented = { ...createScene(1, 'Un mariage dothraki', 'Daenerys épouse Khal Drogo devant les Dothrakis'), gapNumber: 2, afterSceneIndex: 2 }
+  const unrequested = { ...createScene(1, 'Une scène non demandée'), gapNumber: 9, afterSceneIndex: 1 }
+
+  const eventGraph = applyRecoveredScenes(snapshot, pendingGraph, new Map([
+    [1, JSON.stringify({ scenes: [recovered, invented, unrequested] })],
+    [2, null],
+  ]))
+
+  assert.match(criticPrompt, /## Épisode 1 · Épisode 1\n- Les loups sont trouvés/)
+  assert.doesNotMatch(criticPrompt, new RegExp(teaserQuote))
+  assert.match(recoveryPrompt, /# MOMENTS SIGNALÉS\n1\. Le déserteur est exécuté\.\n2\. Un mariage dothraki\./)
+  assert.match(recoveryPrompt, /# SCÈNES DÉJÀ EXTRAITES\n1\. Les loups sont trouvés\n2\. Bran tombe de la tour/)
+  assert.deepEqual(
+    eventGraph.events.map(event => [event.id, event.sceneIndex]),
+    [['event-e01-r01', 1], ['event-e01-s01', 2], ['event-e01-s02', 3], ['event-e02-s01', 1]],
+  )
+  assert.equal(eventGraph.critic.status, 'completed')
+  assert.equal(eventGraph.critic.recoveredScenes, 1)
+  assert.deepEqual(eventGraph.critic.unsupportedGaps.map(gap => gap.moment), ['Un mariage dothraki.', 'Lady est exécutée.'])
+  assert.equal(eventGraph.verification.proposedScenes, extracted.verification.proposedScenes + 2)
+  assert.equal(eventGraph.verification.verifiedScenes, extracted.verification.verifiedScenes + 1)
+  assert.equal(eventGraph.verification.rejectedScenes.at(-1).reason, 'quote_not_found')
+})
+
 test('signale un épisode documenté absent de la chronologie', () => {
   const rawEventGraph = createRawEventGraph()
   rawEventGraph.events = rawEventGraph.events.filter(event => event.episodeNumber <= 6)
@@ -515,6 +572,18 @@ test('refuse un récit sans la partie épisode par épisode', () => {
   assert.ok(quality.issues.includes('missing_episode_recaps'))
 })
 
+test('exige que chaque scène décisive soit racontée dans son épisode', () => {
+  const eventGraph = createEventGraph()
+  const rawStory = createRawStory()
+  rawStory.episodes[5].moments = [{ text: 'Personnage 6 hésite longuement.', eventIds: [] }]
+
+  const story = normalizeRecapStory(rawStory, snapshot, eventGraph)
+  const quality = evaluateRecapStory(story, snapshot, eventGraph)
+
+  assert.equal(quality.criticalEpisodeCoverage, 0.5)
+  assert.ok(quality.issues.includes('critical_scenes_missing_from_episodes'))
+})
+
 test('refuse un moment qui cite une scène d’un autre épisode', () => {
   const eventGraph = createEventGraph()
   const rawStory = createRawStory()
@@ -588,14 +657,14 @@ test('bloque un récit dont une affirmation reste non soutenue', () => {
   assert.ok(quality.issues.includes('unsupported_story_claims'))
 })
 
-test('produit des slides ordonnées au format v7', () => {
+test('produit des slides ordonnées au format v8', () => {
   const eventGraph = createEventGraph()
   const story = normalizeRecapStory(createRawStory(), snapshot, eventGraph)
   const slides = buildRecapSlides(story, snapshot)
 
   assert.deepEqual(slides.map(slide => slide.order), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])
   assert.ok(slides[6].canvas.children[0].children.some(node => node.attrs?.id === 'group-slide-7-moments'))
-  assert.equal(slides[0].canvas.attrs.formatVersion, 7)
+  assert.equal(slides[0].canvas.attrs.formatVersion, 8)
   assert.equal(slides[0].canvas.attrs.width, 390)
   assert.equal(slides[0].canvas.attrs.height, 844)
   assert.deepEqual(

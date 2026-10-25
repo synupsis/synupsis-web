@@ -34,6 +34,7 @@ Scènes vérifiées, identifiées par [id] :
 - Chaque scène d'importance critical doit être citée par au moins un tournant.
 - Une narration de tournant fait idéalement 160 à 300 caractères et ne dépasse jamais 520 caractères.
 - Chaque moment d'épisode est une phrase précise de moins de 220 caractères qui cite dans eventIds les scènes de cet épisode qui la prouvent. Ne cite jamais une scène d'un autre épisode.
+- Chaque scène critical doit aussi être racontée par un moment de son propre épisode, même si un tournant de « L'essentiel » la cite déjà. Choisis ensuite les scènes major les plus marquantes.
 - Un titre reste inférieur à 90 caractères, un tag à 60 caractères et la logline de couverture à 360 caractères.
 - Ne reviens pas aux sources brutes et ne crée pas de nouvelle scène pendant la rédaction.
 

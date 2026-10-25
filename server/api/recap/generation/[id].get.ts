@@ -4,21 +4,28 @@ import {
 } from '#supabase/server';
 import type { Database, Json } from '~/types/database.types';
 import type {
+  RecapCriticGap,
   RecapEventGraph,
   RecapSourceSnapshot,
   RecapStory,
 } from '~/server/services/recap-generation';
 import {
+  applyRecoveredScenes,
   applySceneLinks,
   assembleSceneGraph,
   createRecapPrompt,
+  createSceneCriticPrompt,
   createSceneLinkingPrompt,
+  createSceneRecoveryPrompt,
   evaluateRecapEventGraph,
   finalizeRecapStory,
+  parseCriticGaps,
   processRecapDraft,
   retrieveRecapGeneration,
   startRecapGeneration,
+  startSceneCritic,
   startSceneLinking,
+  startSceneRecovery,
   startStoryVerification,
 } from '~/server/services/recap-generation';
 import { createStoryVerificationPrompt } from '~/server/services/recap-story-quality';
@@ -76,9 +83,9 @@ export default defineEventHandler(async (event) => {
       : toPublicJob(job);
   }
 
-  if (job.status === 'generating' && job.generation_phase === 'extracting_events') {
+  if (job.status === 'generating' && ['extracting_events', 'recovering_events'].includes(job.generation_phase)) {
     try {
-      return await collectEpisodeExtractions(service, job);
+      return await collectEpisodeResponses(service, job);
     } catch (error) {
       console.error(`Failed to collect scene extractions for job ${job.id}:`, error);
       const message = error instanceof Error ? error.message : 'Could not collect the episode extractions.';
@@ -93,9 +100,11 @@ export default defineEventHandler(async (event) => {
   try {
     const response = await retrieveRecapGeneration(job.provider_response_id);
     if (response.status === 'queued' || response.status === 'in_progress') {
-      const pendingProgress = job.generation_phase === 'linking_events'
-        ? 58
-        : job.generation_phase === 'verifying_story' ? 75 : 65;
+      const pendingProgress = {
+        critiquing_events: 56,
+        linking_events: 58,
+        verifying_story: 75,
+      }[job.generation_phase] ?? 65;
       if (job.progress < pendingProgress) {
         await service
           .from('recap_generation_job')
@@ -104,6 +113,28 @@ export default defineEventHandler(async (event) => {
           .eq('status', 'generating');
       }
       return { ...toPublicJob(job), progress: Math.max(job.progress, pendingProgress) };
+    }
+
+    if (job.generation_phase === 'critiquing_events') {
+      const snapshot = parseSourceSnapshot(job.source_snapshot);
+      const eventGraph = parseEventGraph(job.event_graph);
+      let gaps: RecapCriticGap[] = [];
+      if (response.status === 'completed') {
+        try {
+          gaps = parseCriticGaps(response.output_text, snapshot);
+        } catch (error) {
+          console.warn(`Critic output of job ${job.id} is unusable; linking the extracted scenes.`, error);
+        }
+      }
+      if (!gaps.length) {
+        return await startLinkingPhase(
+          service,
+          job,
+          snapshot,
+          withCritic(eventGraph, response.status === 'completed' ? 'completed' : 'failed'),
+        );
+      }
+      return await startRecoveryPhase(service, job, snapshot, eventGraph, gaps);
     }
 
     if (job.generation_phase === 'linking_events') {
@@ -225,7 +256,9 @@ export default defineEventHandler(async (event) => {
   }
 });
 
-async function collectEpisodeExtractions(
+// Collects one provider response per episode: scene extraction, then the
+// critic's recovery searches.
+async function collectEpisodeResponses(
   service: ReturnType<typeof serverSupabaseServiceRole<Database>>,
   job: JobRow,
 ) {
@@ -252,12 +285,14 @@ async function collectEpisodeExtractions(
       .from('recap_generation_job')
       .update({
         extraction_results: results as unknown as Json,
-        progress: 40 + Math.round((15 * completedCount) / episodeNumbers.length),
+        progress: job.generation_phase === 'recovering_events'
+          ? 57
+          : 40 + Math.round((15 * completedCount) / episodeNumbers.length),
         updated_at: new Date().toISOString(),
       })
       .eq('id', job.id)
       .eq('status', 'generating')
-      .eq('generation_phase', 'extracting_events')
+      .eq('generation_phase', job.generation_phase)
       .eq('updated_at', job.updated_at)
       .select('*')
       .maybeSingle();
@@ -266,48 +301,174 @@ async function collectEpisodeExtractions(
   }
 
   const snapshot = parseSourceSnapshot(job.source_snapshot);
-  const eventGraph = assembleSceneGraph(snapshot, new Map(episodeNumbers.map((episode) => {
+  const outputs = new Map(episodeNumbers.map((episode) => {
     const result = results[episode];
-    return [Number(episode), result?.status === 'completed' ? result.text : null];
-  })));
-  const { data: linkingJob, error: claimError } = await service
+    return [Number(episode), result?.status === 'completed' ? result.text : null] as const;
+  }));
+
+  if (job.generation_phase === 'recovering_events') {
+    const eventGraph = applyRecoveredScenes(snapshot, parseEventGraph(job.event_graph), outputs);
+    return await startLinkingPhase(service, job, snapshot, eventGraph, { extraction_results: results as unknown as Json });
+  }
+
+  const eventGraph = assembleSceneGraph(snapshot, outputs);
+  return await startSingleResponsePhase(service, job, {
+    phase: 'critiquing_events',
+    progress: 56,
+    eventGraph,
+    extraUpdate: { extraction_results: results as unknown as Json },
+    start: claimedJob => startSceneCritic({
+      prompt: createSceneCriticPrompt(snapshot, eventGraph),
+      model: claimedJob.model,
+      jobId: claimedJob.id,
+    }),
+    // The critic only improves recall: without it, the verified scenes go on to linking.
+    onStartFailure: claimedJob => startLinkingPhase(service, claimedJob, snapshot, withCritic(eventGraph, 'failed')),
+  });
+}
+
+/**
+ * Claims the next phase (guarded by updated_at so a single poll wins), then
+ * starts its provider response.
+ */
+async function startSingleResponsePhase(
+  service: ReturnType<typeof serverSupabaseServiceRole<Database>>,
+  job: JobRow,
+  input: {
+    phase: 'critiquing_events' | 'linking_events';
+    progress: number;
+    eventGraph: RecapEventGraph;
+    extraUpdate?: Database['public']['Tables']['recap_generation_job']['Update'];
+    start: (claimedJob: JobRow) => Promise<{ id: string }>;
+    onStartFailure: (claimedJob: JobRow) => Promise<ReturnType<typeof toPublicJob>>;
+  },
+) {
+  const { data: claimedJob, error: claimError } = await service
     .from('recap_generation_job')
     .update({
-      generation_phase: 'linking_events',
-      progress: 56,
-      extraction_results: results as unknown as Json,
-      event_graph: eventGraph as unknown as Json,
+      ...input.extraUpdate,
+      generation_phase: input.phase,
+      provider_response_id: null,
+      progress: input.progress,
+      event_graph: input.eventGraph as unknown as Json,
       updated_at: new Date().toISOString(),
     })
     .eq('id', job.id)
     .eq('status', 'generating')
-    .eq('generation_phase', 'extracting_events')
+    .eq('generation_phase', job.generation_phase)
     .eq('updated_at', job.updated_at)
     .select('*')
     .maybeSingle();
   if (claimError) throw claimError;
-  if (!linkingJob) return toPublicJob(job);
+  if (!claimedJob) return toPublicJob(job);
 
   try {
-    const providerResponse = await startSceneLinking({
-      prompt: createSceneLinkingPrompt(snapshot, eventGraph),
-      model: linkingJob.model,
-      jobId: linkingJob.id,
-    });
+    const providerResponse = await input.start(claimedJob);
     const { data: waitingJob, error } = await service
       .from('recap_generation_job')
-      .update({ provider_response_id: providerResponse.id, progress: 58, updated_at: new Date().toISOString() })
+      .update({ provider_response_id: providerResponse.id, progress: input.progress + 1, updated_at: new Date().toISOString() })
       .eq('id', job.id)
-      .eq('generation_phase', 'linking_events')
+      .eq('generation_phase', input.phase)
       .is('provider_response_id', null)
       .select('*')
       .maybeSingle();
     if (error) throw error;
-    return toPublicJob(waitingJob ?? linkingJob);
+    return toPublicJob(waitingJob ?? claimedJob);
   } catch (error) {
-    console.warn(`Scene linking could not start for job ${job.id}; keeping unlinked scenes.`, error);
-    return await finishEventGraph(service, linkingJob, snapshot, { ...eventGraph, linking: 'failed' });
+    console.warn(`The ${input.phase} phase could not start for job ${job.id}.`, error);
+    return await input.onStartFailure(claimedJob);
   }
+}
+
+function startLinkingPhase(
+  service: ReturnType<typeof serverSupabaseServiceRole<Database>>,
+  job: JobRow,
+  snapshot: RecapSourceSnapshot,
+  eventGraph: RecapEventGraph,
+  extraUpdate?: Database['public']['Tables']['recap_generation_job']['Update'],
+) {
+  return startSingleResponsePhase(service, job, {
+    phase: 'linking_events',
+    progress: 58,
+    eventGraph,
+    extraUpdate,
+    start: claimedJob => startSceneLinking({
+      prompt: createSceneLinkingPrompt(snapshot, eventGraph),
+      model: claimedJob.model,
+      jobId: claimedJob.id,
+    }),
+    onStartFailure: claimedJob => finishEventGraph(service, claimedJob, snapshot, { ...eventGraph, linking: 'failed' }),
+  });
+}
+
+async function startRecoveryPhase(
+  service: ReturnType<typeof serverSupabaseServiceRole<Database>>,
+  job: JobRow,
+  snapshot: RecapSourceSnapshot,
+  eventGraph: RecapEventGraph,
+  gaps: RecapCriticGap[],
+) {
+  // Lease: only the poll that bumps updated_at starts the recovery responses.
+  const { data: leasedJob, error: leaseError } = await service
+    .from('recap_generation_job')
+    .update({ updated_at: new Date().toISOString() })
+    .eq('id', job.id)
+    .eq('status', 'generating')
+    .eq('generation_phase', 'critiquing_events')
+    .eq('updated_at', job.updated_at)
+    .select('*')
+    .maybeSingle();
+  if (leaseError) throw leaseError;
+  if (!leasedJob) return toPublicJob(job);
+
+  const pendingGraph: RecapEventGraph = {
+    ...eventGraph,
+    critic: { status: 'pending', gaps, recoveredScenes: 0, unsupportedGaps: [] },
+  };
+  try {
+    const recoveryResponses = Object.fromEntries(await Promise.all(
+      snapshot.episodes
+        .filter(episode => gaps.some(gap => gap.episodeNumber === episode.number))
+        .map(async (episode) => {
+          const providerResponse = await startSceneRecovery({
+            prompt: createSceneRecoveryPrompt(snapshot, episode, pendingGraph, gaps.filter(gap => gap.episodeNumber === episode.number)),
+            model: leasedJob.model,
+            jobId: leasedJob.id,
+            episodeNumber: episode.number,
+          });
+          return [String(episode.number), providerResponse.id] as const;
+        }),
+    ));
+    const { data: recoveringJob, error } = await service
+      .from('recap_generation_job')
+      .update({
+        generation_phase: 'recovering_events',
+        provider_response_id: null,
+        extraction_responses: recoveryResponses,
+        extraction_results: {},
+        event_graph: pendingGraph as unknown as Json,
+        progress: 57,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', job.id)
+      .eq('generation_phase', 'critiquing_events')
+      .eq('updated_at', leasedJob.updated_at)
+      .select('*')
+      .maybeSingle();
+    if (error) throw error;
+    return toPublicJob(recoveringJob ?? leasedJob);
+  } catch (error) {
+    console.warn(`Scene recovery could not start for job ${job.id}; linking the extracted scenes.`, error);
+    return await startLinkingPhase(service, leasedJob, snapshot, withCritic(eventGraph, 'failed', gaps));
+  }
+}
+
+function withCritic(
+  eventGraph: RecapEventGraph,
+  status: 'completed' | 'failed',
+  gaps: RecapCriticGap[] = [],
+): RecapEventGraph {
+  return { ...eventGraph, critic: { status, gaps, recoveredScenes: 0, unsupportedGaps: gaps } };
 }
 
 async function startVerificationPhase(
