@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "instructions": "Pour chaque saison, liste les scènes qu'un spectateur doit retrouver pour se rappeler l'épisode (3 à 5 par épisode). Une scène = un fait précis : qui fait quoi, à qui. Les saisons au statut draft doivent être relues avant de servir de référence ; une liste vide est ignorée par le script.",
+  "seasons": [
+    {
+      "show": "Game of Thrones",
+      "traktId": 1390,
+      "season": 1,
+      "status": "draft",
+      "mustHave": [
+        { "id": "got1-e1-deserter", "episode": 1, "scene": "Ned Stark exécute un déserteur de la Garde de Nuit." },
+        { "id": "got1-e1-direwolves", "episode": 1, "scene": "Les Stark trouvent une portée de louveteaux et en donnent un à chaque enfant." },
+        { "id": "got1-e1-wedding", "episode": 1, "scene": "Daenerys épouse Khal Drogo, mariage arrangé par Viserys." },
+        { "id": "got1-e1-bran-fall", "episode": 1, "scene": "Bran surprend Jaime et Cersei ; Jaime le pousse du haut de la tour." },
+        { "id": "got1-e2-assassin", "episode": 2, "scene": "Un assassin tente de tuer Bran ; Catelyn est sauvée par le loup de Bran." },
+        { "id": "got1-e2-lady", "episode": 2, "scene": "Après l'incident entre Arya et Joffrey, Lady, la louve de Sansa, est exécutée par Ned." },
+        { "id": "got1-e2-mycah", "episode": 2, "scene": "Le Limier tue Mycah, le garçon boucher ami d'Arya." },
+        { "id": "got1-e3-debts", "episode": 3, "scene": "Au Conseil restreint, Ned découvre que la Couronne est lourdement endettée." },
+        { "id": "got1-e3-dagger", "episode": 3, "scene": "Littlefinger affirme que la dague de l'assassin appartenait à Tyrion." },
+        { "id": "got1-e3-syrio", "episode": 3, "scene": "Ned engage Syrio Forel pour apprendre l'escrime à Arya." },
+        { "id": "got1-e4-arrest", "episode": 4, "scene": "Catelyn fait arrêter Tyrion dans une auberge." },
+        { "id": "got1-e4-gendry", "episode": 4, "scene": "Ned rencontre Gendry, un bâtard de Robert, en enquêtant sur la mort de Jon Arryn." },
+        { "id": "got1-e4-sam", "episode": 4, "scene": "Jon prend la défense de Samwell Tarly au Mur." },
+        { "id": "got1-e5-resign", "episode": 5, "scene": "Ned démissionne de sa charge de Main quand Robert ordonne l'assassinat de Daenerys." },
+        { "id": "got1-e5-jaime", "episode": 5, "scene": "Jaime attaque Ned et ses hommes dans les rues de Port-Réal." },
+        { "id": "got1-e5-eyrie", "episode": 5, "scene": "Catelyn conduit Tyrion prisonnier aux Eyrié, chez Lysa Arryn." },
+        { "id": "got1-e6-trial", "episode": 6, "scene": "Tyrion obtient un duel judiciaire et Bronn le remporte pour lui." },
+        { "id": "got1-e6-viserys", "episode": 6, "scene": "Khal Drogo tue Viserys en lui versant de l'or fondu sur la tête." },
+        { "id": "got1-e6-heart", "episode": 6, "scene": "Daenerys mange un cœur de cheval lors d'une cérémonie dothrakie." },
+        { "id": "got1-e7-boar", "episode": 7, "scene": "Robert est mortellement blessé par un sanglier pendant une chasse." },
+        { "id": "got1-e7-cersei", "episode": 7, "scene": "Ned confronte Cersei au sujet de la filiation de ses enfants." },
+        { "id": "got1-e7-betrayal", "episode": 7, "scene": "Littlefinger trahit Ned dans la salle du trône et Ned est arrêté." },
+        { "id": "got1-e7-drogo-vow", "episode": 7, "scene": "Après une tentative d'empoisonnement de Daenerys, Drogo jure de conquérir les Sept Couronnes." },
+        { "id": "got1-e8-syrio", "episode": 8, "scene": "Syrio Forel affronte des gardes Lannister pour qu'Arya puisse s'enfuir." },
+        { "id": "got1-e8-banners", "episode": 8, "scene": "Robb rassemble les armées du Nord pour marcher vers le sud." },
+        { "id": "got1-e8-wight", "episode": 8, "scene": "Jon détruit un mort-vivant qui attaque le Lord Commandant Mormont." },
+        { "id": "got1-e9-execution", "episode": 9, "scene": "Joffrey fait décapiter Ned malgré ses aveux publics." },
+        { "id": "got1-e9-jaime-captured", "episode": 9, "scene": "Robb capture Jaime Lannister grâce à une ruse." },
+        { "id": "got1-e9-frey", "episode": 9, "scene": "Catelyn négocie le passage des Jumeaux avec Walder Frey contre des mariages." },
+        { "id": "got1-e9-blood-magic", "episode": 9, "scene": "Daenerys demande à Mirri Maz Duur de sauver Drogo par la magie du sang." },
+        { "id": "got1-e10-king", "episode": 10, "scene": "Les seigneurs du Nord proclament Robb Roi du Nord." },
+        { "id": "got1-e10-dragons", "episode": 10, "scene": "Daenerys sort indemne du bûcher de Drogo avec trois dragons." },
+        { "id": "got1-e10-arya", "episode": 10, "scene": "Arya quitte Port-Réal avec Yoren, déguisée en garçon." }
+      ]
+    },
+    {
+      "show": "Dark",
+      "traktId": 123775,
+      "season": 1,
+      "status": "todo",
+      "mustHave": []
+    },
+    {
+      "show": "The Bear",
+      "traktId": 189717,
+      "season": 1,
+      "status": "todo",
+      "mustHave": []
+    }
+  ]
+}

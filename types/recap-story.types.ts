@@ -14,11 +14,26 @@ export type RecapStoryBeat = {
   evidenceIds: string[];
 };
 
+export type RecapStoryMoment = {
+  text: string;
+  eventIds: string[];
+};
+
+/** "Épisode par épisode": the key scenes of one episode, after the season's turning points. */
+export type RecapStoryEpisode = {
+  episodeNumber: number;
+  headline: string;
+  moments: RecapStoryMoment[];
+  evidenceIds: string[];
+};
+
 export type RecapStory = {
   locale: string;
   spoilerScope: 'through-season';
   cover: RecapStoryCover;
   beats: RecapStoryBeat[];
+  // Absent from recaps generated before format version 7.
+  episodes?: RecapStoryEpisode[];
 };
 
 export type RecapCoverSlideContent = RecapStoryCover & {
@@ -33,4 +48,9 @@ export type RecapBeatSlideContent = Pick<
   kind: 'beat';
 };
 
-export type RecapStorySlideContent = RecapCoverSlideContent | RecapBeatSlideContent;
+export type RecapEpisodeSlideContent = Pick<RecapStoryEpisode, 'episodeNumber' | 'headline'> & {
+  kind: 'episode';
+  moments: string[];
+};
+
+export type RecapStorySlideContent = RecapCoverSlideContent | RecapBeatSlideContent | RecapEpisodeSlideContent;

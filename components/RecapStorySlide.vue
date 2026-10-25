@@ -63,7 +63,27 @@
           </span>
         </div>
 
-        <div class="mt-auto min-h-0">
+        <div v-if="content.kind === 'episode'" class="mt-auto min-h-0">
+          <div class="mb-4 flex items-center gap-3">
+            <span class="h-1.5 w-1.5 rounded-full" :style="{ backgroundColor: accentColor }" />
+            <p class="text-[11px] font-semibold uppercase tracking-[0.19em]" :style="{ color: accentColor }">
+              Épisode par épisode
+            </p>
+          </div>
+
+          <h2 class="recap-beat-title max-w-[14ch] text-[30px] font-bold leading-[1.04] tracking-[-0.03em] sm:text-[34px]">
+            {{ content.headline }}
+          </h2>
+
+          <ul class="mt-5 space-y-3 rounded-[22px] border border-white/[0.12] bg-black/45 p-5 shadow-2xl backdrop-blur-xl">
+            <li v-for="(moment, index) in content.moments" :key="index" class="recap-moment flex gap-3 text-white/90">
+              <span class="mt-[0.55em] h-1.5 w-1.5 shrink-0 rounded-full" :style="{ backgroundColor: accentColor }" aria-hidden="true" />
+              <span>{{ moment }}</span>
+            </li>
+          </ul>
+        </div>
+
+        <div v-else class="mt-auto min-h-0">
           <div class="mb-4 flex items-center gap-3">
             <span class="h-1.5 w-1.5 rounded-full" :style="{ backgroundColor: accentColor }" />
             <p class="text-[11px] font-semibold uppercase tracking-[0.19em]" :style="{ color: accentColor }">
@@ -115,8 +135,11 @@ const densityClass = computed(() => {
       ? 'density-cover density-cover-high'
       : 'density-cover';
   }
-  if (props.content.narration.length > 420) return 'density-high';
-  if (props.content.narration.length > 300) return 'density-medium';
+  const length = props.content.kind === 'episode'
+    ? props.content.moments.join(' ').length * 0.75
+    : props.content.narration.length;
+  if (length > 420) return 'density-high';
+  if (length > 300) return 'density-medium';
   return 'density-comfortable';
 });
 
@@ -137,6 +160,7 @@ const displayTag = computed(() => {
 });
 
 const episodeLabel = computed(() => {
+  if (props.content.kind === 'episode') return `Épisode ${props.content.episodeNumber}`;
   if (props.content.kind !== 'beat') return '';
   const numbers = props.content.episodeNumbers;
   return numbers.length === 1 ? `Épisode ${numbers[0]}` : `Épisodes ${numbers.join(' · ')}`;
@@ -164,6 +188,20 @@ function looksArtificiallyTruncated(value: string): boolean {
 .density-high .recap-narration {
   font-size: 14px;
   line-height: 1.48;
+}
+
+.recap-moment {
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.density-medium .recap-moment {
+  font-size: 15px;
+}
+
+.density-high .recap-moment {
+  font-size: 13.5px;
+  line-height: 1.42;
 }
 
 .density-high .recap-beat-title {

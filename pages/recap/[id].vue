@@ -202,20 +202,9 @@ import SpinLoader from '~/components/ui/SpinLoader.vue';
 import RecapCanvas from '~/components/RecapCanvas.client.vue';
 import RecapStorySlide from '~/components/RecapStorySlide.vue';
 import type { Json } from '~/types/database.types';
+import type { RecapStorySlideContent } from '~/types/recap-story.types';
 
-type SlideContent = {
-  kind: 'cover';
-  title: string;
-  subtitle: string;
-  logline: string;
-  episodeCount: number;
-} | {
-  kind: 'beat';
-  headline: string;
-  narration: string;
-  tag: string;
-  episodeNumbers: number[];
-};
+type SlideContent = RecapStorySlideContent;
 
 type RecapResponse = {
   id: string;

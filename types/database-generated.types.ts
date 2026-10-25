@@ -110,6 +110,8 @@ export type Database = {
           error_code: string | null
           error_message: string | null
           event_graph: Json | null
+          extraction_responses: Json | null
+          extraction_results: Json | null
           format_version: number
           generation_phase: string
           id: string
@@ -137,6 +139,8 @@ export type Database = {
           error_code?: string | null
           error_message?: string | null
           event_graph?: Json | null
+          extraction_responses?: Json | null
+          extraction_results?: Json | null
           format_version?: number
           generation_phase?: string
           id?: string
@@ -164,6 +168,8 @@ export type Database = {
           error_code?: string | null
           error_message?: string | null
           event_graph?: Json | null
+          extraction_responses?: Json | null
+          extraction_results?: Json | null
           format_version?: number
           generation_phase?: string
           id?: string

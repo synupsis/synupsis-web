@@ -3,7 +3,7 @@
     <div class="space-y-1">
       <div class="flex items-center justify-between gap-3">
         <h2 class="text-xl font-semibold tracking-tight">Contenu</h2>
-        <Badge variant="secondary">{{ content.kind === 'cover' ? 'Couverture' : 'Moment clé' }}</Badge>
+        <Badge variant="secondary">{{ kindLabel }}</Badge>
       </div>
       <p class="text-xs leading-relaxed text-muted-foreground">
         Ce texte est celui qui sera réellement affiché dans le lecteur public.
@@ -31,6 +31,25 @@
           multiline
           :rows="6"
           @update:model-value="updateCover('logline', $event)"
+        />
+      </template>
+
+      <template v-else-if="content.kind === 'episode'">
+        <StoryField
+          label="Titre de l’épisode"
+          :model-value="content.headline"
+          :limit="90"
+          @update:model-value="updateEpisodeHeadline($event)"
+        />
+        <StoryField
+          v-for="(moment, index) in content.moments"
+          :key="index"
+          :label="`Moment ${index + 1}`"
+          :model-value="moment"
+          :limit="240"
+          multiline
+          :rows="4"
+          @update:model-value="updateEpisodeMoment(index, $event)"
         />
       </template>
 
@@ -84,6 +103,7 @@ import { Textarea } from '~/components/shadcn/textarea';
 import type {
   RecapBeatSlideContent,
   RecapCoverSlideContent,
+  RecapEpisodeSlideContent,
   RecapStorySlideContent,
 } from '~/types/recap-story.types';
 
@@ -129,6 +149,23 @@ const StoryField = defineComponent({
 const episodeNumbersText = computed(() => (
   props.content.kind === 'beat' ? props.content.episodeNumbers.join(', ') : ''
 ));
+const kindLabel = computed(() => {
+  if (props.content.kind === 'cover') return 'Couverture';
+  if (props.content.kind === 'episode') return `Épisode ${props.content.episodeNumber}`;
+  return 'Moment clé';
+});
+
+function updateEpisodeHeadline(value: string | number) {
+  if (props.content.kind !== 'episode') return;
+  emit('update', { ...props.content, headline: String(value) });
+}
+
+function updateEpisodeMoment(index: number, value: string | number) {
+  if (props.content.kind !== 'episode') return;
+  const moments = [...props.content.moments];
+  moments[index] = String(value);
+  emit('update', { ...props.content, moments } satisfies RecapEpisodeSlideContent);
+}
 
 function updateCover(key: keyof RecapStoryCoverEditable, value: string | number) {
   if (props.content.kind !== 'cover') return;

@@ -45,6 +45,7 @@ export default defineEventHandler(async event => {
   const providers = Array.isArray(sourceSnapshot?.providers) ? sourceSnapshot.providers : [];
   const episodes = Array.isArray(sourceSnapshot?.episodes) ? sourceSnapshot.episodes : [];
   const beats = Array.isArray(story?.beats) ? story.beats : [];
+  const storyEpisodes = Array.isArray(story?.episodes) ? story.episodes : [];
   const events = Array.isArray(eventGraph?.events) ? eventGraph.events : [];
   const providerById = new Map(providers.map((provider) => {
     const value = asObject(provider);
@@ -73,15 +74,22 @@ export default defineEventHandler(async event => {
   });
 
   const slides = recap.slides.map((slide) => {
-    const beat = slide.order > 1 ? asObject(beats[slide.order - 2]) : null;
-    const evidenceIds = Array.isArray(beat?.evidenceIds) ? beat.evidenceIds.map(String) : [];
-    const eventIds = Array.isArray(beat?.eventIds) ? beat.eventIds.map(String) : [];
+    // Slides follow the story: cover, then the turning points, then one slide per episode.
+    const beatIndex = slide.order - 2;
+    const beat = slide.order > 1 && beatIndex < beats.length ? asObject(beats[beatIndex]) : null;
+    const storyEpisode = beatIndex >= beats.length ? asObject(storyEpisodes[beatIndex - beats.length]) : null;
+    const moments = Array.isArray(storyEpisode?.moments) ? storyEpisode.moments.map(asObject) : [];
+    const slideSource = beat ?? storyEpisode;
+    const evidenceIds = Array.isArray(slideSource?.evidenceIds) ? slideSource.evidenceIds.map(String) : [];
+    const eventIds = beat
+      ? (Array.isArray(beat.eventIds) ? beat.eventIds.map(String) : [])
+      : [...new Set(moments.flatMap(moment => (Array.isArray(moment?.eventIds) ? moment.eventIds.map(String) : [])))];
     return {
       ...slide,
       image_url: extractCanvasImageUrl(slide.canvas_data),
       content: slide.order === 1
         ? createCoverContent(story, episodes.length)
-        : createBeatContent(beat),
+        : beat ? createBeatContent(beat) : createEpisodeContent(storyEpisode),
       events: eventIds.map((id) => {
         const storyEvent = eventById.get(id);
         return storyEvent ? {
@@ -159,6 +167,20 @@ function createBeatContent(beat: Record<string, any> | null) {
     episodeNumbers: Array.isArray(beat.episodeNumbers)
       ? beat.episodeNumbers.map(Number).filter(Number.isInteger)
       : [],
+  };
+}
+
+function createEpisodeContent(storyEpisode: Record<string, any> | null) {
+  const episodeNumber = Number(storyEpisode?.episodeNumber);
+  const moments = (Array.isArray(storyEpisode?.moments) ? storyEpisode.moments : [])
+    .map(moment => String(asObject(moment)?.text || '').trim())
+    .filter(Boolean);
+  if (!storyEpisode?.headline || !Number.isInteger(episodeNumber) || !moments.length) return null;
+  return {
+    kind: 'episode' as const,
+    episodeNumber,
+    headline: String(storyEpisode.headline),
+    moments,
   };
 }
 

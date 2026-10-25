@@ -6,16 +6,29 @@ import type { Database, Json } from '~/types/database.types';
 import type {
   RecapEventGraph,
   RecapSourceSnapshot,
+  RecapStory,
 } from '~/server/services/recap-generation';
 import {
+  applySceneLinks,
+  assembleSceneGraph,
   createRecapPrompt,
-  processRecapResponse,
-  processEventGraphResponse,
+  createSceneLinkingPrompt,
+  evaluateRecapEventGraph,
+  finalizeRecapStory,
+  processRecapDraft,
   retrieveRecapGeneration,
   startRecapGeneration,
+  startSceneLinking,
+  startStoryVerification,
 } from '~/server/services/recap-generation';
+import { createStoryVerificationPrompt } from '~/server/services/recap-story-quality';
 
 const TERMINAL_STATUSES = new Set(['completed', 'failed', 'cancelled', 'needs_review']);
+// Each check queries one provider response per episode: space them out.
+const EXTRACTION_POLL_INTERVAL_MS = 4_000;
+
+type JobRow = Database['public']['Tables']['recap_generation_job']['Row'];
+type ExtractionResult = { status: 'completed'; text: string } | { status: 'failed'; error: string };
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event);
@@ -63,6 +76,16 @@ export default defineEventHandler(async (event) => {
       : toPublicJob(job);
   }
 
+  if (job.status === 'generating' && job.generation_phase === 'extracting_events') {
+    try {
+      return await collectEpisodeExtractions(service, job);
+    } catch (error) {
+      console.error(`Failed to collect scene extractions for job ${job.id}:`, error);
+      const message = error instanceof Error ? error.message : 'Could not collect the episode extractions.';
+      return await failJob(service, job.id, 'scene_extraction_failed', message);
+    }
+  }
+
   if (job.status !== 'generating' || !job.provider_response_id) {
     return toPublicJob(job);
   }
@@ -70,7 +93,9 @@ export default defineEventHandler(async (event) => {
   try {
     const response = await retrieveRecapGeneration(job.provider_response_id);
     if (response.status === 'queued' || response.status === 'in_progress') {
-      const pendingProgress = job.generation_phase === 'extracting_events' ? 45 : 65;
+      const pendingProgress = job.generation_phase === 'linking_events'
+        ? 58
+        : job.generation_phase === 'verifying_story' ? 75 : 65;
       if (job.progress < pendingProgress) {
         await service
           .from('recap_generation_job')
@@ -81,65 +106,40 @@ export default defineEventHandler(async (event) => {
       return { ...toPublicJob(job), progress: Math.max(job.progress, pendingProgress) };
     }
 
-    if (response.status !== 'completed') {
-      const providerError = response.error?.message || `OpenAI response ended with status ${response.status}.`;
-      return await failJob(service, job.id, 'provider_response_failed', providerError);
+    if (job.generation_phase === 'linking_events') {
+      // Links only add arcs, causes and aliases: a failed pass keeps the verified scenes.
+      const snapshot = parseSourceSnapshot(job.source_snapshot);
+      const eventGraph = parseEventGraph(job.event_graph);
+      let linkedGraph: RecapEventGraph = { ...eventGraph, linking: 'failed' };
+      if (response.status === 'completed') {
+        try {
+          linkedGraph = applySceneLinks(eventGraph, response.output_text);
+        } catch (error) {
+          console.warn(`Scene links of job ${job.id} are unusable; keeping unlinked scenes.`, error);
+        }
+      }
+      return await finishEventGraph(service, job, snapshot, linkedGraph);
     }
 
-    if (job.generation_phase === 'extracting_events') {
-      const snapshot = parseSourceSnapshot(job.source_snapshot);
-      const { eventGraph, quality } = processEventGraphResponse(response.output_text, snapshot);
+    if (response.status !== 'completed') {
+      const providerError = response.error?.message || `OpenAI response ended with status ${response.status}.`;
+      // An unverified story is never published.
+      const errorCode = job.generation_phase === 'verifying_story' ? 'story_verification_failed' : 'provider_response_failed';
+      return await failJob(service, job.id, errorCode, providerError);
+    }
 
-      if (!quality.publishable) {
-        const { data: reviewJob, error: reviewError } = await service
-          .from('recap_generation_job')
-          .update({
-            status: 'needs_review',
-            progress: 100,
-            event_graph: eventGraph as unknown as Json,
-            quality_report: { stage: 'event_graph', ...quality } as unknown as Json,
-            error_code: 'event_quality_gate_failed',
-            error_message: `Event quality gate failed: ${quality.issues.join(', ')}`,
-            completed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', job.id)
-          .eq('status', 'generating')
-          .eq('generation_phase', 'extracting_events')
-          .select('*')
-          .maybeSingle();
-        if (reviewError) throw reviewError;
-        return reviewJob ? toPublicJob(reviewJob) : toPublicJob(job);
-      }
-
-      const { data: claimedEventJob, error: claimError } = await service
-        .from('recap_generation_job')
-        .update({
-          generation_phase: 'preparing_story',
-          progress: 52,
-          event_graph: eventGraph as unknown as Json,
-          quality_report: { stage: 'event_graph', ...quality } as unknown as Json,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', job.id)
-        .eq('status', 'generating')
-        .eq('generation_phase', 'extracting_events')
-        .select('*')
-        .maybeSingle();
-      if (claimError) throw claimError;
-      return claimedEventJob
-        ? await startStoryPhase(service, claimedEventJob)
-        : toPublicJob(job);
+    if (job.generation_phase === 'writing_story') {
+      return await startVerificationPhase(service, job, response.output_text);
     }
 
     // Claim finalization. If another poll request already claimed it, this
     // request simply returns the latest persisted state.
     const { data: claimedJob } = await service
       .from('recap_generation_job')
-      .update({ status: 'validating', progress: 70, updated_at: new Date().toISOString() })
+      .update({ status: 'validating', progress: 80, updated_at: new Date().toISOString() })
       .eq('id', job.id)
       .eq('status', 'generating')
-      .eq('generation_phase', 'writing_story')
+      .eq('generation_phase', 'verifying_story')
       .select('id')
       .maybeSingle();
 
@@ -154,7 +154,8 @@ export default defineEventHandler(async (event) => {
 
     const snapshot = parseSourceSnapshot(job.source_snapshot);
     const eventGraph = parseEventGraph(job.event_graph);
-    const { story, quality, slides } = processRecapResponse(response.output_text, snapshot, eventGraph);
+    const draft = parseStoryDraft(job.story_data);
+    const { story, quality, slides } = finalizeRecapStory(draft, response.output_text, snapshot, eventGraph);
 
     if (!quality.publishable) {
       const { data: reviewJob, error: reviewError } = await service
@@ -224,9 +225,194 @@ export default defineEventHandler(async (event) => {
   }
 });
 
+async function collectEpisodeExtractions(
+  service: ReturnType<typeof serverSupabaseServiceRole<Database>>,
+  job: JobRow,
+) {
+  const responses = toStringRecord(job.extraction_responses);
+  const episodeNumbers = Object.keys(responses);
+  if (!episodeNumbers.length) throw new Error('The generation job has no episode extraction.');
+  if (Date.now() - new Date(job.updated_at).getTime() < EXTRACTION_POLL_INTERVAL_MS) {
+    return toPublicJob(job);
+  }
+
+  const results = toExtractionResults(job.extraction_results);
+  await Promise.all(episodeNumbers.filter(episode => !results[episode]).map(async (episode) => {
+    const response = await retrieveRecapGeneration(responses[episode] as string);
+    if (response.status === 'queued' || response.status === 'in_progress') return;
+    results[episode] = response.status === 'completed'
+      ? { status: 'completed', text: response.output_text }
+      : { status: 'failed', error: response.error?.message || response.incomplete_details?.reason || String(response.status) };
+  }));
+
+  const completedCount = episodeNumbers.filter(episode => results[episode]).length;
+  if (completedCount < episodeNumbers.length) {
+    // The updated_at guard keeps a concurrent poll from overwriting newer results.
+    const { data: updatedJob, error } = await service
+      .from('recap_generation_job')
+      .update({
+        extraction_results: results as unknown as Json,
+        progress: 40 + Math.round((15 * completedCount) / episodeNumbers.length),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', job.id)
+      .eq('status', 'generating')
+      .eq('generation_phase', 'extracting_events')
+      .eq('updated_at', job.updated_at)
+      .select('*')
+      .maybeSingle();
+    if (error) throw error;
+    return toPublicJob(updatedJob ?? job);
+  }
+
+  const snapshot = parseSourceSnapshot(job.source_snapshot);
+  const eventGraph = assembleSceneGraph(snapshot, new Map(episodeNumbers.map((episode) => {
+    const result = results[episode];
+    return [Number(episode), result?.status === 'completed' ? result.text : null];
+  })));
+  const { data: linkingJob, error: claimError } = await service
+    .from('recap_generation_job')
+    .update({
+      generation_phase: 'linking_events',
+      progress: 56,
+      extraction_results: results as unknown as Json,
+      event_graph: eventGraph as unknown as Json,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', job.id)
+    .eq('status', 'generating')
+    .eq('generation_phase', 'extracting_events')
+    .eq('updated_at', job.updated_at)
+    .select('*')
+    .maybeSingle();
+  if (claimError) throw claimError;
+  if (!linkingJob) return toPublicJob(job);
+
+  try {
+    const providerResponse = await startSceneLinking({
+      prompt: createSceneLinkingPrompt(snapshot, eventGraph),
+      model: linkingJob.model,
+      jobId: linkingJob.id,
+    });
+    const { data: waitingJob, error } = await service
+      .from('recap_generation_job')
+      .update({ provider_response_id: providerResponse.id, progress: 58, updated_at: new Date().toISOString() })
+      .eq('id', job.id)
+      .eq('generation_phase', 'linking_events')
+      .is('provider_response_id', null)
+      .select('*')
+      .maybeSingle();
+    if (error) throw error;
+    return toPublicJob(waitingJob ?? linkingJob);
+  } catch (error) {
+    console.warn(`Scene linking could not start for job ${job.id}; keeping unlinked scenes.`, error);
+    return await finishEventGraph(service, linkingJob, snapshot, { ...eventGraph, linking: 'failed' });
+  }
+}
+
+async function startVerificationPhase(
+  service: ReturnType<typeof serverSupabaseServiceRole<Database>>,
+  job: JobRow,
+  draftText: string,
+) {
+  const snapshot = parseSourceSnapshot(job.source_snapshot);
+  const eventGraph = parseEventGraph(job.event_graph);
+  const draft = processRecapDraft(draftText, snapshot, eventGraph);
+  const { data: verifyingJob, error: claimError } = await service
+    .from('recap_generation_job')
+    .update({
+      generation_phase: 'verifying_story',
+      provider_response_id: null,
+      story_data: draft as unknown as Json,
+      progress: 70,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', job.id)
+    .eq('status', 'generating')
+    .eq('generation_phase', 'writing_story')
+    .eq('provider_response_id', job.provider_response_id as string)
+    .select('*')
+    .maybeSingle();
+  if (claimError) throw claimError;
+  if (!verifyingJob) return toPublicJob(job);
+
+  try {
+    const providerResponse = await startStoryVerification({
+      prompt: createStoryVerificationPrompt(draft, eventGraph),
+      model: verifyingJob.model,
+      jobId: verifyingJob.id,
+    });
+    const { data: waitingJob, error } = await service
+      .from('recap_generation_job')
+      .update({ provider_response_id: providerResponse.id, progress: 72, updated_at: new Date().toISOString() })
+      .eq('id', job.id)
+      .eq('generation_phase', 'verifying_story')
+      .is('provider_response_id', null)
+      .select('*')
+      .maybeSingle();
+    if (error) throw error;
+    return toPublicJob(waitingJob ?? verifyingJob);
+  } catch (error) {
+    console.error(`Story verification could not start for job ${job.id}:`, error);
+    const message = error instanceof Error ? error.message : 'Could not start the story verification.';
+    return await failJob(service, job.id, 'story_verification_start_failed', message);
+  }
+}
+
+async function finishEventGraph(
+  service: ReturnType<typeof serverSupabaseServiceRole<Database>>,
+  job: JobRow,
+  snapshot: RecapSourceSnapshot,
+  eventGraph: RecapEventGraph,
+) {
+  const quality = evaluateRecapEventGraph(eventGraph, snapshot);
+  const now = new Date().toISOString();
+
+  if (!quality.publishable) {
+    const { data: reviewJob, error: reviewError } = await service
+      .from('recap_generation_job')
+      .update({
+        status: 'needs_review',
+        progress: 100,
+        event_graph: eventGraph as unknown as Json,
+        quality_report: { stage: 'event_graph', ...quality } as unknown as Json,
+        error_code: 'event_quality_gate_failed',
+        error_message: `Event quality gate failed: ${quality.issues.join(', ')}`,
+        completed_at: now,
+        updated_at: now,
+      })
+      .eq('id', job.id)
+      .eq('status', 'generating')
+      .eq('generation_phase', 'linking_events')
+      .select('*')
+      .maybeSingle();
+    if (reviewError) throw reviewError;
+    return toPublicJob(reviewJob ?? job);
+  }
+
+  const { data: claimedEventJob, error: claimError } = await service
+    .from('recap_generation_job')
+    .update({
+      generation_phase: 'preparing_story',
+      progress: 59,
+      event_graph: eventGraph as unknown as Json,
+      quality_report: { stage: 'event_graph', ...quality } as unknown as Json,
+      updated_at: now,
+    })
+    .eq('id', job.id)
+    .eq('status', 'generating')
+    .eq('generation_phase', 'linking_events')
+    .select('*')
+    .maybeSingle();
+  if (claimError) throw claimError;
+  return claimedEventJob
+    ? await startStoryPhase(service, claimedEventJob)
+    : toPublicJob(job);
+}
+
 async function startStoryPhase(
   service: ReturnType<typeof serverSupabaseServiceRole<Database>>,
-  job: Database['public']['Tables']['recap_generation_job']['Row'],
+  job: JobRow,
 ) {
   try {
     const snapshot = parseSourceSnapshot(job.source_snapshot);
@@ -305,6 +491,26 @@ function parseSourceSnapshot(value: Json | null): RecapSourceSnapshot {
     throw new Error('The generation source snapshot is invalid.');
   }
   return snapshot;
+}
+
+function parseStoryDraft(value: Json | null): RecapStory {
+  const story = value && typeof value === 'object' && !Array.isArray(value)
+    ? value as unknown as RecapStory
+    : null;
+  if (!story?.cover || !Array.isArray(story.beats)) {
+    throw new Error('The story draft awaiting verification is missing.');
+  }
+  return story;
+}
+
+function toStringRecord(value: Json | null): Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === 'string'));
+}
+
+function toExtractionResults(value: Json | null): Record<string, ExtractionResult> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return { ...(value as unknown as Record<string, ExtractionResult>) };
 }
 
 function parseEventGraph(value: Json | null): RecapEventGraph {

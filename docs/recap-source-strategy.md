@@ -4,7 +4,9 @@
 
 Le modèle n'est jamais une source de vérité. Il est un moteur de transformation : il sélectionne et reformule des éléments présents dans un Evidence Pack figé au moment de la génération.
 
-Le socle obligatoire est actuellement Trakt. Il fournit l'identité de la série, les épisodes, leurs synopsis et une image éventuelle. TMDB enrichit les résumés français et anglais lorsqu'une clé est configurée. TVmaze est interrogé comme second référentiel lorsque Trakt fournit un identifiant TVDB ou IMDb compatible. Wikidata confirme l'identité et les articles de saison Wikipédia français ou anglais enrichissent le corpus lorsqu'ils existent.
+Le socle obligatoire est actuellement Trakt. Il fournit l'identité de la série, les épisodes, leurs synopsis et une image éventuelle. TMDB enrichit les résumés français et anglais lorsqu'une clé est configurée. TVmaze est interrogé comme second référentiel lorsque Trakt fournit un identifiant TVDB ou IMDb compatible. Ces trois sources ne fournissent le plus souvent que des accroches promotionnelles.
+
+Les résumés détaillés viennent de Wikipédia, épisode par épisode. Wikidata retrouve la série par son identifiant IMDb, puis la saison, les épisodes et leurs articles ; des modèles de titres servent de repli. Chaque épisode reçoit la ligne du tableau d'épisodes, le « Résumé détaillé » des articles de saison français et la section « Plot » ou « Résumé » de son article lorsqu'il existe. Une saison dont moins de 60 % des épisodes ont un texte d'au moins 400 caractères n'est pas générée.
 
 Chaque fragment narratif possède :
 

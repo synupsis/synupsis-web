@@ -32,10 +32,10 @@ export async function saveRecapFromEditor(event: H3Event, publish: boolean) {
   }
 
   const storyData = validateStoryData(body.storyData);
-  if (storyData && body.slides.length !== storyData.beats.length + 1) {
+  if (storyData && body.slides.length !== storyData.beats.length + (storyData.episodes?.length ?? 0) + 1) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'The semantic story must contain exactly one cover slide plus one slide per beat.',
+      statusMessage: 'The semantic story must contain exactly one cover slide plus one slide per beat and per episode.',
     });
   }
   const slideCanvases = body.slides.map((slide, index) => parseCanvas(slide.canvas, index));
@@ -170,11 +170,39 @@ function validateStoryData(value: unknown): RecapStory | null {
     };
   });
 
+  const episodes = Array.isArray(value.episodes)
+    ? value.episodes.map((rawEpisode, index) => {
+      const episodeNumber = Number(isObject(rawEpisode) ? rawEpisode.episodeNumber : Number.NaN);
+      if (!isObject(rawEpisode) || !Number.isInteger(episodeNumber) || episodeNumber <= 0) {
+        throw createError({ statusCode: 400, statusMessage: `Invalid story episode at index ${index}.` });
+      }
+      const moments = (Array.isArray(rawEpisode.moments) ? rawEpisode.moments : []).map((rawMoment, momentIndex) => ({
+        text: readStoryText(
+          isObject(rawMoment) ? rawMoment.text : undefined,
+          `episode ${episodeNumber} moment ${momentIndex + 1}`,
+          240,
+          true,
+        ),
+        eventIds: readStringArray(isObject(rawMoment) ? rawMoment.eventIds : []),
+      }));
+      if (!moments.length) {
+        throw createError({ statusCode: 400, statusMessage: `Episode ${episodeNumber} needs at least one moment.` });
+      }
+      return {
+        episodeNumber,
+        headline: readStoryText(rawEpisode.headline, `episode ${episodeNumber} headline`, 90, true),
+        moments,
+        evidenceIds: readStringArray(rawEpisode.evidenceIds),
+      };
+    })
+    : undefined;
+
   return {
     locale: typeof value.locale === 'string' && value.locale.trim() ? value.locale : 'fr',
     spoilerScope: 'through-season',
     cover,
     beats,
+    ...(episodes ? { episodes } : {}),
   };
 }
 
@@ -240,6 +268,14 @@ function getEditorialStoryProjection(value: unknown) {
         narration: typeof beat.narration === 'string' ? beat.narration.trim() : '',
         tag: typeof beat.tag === 'string' ? beat.tag.trim() : '',
         episodeNumbers: readPositiveIntegers(beat.episodeNumbers),
+      };
+    }),
+    episodes: (Array.isArray(story.episodes) ? story.episodes : []).map((item) => {
+      const episode = isObject(item) ? item : {};
+      return {
+        headline: typeof episode.headline === 'string' ? episode.headline.trim() : '',
+        moments: (Array.isArray(episode.moments) ? episode.moments : [])
+          .map(moment => (isObject(moment) && typeof moment.text === 'string' ? moment.text.trim() : '')),
       };
     }),
   };

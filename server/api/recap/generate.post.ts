@@ -9,10 +9,14 @@ import {
   RECAP_FORMAT_VERSION,
   RECAP_LOCALE,
   RECAP_PROMPT_VERSION,
-  createEventExtractionPrompt,
+  createEpisodeExtractionPrompt,
+  describeInsufficientSources,
+  evaluateRecapSourceReadiness,
   fetchRecapSourceSnapshot,
+  getEpisodeExtractionTokenBudget,
+  getExtractableEpisodes,
   getRecapModel,
-  startEventExtraction,
+  startEpisodeExtraction,
 } from '~/server/services/recap-generation';
 
 const ACTIVE_JOB_STATUSES = ['queued', 'gathering', 'generating', 'validating', 'rendering'];
@@ -132,15 +136,54 @@ export default defineEventHandler(async (event) => {
       seasonFirstAired: season.first_aired,
       seasonImage: season.image,
     });
-    const prompt = createEventExtractionPrompt(snapshot);
-    const providerResponse = await startEventExtraction({ prompt, model, jobId: job.id });
+
+    // Teasers cannot support a precise recap: stop before spending tokens.
+    const readiness = evaluateRecapSourceReadiness(snapshot);
+    if (!readiness.ready) {
+      const message = describeInsufficientSources(readiness);
+      const completedAt = new Date().toISOString();
+      const { error: updateError } = await service
+        .from('recap_generation_job')
+        .update({
+          status: 'failed',
+          progress: 100,
+          error_code: 'insufficient_sources',
+          error_message: message,
+          source_snapshot: snapshot as unknown as Json,
+          quality_report: { stage: 'sources', ...readiness } as unknown as Json,
+          completed_at: completedAt,
+          updated_at: completedAt,
+        })
+        .eq('id', job.id);
+      if (updateError) throw updateError;
+
+      // The message travels in the body: h3 strips accented characters from status lines.
+      setResponseStatus(event, 422);
+      return { state: 'insufficient_sources', jobId: job.id, statusMessage: message, readiness };
+    }
+
+    // One extraction per episode, in parallel; the polling endpoint collects them.
+    const extractionResponses = Object.fromEntries(await Promise.all(
+      getExtractableEpisodes(snapshot).map(async (episode) => {
+        const providerResponse = await startEpisodeExtraction({
+          prompt: createEpisodeExtractionPrompt(snapshot, episode),
+          model,
+          jobId: job.id,
+          episodeNumber: episode.number,
+          maxOutputTokens: getEpisodeExtractionTokenBudget(episode),
+        });
+        return [String(episode.number), providerResponse.id] as const;
+      }),
+    ));
 
     const { error: updateError } = await service
       .from('recap_generation_job')
       .update({
         status: 'generating',
         progress: 40,
-        provider_response_id: providerResponse.id,
+        provider_response_id: null,
+        extraction_responses: extractionResponses,
+        extraction_results: {},
         generation_phase: 'extracting_events',
         source_snapshot: snapshot as unknown as Json,
         updated_at: new Date().toISOString(),

@@ -18,6 +18,8 @@ async function getShowFromDb(supabase: SupabaseClient<Database>, traktId: number
     .from('show')
     .select('*, seasons:season(*, recap(*))')
     .eq('trakt_id', traktId)
+    // Season cards open the first published recap: list the newest format first.
+    .order('format_version', { referencedTable: 'seasons.recap', ascending: false })
     .maybeSingle();
   if (error) throw createError({ statusCode: 500, statusMessage: `DB Error: ${error.message}` });
   return data as ShowWithSeasons | null;

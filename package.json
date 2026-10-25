@@ -7,6 +7,7 @@
   "scripts": {
     "build": "nuxt build",
     "dev": "nuxt dev",
+    "eval:recaps": "node --env-file=.env scripts/evaluate-recaps.mjs",
     "generate": "nuxt generate",
     "lint": "eslint . --ext .js,.ts,.vue",
     "lint:fix": "eslint . --ext .js,.ts,.vue --fix",

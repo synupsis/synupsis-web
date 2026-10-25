@@ -431,7 +431,13 @@ const activeStoryContent = computed<RecapStorySlideContent | null>(() => {
     };
   }
   const beat = story.beats[index - 1];
-  if (!beat) return null;
+  if (!beat) {
+    // Episode slides follow the turning points.
+    const episode = story.episodes?.[index - 1 - story.beats.length];
+    return episode
+      ? { kind: 'episode', episodeNumber: episode.episodeNumber, headline: episode.headline, moments: episode.moments.map(moment => moment.text) }
+      : null;
+  }
   return {
     kind: 'beat',
     headline: beat.headline,
@@ -510,12 +516,29 @@ const handleUpdateStoryContent = (content: RecapStorySlideContent) => {
       episodeNumbers: content.episodeNumbers,
     };
   }
+
+  if (content.kind === 'episode' && story.episodes) {
+    const episodeIndex = index - 1 - story.beats.length;
+    const existingEpisode = story.episodes[episodeIndex];
+    if (!existingEpisode) return;
+    story.episodes[episodeIndex] = {
+      ...existingEpisode,
+      headline: content.headline,
+      moments: existingEpisode.moments.map((moment, momentIndex) => ({
+        ...moment,
+        text: content.moments[momentIndex] ?? moment.text,
+      })),
+    };
+  }
 };
 
 const getSlideLabel = (index: number) => {
   if (!storyData.value) return `Slide ${index + 1}`;
   if (index === 0) return storyData.value.cover.title || 'Couverture';
-  return storyData.value.beats[index - 1]?.headline || `Moment clé ${index}`;
+  const beat = storyData.value.beats[index - 1];
+  if (beat) return beat.headline || `Moment clé ${index}`;
+  const episode = storyData.value.episodes?.[index - 1 - storyData.value.beats.length];
+  return episode ? `Épisode ${episode.episodeNumber} · ${episode.headline}` : `Slide ${index + 1}`;
 };
 
 
@@ -730,11 +753,31 @@ function parseStoryData(value: unknown): RecapStory | null {
         evidenceIds: readStringArray(beat.evidenceIds),
       };
     }),
+    ...(Array.isArray(story.episodes) ? {
+      episodes: story.episodes.map((item: unknown) => {
+        const episode = asObject(item) || {};
+        return {
+          episodeNumber: Number(episode.episodeNumber) || 1,
+          headline: typeof episode.headline === 'string' ? episode.headline : '',
+          moments: (Array.isArray(episode.moments) ? episode.moments : []).map((value: unknown) => {
+            const moment = asObject(value) || {};
+            return {
+              text: typeof moment.text === 'string' ? moment.text : '',
+              eventIds: readStringArray(moment.eventIds),
+            };
+          }),
+          evidenceIds: readStringArray(episode.evidenceIds),
+        };
+      }),
+    } : {}),
   };
 }
 
 function inferEpisodeCount(story: RecapStory) {
-  return story.beats.reduce((highest, beat) => Math.max(highest, ...beat.episodeNumbers, 0), 0);
+  return Math.max(
+    story.beats.reduce((highest, beat) => Math.max(highest, ...beat.episodeNumbers, 0), 0),
+    ...(story.episodes || []).map(episode => episode.episodeNumber),
+  );
 }
 
 function extractCanvasImageUrl(canvas: string): string | null {
