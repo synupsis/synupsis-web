@@ -142,31 +142,43 @@
             aria-label="Épisodes"
             class="pointer-events-auto overflow-x-auto border-t border-white/10 bg-black/85 px-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md [scrollbar-width:none]"
           >
-            <div class="relative flex w-max min-w-full items-center justify-between gap-1">
-              <!-- The season line fills up to the current episode -->
-              <div class="pointer-events-none absolute inset-x-4 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-white/10" aria-hidden="true">
-                <div class="h-full rounded-full bg-white/50 transition-[width] duration-500 ease-out" :style="{ width: railProgress }" />
-              </div>
-              <button
-                v-for="chapter in railChapters"
-                :key="chapter.key"
-                type="button"
-                class="relative flex h-11 shrink-0 items-center justify-center"
-                :aria-label="chapter.ariaLabel"
-                :aria-current="chapter.state === 'current' ? 'step' : undefined"
-                @click="jumpTo(chapter.firstIndex)"
+            <div ref="railTrack" class="relative flex w-max min-w-full items-center">
+              <!-- One season line under the episodes, filled up to the current one in a single stroke -->
+              <div
+                class="pointer-events-none absolute top-1/2 h-0.5 -translate-y-1/2 overflow-hidden rounded-full bg-white/10"
+                :style="railLineBox"
+                aria-hidden="true"
               >
-                <span
-                  class="flex h-7 min-w-7 items-center justify-center rounded-full text-[12px] font-semibold tabular-nums transition-all duration-300"
-                  :class="chapter.state === 'current'
-                    ? 'bg-white px-2.5 text-neutral-900 shadow-[0_0_0_4px_rgb(0_0_0/0.85),0_0_18px_rgb(255_255_255/0.25)]'
-                    : chapter.state === 'read'
-                      ? 'bg-neutral-800 text-white/55'
-                      : 'bg-neutral-950 text-white ring-1 ring-inset ring-white/20'"
+                <div class="h-full origin-left bg-white/50 transition-transform" :style="railFillStyle" />
+              </div>
+              <template v-for="(chapter, railIndex) in railChapters" :key="chapter.key">
+                <span v-if="railIndex > 0" class="min-w-1 flex-1" aria-hidden="true" />
+                <button
+                  type="button"
+                  class="relative flex h-11 shrink-0 items-center justify-center"
+                  :aria-label="chapter.ariaLabel"
+                  :aria-current="chapter.state === 'current' ? 'step' : undefined"
+                  @click="jumpTo(chapter.firstIndex)"
                 >
-                  {{ chapter.state === 'current' && chapter.key !== 'end' ? `Ép. ${chapter.label}` : chapter.label }}
-                </span>
-              </button>
+                  <!-- Fixed widths let the pill grow and shrink smoothly; the others keep their place. -->
+                  <span
+                    class="flex h-7 items-center justify-center overflow-hidden whitespace-nowrap rounded-full text-[12px] font-semibold tabular-nums transition-[width,background-color,color,box-shadow]"
+                    :style="railNodeStyle(chapter, railIndex)"
+                    :class="chapter.state === 'current'
+                      ? 'bg-white text-neutral-900 shadow-[0_0_0_4px_rgb(0_0_0/0.85),0_0_18px_rgb(255_255_255/0.25)]'
+                      : chapter.state === 'read'
+                        ? 'bg-neutral-800 text-white/55 shadow-[0_0_0_0_rgb(0_0_0/0),0_0_0_rgb(255_255_255/0)]'
+                        : 'bg-neutral-950 text-white ring-1 ring-inset ring-white/20 shadow-[0_0_0_0_rgb(0_0_0/0),0_0_0_rgb(255_255_255/0)]'"
+                  >
+                    <span
+                      v-if="chapter.key !== 'end'"
+                      class="inline-block overflow-hidden transition-[max-width,opacity]"
+                      :class="chapter.state === 'current' ? 'max-w-6 opacity-100' : 'max-w-0 opacity-0'"
+                      :style="railNodeTiming(railIndex)"
+                    >Ép.&nbsp;</span>{{ chapter.label }}
+                  </span>
+                </button>
+              </template>
             </div>
           </nav>
         </div>
@@ -413,11 +425,94 @@ const railChapters = computed(() => chapters.value
     return { ...chapter, firstIndex, state };
   }));
 
-// How far the season line is filled: up to the current episode node.
-const railProgress = computed(() => {
-  const current = railChapters.value.findIndex(chapter => chapter.state === 'current');
-  if (current < 0 || railChapters.value.length < 2) return '0%';
-  return `${(current / (railChapters.value.length - 1)) * 100}%`;
+const currentRailIndex = computed(() => railChapters.value.findIndex(chapter => chapter.state === 'current'));
+
+// A jump draws the line in one stroke, from the episode it leaves to the new
+// one, with a single ease-out curve; each episode changes as the line reaches it.
+const RAIL_EASING = 'cubic-bezier(0.33, 1, 0.68, 1)';
+const RAIL_NODE_DURATION_MS = 240;
+
+const previousRailIndex = ref(0);
+watch(currentRailIndex, (_, previous) => {
+  previousRailIndex.value = previous;
+});
+
+// Final widths in pixels, so the line can aim at where each episode will stand.
+const railNodePx = (chapter: { key: string; label: string; state: string }) => {
+  if (chapter.key === 'end') return chapter.state === 'current' ? 44 : 36;
+  if (chapter.state !== 'current') return 28;
+  return chapter.label.length > 1 ? 60 : 52;
+};
+
+const railTrack = ref<HTMLElement | null>(null);
+const railWidth = ref(0);
+let railResizeObserver: ResizeObserver | null = null;
+watch(railTrack, (track) => {
+  railResizeObserver?.disconnect();
+  if (!track || typeof ResizeObserver === 'undefined') return;
+  railResizeObserver = new ResizeObserver(([entry]) => {
+    railWidth.value = entry?.contentRect.width ?? 0;
+  });
+  railResizeObserver.observe(track);
+});
+onUnmounted(() => railResizeObserver?.disconnect());
+
+// Centers of the episodes once the pills have settled: the spacers share the free width.
+const railCenters = computed(() => {
+  const widths = railChapters.value.map(railNodePx);
+  const total = widths.reduce((sum, width) => sum + width, 0);
+  const gap = widths.length > 1 ? Math.max(4, (railWidth.value - total) / (widths.length - 1)) : 0;
+  let left = 0;
+  return widths.map((width) => {
+    const center = left + width / 2;
+    left += width + gap;
+    return center;
+  });
+});
+
+const railLineBox = computed(() => {
+  const centers = railCenters.value;
+  const first = centers[0] ?? 0;
+  const last = centers[centers.length - 1] ?? 0;
+  return { left: `${first}px`, width: `${Math.max(0, last - first)}px` };
+});
+
+const railMotion = computed(() => {
+  const from = Math.max(previousRailIndex.value, 0);
+  const to = Math.max(currentRailIndex.value, 0);
+  const steps = Math.abs(to - from);
+  return { from, to, duration: steps ? Math.min(420, 200 + 60 * steps) : RAIL_NODE_DURATION_MS };
+});
+
+const railFillStyle = computed(() => {
+  const centers = railCenters.value;
+  const first = centers[0] ?? 0;
+  const length = (centers[centers.length - 1] ?? 0) - first;
+  const current = currentRailIndex.value;
+  const scale = current < 0 || length <= 0 ? 0 : ((centers[current] ?? first) - first) / length;
+  return {
+    transform: `scaleX(${scale})`,
+    transitionDuration: `${railMotion.value.duration}ms`,
+    transitionTimingFunction: RAIL_EASING,
+  };
+});
+
+// When the line, on its ease-out curve, reaches an episode: the inverse of 1 - (1 - t)^3.
+const railNodeTiming = (railIndex: number) => {
+  const { from, to, duration } = railMotion.value;
+  const timing = { transitionDuration: `${RAIL_NODE_DURATION_MS}ms`, transitionTimingFunction: RAIL_EASING };
+  const crossed = to > from ? railIndex > from && railIndex <= to : railIndex >= to && railIndex < from;
+  if (!crossed) return timing;
+  const centers = railCenters.value;
+  const distance = Math.abs((centers[to] ?? 0) - (centers[from] ?? 0));
+  // The new episode starts to grow once the line is halfway there.
+  const progress = railIndex === to || !distance ? 0.5 : Math.abs((centers[railIndex] ?? 0) - (centers[from] ?? 0)) / distance;
+  return { ...timing, transitionDelay: `${Math.round(duration * (1 - Math.cbrt(1 - Math.min(progress, 1))))}ms` };
+};
+
+const railNodeStyle = (chapter: { key: string; label: string; state: string }, railIndex: number) => ({
+  width: `${railNodePx(chapter)}px`,
+  ...railNodeTiming(railIndex),
 });
 
 // Long seasons scroll the rail: keep the current episode in view. Scrolling the
