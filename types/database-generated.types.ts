@@ -287,6 +287,160 @@ export type Database = {
           },
         ]
       }
+      season_content_correction: {
+        Row: {
+          created_at: string
+          created_by: string
+          current_value: Json
+          field: string
+          id: string
+          proposed_value: Json
+          reason: string
+          reveal_episode: number
+          reviewed_at: string | null
+          reviewed_by: string | null
+          season_id: string
+          source_url: string | null
+          status: string
+          target_key: string
+          target_type: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          current_value: Json
+          field: string
+          id?: string
+          proposed_value: Json
+          reason: string
+          reveal_episode?: number
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          season_id: string
+          source_url?: string | null
+          status?: string
+          target_key: string
+          target_type: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          current_value?: Json
+          field?: string
+          id?: string
+          proposed_value?: Json
+          reason?: string
+          reveal_episode?: number
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          season_id?: string
+          source_url?: string | null
+          status?: string
+          target_key?: string
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "season_content_correction_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "season"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      season_content_correction_vote: {
+        Row: {
+          correction_id: string
+          created_at: string
+          updated_at: string
+          user_id: string
+          value: number
+        }
+        Insert: {
+          correction_id: string
+          created_at?: string
+          updated_at?: string
+          user_id: string
+          value: number
+        }
+        Update: {
+          correction_id?: string
+          created_at?: string
+          updated_at?: string
+          user_id?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "season_content_correction_vote_correction_id_fkey"
+            columns: ["correction_id"]
+            isOneToOne: false
+            referencedRelation: "season_content_correction"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      season_content_override: {
+        Row: {
+          active: boolean
+          approved_by: string
+          correction_id: string | null
+          created_at: string
+          field: string
+          id: string
+          reveal_episode: number
+          season_id: string
+          target_key: string
+          target_type: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          active?: boolean
+          approved_by: string
+          correction_id?: string | null
+          created_at?: string
+          field: string
+          id?: string
+          reveal_episode?: number
+          season_id: string
+          target_key: string
+          target_type: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          active?: boolean
+          approved_by?: string
+          correction_id?: string | null
+          created_at?: string
+          field?: string
+          id?: string
+          reveal_episode?: number
+          season_id?: string
+          target_key?: string
+          target_type?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "season_content_override_correction_id_fkey"
+            columns: ["correction_id"]
+            isOneToOne: false
+            referencedRelation: "season_content_correction"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "season_content_override_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "season"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       season: {
         Row: {
           created_at: string
@@ -424,6 +578,14 @@ export type Database = {
           p_slides: Json
           p_source_snapshot: Json
           p_story_data: Json
+        }
+        Returns: string
+      }
+      review_season_content_correction: {
+        Args: {
+          p_correction_id: string
+          p_decision: string
+          p_reviewer_id: string
         }
         Returns: string
       }

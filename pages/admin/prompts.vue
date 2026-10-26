@@ -186,6 +186,9 @@ onMounted(async () => {
           <SidebarMenuItem to="/admin/prompts">
             Prompts
           </SidebarMenuItem>
+          <SidebarMenuItem to="/admin/corrections">
+            Corrections
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
     </Sidebar>
