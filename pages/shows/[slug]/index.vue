@@ -65,14 +65,16 @@
               class="snap-start"
               :season="season"
               :is-admin="isAdmin"
-              :is-generating="generationState[season.id]?.pending ?? false"
-              :generation-progress="generationState[season.id]?.progress ?? 0"
+              :is-generating="recapGenerations[season.id]?.pending ?? false"
+              :generation-progress="recapGenerations[season.id]?.progress ?? 0"
+              :generation-label="recapGenerations[season.id]?.label"
+              :generation-error="recapGenerations[season.id]?.error ?? null"
               :is-latest="index === 0"
               :spoiler-locked="!isRecapUnlocked(season.number)"
               @view="goToRecap"
               @edit="goToRecapEditor(showData.id, season.id, $event)"
               @create="goToRecapEditor(showData.id, season.id)"
-              @generate="generateRecap(showData.id, season.id)"
+              @generate="generateRecap"
             />
           </div>
           <p v-else class="text-sm text-muted-foreground">Aucune saison diffusée n’est disponible.</p>
@@ -438,7 +440,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import {
   CalendarIcon, ChevronDownIcon, HandThumbDownIcon, HandThumbUpIcon, LockClosedIcon, MapIcon,
   MapPinIcon, PencilSquareIcon, ShieldCheckIcon, XMarkIcon,
@@ -461,6 +463,7 @@ import SeasonStory from '~/components/SeasonStory.vue';
 import TimelineCharacterChip from '~/components/TimelineCharacterChip.vue';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import { useImageUrl } from '~/composables/useUtils';
+import { useRecapGenerations } from '~/composables/useRecapGenerations';
 import { isRegularSeasonReleased } from '~/lib/season-availability';
 
 type TimelineEvent = SeasonHubEvent & { seasonNumber: number; throughEpisode: number };
@@ -881,53 +884,27 @@ function persistProgress() {
   } });
 }
 
-const generationState = ref<Record<string, { pending: boolean; progress: number; status: string | null; error: string | null }>>({});
-let pageIsActive = true;
-onUnmounted(() => { pageIsActive = false; });
+const { generations: recapGenerations, start: startRecapGeneration } = useRecapGenerations({
+  showId: () => showData.value?.id,
+  async onCompleted(_seasonId, recapId) {
+    await Promise.all([refreshShow(), refreshHubs()]);
+    // Several seasons may be generating: offer the recap instead of leaving the page.
+    toast.success('Le récap est prêt.', recapId
+      ? { action: { label: 'Voir', onClick: () => goToRecap(recapId) } }
+      : undefined);
+  },
+  onFailed(_seasonId, message) {
+    toast.error('Impossible de générer ce récap.', { description: message });
+  },
+});
 
-async function generateRecap(showId: string, seasonId: string) {
+async function generateRecap(seasonId: string) {
   if (!user.value) {
     toast.info('Connectez-vous pour demander ce récap.');
     await navigateTo('/login');
     return;
   }
-  generationState.value[seasonId] = { pending: true, progress: 0, status: 'queued', error: null };
-  try {
-    const generation = await $fetch<{ state: string; recapId?: string; jobId?: string; progress?: number }>('/api/recap/generate', {
-      method: 'POST', body: { showId, seasonId },
-    });
-    if (generation.state === 'ready' && generation.recapId) {
-      await navigateTo(`/recap/${generation.recapId}`);
-      return;
-    }
-    if (!generation.jobId) throw new Error('La génération n’a pas retourné de tâche.');
-    generationState.value[seasonId] = { pending: true, progress: generation.progress ?? 40, status: generation.state, error: null };
-    toast.info('Le récap est en cours de préparation.');
-    const completed = await waitForGeneration(generation.jobId, seasonId);
-    if (completed.status === 'completed' && completed.recapId) {
-      await Promise.all([refreshShow(), refreshHubs()]);
-      toast.success('Le récap est prêt.');
-      await navigateTo(`/recap/${completed.recapId}`);
-      return;
-    }
-    throw new Error(completed.errorMessage || 'La génération a échoué.');
-  } catch (cause: any) {
-    generationState.value[seasonId] = { ...generationState.value[seasonId], error: cause.data?.statusMessage || cause.message };
-    toast.error('Impossible de générer ce récap.', { description: cause.data?.statusMessage || cause.message });
-  } finally {
-    generationState.value[seasonId] = { ...generationState.value[seasonId], pending: false };
-  }
-}
-
-async function waitForGeneration(jobId: string, seasonId: string) {
-  const terminal = new Set(['completed', 'failed', 'cancelled', 'needs_review']);
-  for (let attempt = 0; attempt < 150 && pageIsActive; attempt += 1) {
-    await new Promise(resolve => setTimeout(resolve, 2_000));
-    const job = await $fetch<{ status: string; progress: number; recapId: string | null; errorMessage: string | null }>(`/api/recap/generation/${jobId}`);
-    generationState.value[seasonId] = { pending: !terminal.has(job.status), progress: job.progress, status: job.status, error: job.errorMessage };
-    if (terminal.has(job.status)) return job;
-  }
-  throw new Error('La génération prend plus de temps que prévu.');
+  await startRecapGeneration(seasonId);
 }
 
 function goToRecapEditor(show?: string, season?: string, recap?: string) {

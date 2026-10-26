@@ -66,12 +66,23 @@ export async function startStreamedResponse(
 
 /**
  * Reads a response streamed by this process; one it does not know (started
- * before a restart, or in background mode) is retrieved from OpenAI.
+ * before a restart, in background mode, or by another server process) is
+ * retrieved from OpenAI.
  */
 export async function retrieveStreamedResponse(client: OpenAI, responseId: string): Promise<StreamedResponse> {
   const entry = streamedResponses.get(responseId);
   if (entry) return entry.response;
-  const response = await client.responses.retrieve(responseId);
+  let response: Response;
+  try {
+    response = await client.responses.retrieve(responseId);
+  } catch (error) {
+    // OpenAI cannot return a response still streaming to another process: that
+    // process collects it. One whose stream died expires with its job.
+    if ((error as { status?: number }).status === 404) {
+      return { id: responseId, status: 'in_progress', error: null, incomplete_details: null, output_text: '' };
+    }
+    throw error;
+  }
   return {
     id: response.id,
     status: response.status,

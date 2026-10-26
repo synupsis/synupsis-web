@@ -10,9 +10,36 @@
         @click="handlePrimaryAction"
       >
         <span
-          class="block h-[88px] w-[88px] rounded-full p-[3px] transition duration-200"
+          class="relative block h-[88px] w-[88px] rounded-full p-[3px] transition duration-200"
           :class="storyRingClass"
         >
+          <svg
+            v-if="isGenerating"
+            class="pointer-events-none absolute inset-0 -rotate-90"
+            viewBox="0 0 88 88"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient :id="ringGradientId" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" style="stop-color: #fcd34d" />
+                <stop offset="55%" style="stop-color: #f97316" />
+                <stop offset="100%" style="stop-color: hsl(var(--primary))" />
+              </linearGradient>
+            </defs>
+            <circle cx="44" cy="44" :r="RING_RADIUS" fill="none" stroke-width="3" class="stroke-white/15" />
+            <circle
+              cx="44"
+              cy="44"
+              :r="RING_RADIUS"
+              fill="none"
+              stroke-width="3"
+              stroke-linecap="round"
+              :stroke="`url(#${ringGradientId})`"
+              :stroke-dasharray="RING_CIRCUMFERENCE"
+              :stroke-dashoffset="ringOffset"
+              class="drop-shadow-[0_0_5px_rgba(249,115,22,0.6)]"
+            />
+          </svg>
           <span class="block h-full w-full rounded-full bg-background p-[3px]">
             <span class="relative block h-full w-full overflow-hidden rounded-full bg-muted">
               <CachedImage
@@ -29,9 +56,8 @@
                 class="absolute inset-0 grid place-items-center bg-black/60 text-white"
               >
                 <LockClosedIcon v-if="spoilerLocked" class="h-6 w-6" />
-                <span v-else class="flex flex-col items-center gap-1 text-[10px] font-bold tabular-nums">
-                  <SpinLoader class="h-5 w-5" />
-                  {{ generationProgress }}%
+                <span v-else class="text-base font-bold tabular-nums">
+                  {{ displayedProgress }}<span class="text-[10px] font-semibold text-white/70">%</span>
                 </span>
               </span>
               <span
@@ -79,14 +105,14 @@
     <h3 class="mt-2 truncate text-xs font-semibold text-white">
       Saison {{ season.number }}
     </h3>
-    <p class="mt-0.5 truncate text-[11px] leading-4" :class="statusTextClass">
+    <p class="mt-0.5 truncate text-[11px] leading-4" :class="statusTextClass" :title="failed ? generationError ?? undefined : undefined">
       {{ statusLabel }}
     </p>
   </article>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, useId } from 'vue';
 import { LockClosedIcon, PencilIcon, SparklesIcon } from '@heroicons/vue/24/outline';
 import { PlayIcon } from '@heroicons/vue/24/solid';
 import CachedImage from '~/components/CachedImage.vue';
@@ -97,12 +123,20 @@ const props = withDefaults(defineProps<{
   isAdmin: boolean;
   isGenerating: boolean;
   generationProgress?: number;
+  generationLabel?: string;
+  generationError?: string | null;
   isLatest: boolean;
   spoilerLocked?: boolean;
 }>(), {
   generationProgress: 0,
+  generationLabel: 'Préparation',
+  generationError: null,
   spoilerLocked: false,
 });
+
+const RING_RADIUS = 42.5;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+const ringGradientId = `season-story-ring-${useId()}`;
 
 const emit = defineEmits<{
   view: [recapId: string];
@@ -117,13 +151,18 @@ const publishedRecap = computed(() => (props.season.recap || []).find((recap: an
 const draftRecap = computed(() => (props.season.recap || []).find((recap: any) => recap.status === 'draft'));
 const isPublished = computed(() => Boolean(publishedRecap.value));
 const isDraft = computed(() => Boolean(draftRecap.value));
+const failed = computed(() => Boolean(props.generationError) && !props.isGenerating && !isPublished.value && !isDraft.value);
+// Floored: the ring may show 100 % only once the recap is published.
+const displayedProgress = computed(() => Math.min(Math.floor(props.generationProgress), 100));
+const ringOffset = computed(() => RING_CIRCUMFERENCE * (1 - Math.min(Math.max(props.generationProgress, 0), 100) / 100));
 const primaryDisabled = computed(() => props.spoilerLocked || props.isGenerating || (isDraft.value && !(user.value && props.isAdmin)));
 
 const statusLabel = computed(() => {
   if (props.spoilerLocked) return 'Verrouillé';
-  if (props.isGenerating) return `Préparation · ${props.generationProgress}%`;
+  if (props.isGenerating) return props.generationLabel;
   if (isPublished.value) return props.isLatest ? 'Nouveau' : 'Disponible';
   if (isDraft.value) return 'Brouillon';
+  if (failed.value) return 'Échec · réessayer';
   return 'À créer';
 });
 
@@ -131,12 +170,13 @@ const statusTextClass = computed(() => {
   if (props.spoilerLocked) return 'text-muted-foreground';
   if (props.isGenerating || isDraft.value) return 'text-amber-300';
   if (isPublished.value) return 'text-primary';
+  if (failed.value) return 'text-red-400';
   return 'text-muted-foreground';
 });
 
 const storyRingClass = computed(() => {
   if (props.spoilerLocked) return 'bg-white/10 opacity-70';
-  if (props.isGenerating) return 'animate-pulse bg-gradient-to-br from-amber-300 via-orange-500 to-primary';
+  if (props.isGenerating) return 'bg-transparent';
   if (isPublished.value) return 'bg-gradient-to-br from-fuchsia-500 via-primary to-cyan-400 shadow-[0_0_24px_-10px_hsl(var(--primary))] group-hover:shadow-[0_0_30px_-8px_hsl(var(--primary))]';
   if (isDraft.value) return 'bg-gradient-to-br from-amber-300 to-orange-600';
   return 'bg-white/15 group-hover:bg-white/25';
@@ -152,9 +192,10 @@ const statusIconClass = computed(() => {
 
 const actionLabel = computed(() => {
   if (props.spoilerLocked) return `Le récap de la saison ${props.season.number} est verrouillé`;
-  if (props.isGenerating) return `Préparation du récap de la saison ${props.season.number}, ${props.generationProgress}%`;
+  if (props.isGenerating) return `Préparation du récap de la saison ${props.season.number} : ${props.generationLabel}, ${displayedProgress.value} %`;
   if (isPublished.value) return `Voir le récap de la saison ${props.season.number}`;
   if (isDraft.value) return `Modifier le brouillon de la saison ${props.season.number}`;
+  if (failed.value) return `Relancer le récap de la saison ${props.season.number}`;
   return `Créer le récap de la saison ${props.season.number}`;
 });
 

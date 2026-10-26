@@ -18,9 +18,11 @@ import {
   getRecapModel,
   startEpisodeExtraction,
 } from '~/server/services/recap-generation';
-
-const ACTIVE_JOB_STATUSES = ['queued', 'gathering', 'generating', 'validating', 'rendering'];
-const ACTIVE_JOB_TIMEOUT_MS = 30 * 60 * 1_000;
+import { expireStaleRecapGenerationJobs } from '~/server/services/recap-generation-runner';
+import {
+  RECAP_GENERATION_ACTIVE_STATUSES,
+  getRecapGenerationProgress,
+} from '~/lib/recap-generation-progress';
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event);
@@ -97,7 +99,7 @@ export default defineEventHandler(async (event) => {
       model,
       prompt_version: RECAP_PROMPT_VERSION,
       status: 'gathering',
-      progress: 10,
+      progress: getRecapGenerationProgress('gathering'),
       started_at: new Date().toISOString(),
     })
     .select('id, status, progress')
@@ -180,7 +182,7 @@ export default defineEventHandler(async (event) => {
       .from('recap_generation_job')
       .update({
         status: 'generating',
-        progress: 40,
+        progress: getRecapGenerationProgress('extracting_events'),
         provider_response_id: null,
         extraction_responses: extractionResponses,
         extraction_results: {},
@@ -193,7 +195,7 @@ export default defineEventHandler(async (event) => {
     if (updateError) throw updateError;
 
     setResponseStatus(event, 202);
-    return { state: 'generating', jobId: job.id, progress: 40 };
+    return { state: 'generating', jobId: job.id, progress: getRecapGenerationProgress('extracting_events') };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown generation error.';
     console.error('Failed to start recap generation:', error);
@@ -216,35 +218,18 @@ async function findActiveJob(
   service: ReturnType<typeof serverSupabaseServiceRole<Database>>,
   seasonId: string,
 ) {
+  await expireStaleRecapGenerationJobs(service);
   const { data, error } = await service
     .from('recap_generation_job')
-    .select('id, status, progress, updated_at')
+    .select('id, status, progress')
     .eq('season_id', seasonId)
     .eq('locale', RECAP_LOCALE)
     .eq('format_version', RECAP_FORMAT_VERSION)
-    .in('status', ACTIVE_JOB_STATUSES)
+    .in('status', RECAP_GENERATION_ACTIVE_STATUSES)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
   if (error) throw error;
-
-  if (data && new Date(data.updated_at).getTime() < Date.now() - ACTIVE_JOB_TIMEOUT_MS) {
-    const completedAt = new Date().toISOString();
-    await service
-      .from('recap_generation_job')
-      .update({
-        status: 'failed',
-        progress: 100,
-        error_code: 'generation_job_expired',
-        error_message: 'The generation job did not complete within 30 minutes.',
-        completed_at: completedAt,
-        updated_at: completedAt,
-      })
-      .eq('id', data.id)
-      .in('status', ACTIVE_JOB_STATUSES);
-    return null;
-  }
-
   return data;
 }
 

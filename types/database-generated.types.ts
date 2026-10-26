@@ -128,6 +128,7 @@ export type Database = {
           season_id: string
           show_id: string
           source_snapshot: Json | null
+          stage_started_at: string
           started_at: string | null
           status: string
           story_data: Json | null
@@ -157,6 +158,7 @@ export type Database = {
           season_id: string
           show_id: string
           source_snapshot?: Json | null
+          stage_started_at?: string
           started_at?: string | null
           status?: string
           story_data?: Json | null
@@ -186,6 +188,7 @@ export type Database = {
           season_id?: string
           show_id?: string
           source_snapshot?: Json | null
+          stage_started_at?: string
           started_at?: string | null
           status?: string
           story_data?: Json | null
