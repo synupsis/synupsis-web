@@ -767,7 +767,7 @@ test('découpe chaque épisode en chapitre : carton, moments, bilan', () => {
   const plan = planStorySlides(story, eventGraph, snapshot)
   const chapter = plan.filter(slide => slide.content.episodeNumber === 3)
 
-  assert.deepEqual(chapter.map(slide => slide.content.kind), ['chapter', 'moment-group', 'moment', 'moment-group', 'changes'])
+  assert.deepEqual(chapter.map(slide => slide.content.kind), ['chapter', 'moment-group', 'moment', 'moment-group', 'moment-group', 'changes'])
   assert.deepEqual(chapter[0].content, {
     kind: 'chapter',
     episodeNumber: 3,
@@ -778,16 +778,51 @@ test('découpe chaque épisode en chapitre : carton, moments, bilan', () => {
     otherCount: 4,
   })
   assert.equal(chapter[1].content.heading, 'Au début de l’épisode')
+  // Other moments go two by two, so their text stays large.
   assert.equal(chapter[3].content.heading, 'Pendant ce temps')
-  assert.equal(chapter[3].content.items.length, 3)
+  assert.equal(chapter[3].content.items.length, 2)
   assert.deepEqual(chapter[3].content.items[0].characters, [{ name: 'Second rôle 2', initials: 'SE', imageUrl: null }])
-  assert.deepEqual(chapter[3].eventIds, ['event-032', 'event-033', 'event-034'])
+  assert.deepEqual(chapter[3].eventIds, ['event-032', 'event-033'])
+  assert.equal(chapter[4].content.heading, 'Ensuite')
   assert.equal(chapter[2].content.text, 'Un moment précis cite event-003.')
-  assert.deepEqual(chapter[4].content.nextEpisode, { number: 4, title: 'Épisode 4' })
+  assert.deepEqual(chapter[5].content.nextEpisode, { number: 4, title: 'Épisode 4' })
   assert.deepEqual(plan.slice(-3).map(slide => slide.content.kind), ['ending-status', 'ending-deaths', 'ending-questions'])
   assert.deepEqual(plan.at(-2).content.deaths, [{ character: { name: 'Personnage 6', initials: 'PE', imageUrl: null }, episodeNumber: 6 }])
   assert.deepEqual(plan.at(-2).eventIds, ['event-006'])
   assert.deepEqual(plan.at(-1).content.questions, [{ text: 'Que deviendra la décision de Personnage 8 ?', episodeNumbers: [8] }])
+})
+
+test('répartit un bilan chargé et la fin de saison sur plusieurs slides', () => {
+  const eventGraph = createEventGraph()
+  const rawStory = createRawStory()
+  rawStory.episodes[0].changes.deaths = [7, 8].map(number => ({
+    character: `Personnage ${number}`,
+    text: `Personnage ${number} meurt.`,
+    eventIds: [eventId(1)],
+  }))
+  rawStory.episodes[0].changes.situations = Array.from({ length: 5 }, (_, index) => ({
+    character: `Personnage ${index + 1}`,
+    text: `Personnage ${index + 1} change de situation.`,
+    eventIds: [eventId(1)],
+  }))
+  rawStory.episodes[0].changes.questions = [{ character: '', text: 'Que fera Personnage 1 ?', eventIds: [eventId(1)] }]
+  rawStory.ending.characters.push(...[5, 6].map(number => ({
+    character: `Personnage ${number}`,
+    text: `Personnage ${number} reste en place.`,
+    eventIds: [eventId(number)],
+  })))
+  const story = normalizeRecapStory(rawStory, snapshot, eventGraph)
+  const plan = planStorySlides(story, eventGraph, snapshot)
+  const bilans = plan.filter(slide => slide.content.kind === 'changes' && slide.content.episodeNumber === 1)
+
+  // Seven lines: deaths first, five a slide, then the question closes the second slide.
+  assert.deepEqual(
+    bilans.map(slide => [slide.content.deaths.length, slide.content.situations.length, slide.content.questions.length]),
+    [[2, 3, 0], [0, 2, 1]],
+  )
+  assert.equal(bilans[0].content.nextEpisode, null)
+  assert.deepEqual(bilans[1].content.nextEpisode, { number: 2, title: 'Épisode 2' })
+  assert.deepEqual(plan.filter(slide => slide.content.kind === 'ending-status').map(slide => slide.content.characters.length), [4, 1])
 })
 
 test('donne à chaque slide d’un chapitre sa propre image, puis des images de fond', () => {
@@ -798,6 +833,7 @@ test('donne à chaque slide d’un chapitre sa propre image, puis des images de 
     ...snapshot,
     show: { ...snapshot.show, backdrops },
     episodes: snapshot.episodes.map(episode => (episode.number === 3 ? { ...episode, stills } : episode)),
+    imageFocus: { [stills[0]]: { x: 72, y: 25 } },
     characterPortraits: [
       { name: 'Personnage 3 « Trois » Durand', imageUrl: 'https://static.tvmaze.com/p3.jpg' },
       { name: 'Personnage 33', imageUrl: 'https://static.tvmaze.com/p33.jpg' },
@@ -815,6 +851,8 @@ test('donne à chaque slide d’un chapitre sa propre image, puis des images de 
     ['https://walter-r2.trakt.tv/episode-4.webp', backdrops[1], backdrops[0]],
   )
   assert.equal(plan[0].imageUrl, null)
+  // The crop follows the subject of an analysed image, and stays centered otherwise.
+  assert.deepEqual(chapter3.map(slide => slide.imageFocus), [{ x: 72, y: 25 }, null, null])
   // "Personnage 3" fits both portraits; its alias "Trois Durand" fits one. "Personnage 6" has none.
   assert.equal(chapter3[1].content.characters[0].imageUrl, 'https://static.tvmaze.com/p3.jpg')
   assert.equal(plan.find(slide => slide.content.kind === 'ending-deaths').content.deaths[0].character.imageUrl, null)

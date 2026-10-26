@@ -91,6 +91,7 @@
           :key="currentSlide.id"
           :content="currentSlide.content"
           :image-url="currentSlide.image_url || null"
+          :image-focus="currentSlide.image_focus ?? null"
           :season-number="data.season.number"
           :slide-number="currentSlideIndex + 1"
           :total-slides="data.slides.length"
@@ -274,6 +275,7 @@ type RecapResponse = {
     order: number;
     canvas_data: Json | null;
     image_url?: string | null;
+    image_focus?: { x: number; y: number } | null;
     content: SlideContent | null;
     events: Array<{
       id: string;

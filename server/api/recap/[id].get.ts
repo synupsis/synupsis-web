@@ -101,6 +101,7 @@ export default defineEventHandler(async event => {
       image_url: planned.imageUrl
         ? toDisplayImageUrl(planned.imageUrl)
         : (stored ? extractCanvasImageUrl(stored.canvas_data) : null) ?? coverImage,
+      image_focus: planned.imageFocus,
       content: planned.content,
       events: describeEvents(planned.eventIds, eventById),
       evidence: describeEvidence(evidenceIds, evidenceById, providerById),

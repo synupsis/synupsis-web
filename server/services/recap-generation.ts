@@ -10,6 +10,7 @@ import {
   type RecapSourceRightsReport,
 } from '~/server/services/recap-source-registry';
 import { fetchWikimediaRecapEnrichment } from '~/server/services/wikimedia-recap-source';
+import { retrieveStreamedResponse, startStreamedResponse } from '~/server/services/openai-streamed-responses';
 import {
   applyStoryCorrections,
   measureStorySpecificity,
@@ -48,8 +49,11 @@ const MAX_SEASON_EVENTS = 300;
 const MIN_QUOTE_WORDS = 4;
 // Below this share of verified scenes, the extraction is paraphrasing instead of quoting.
 const MIN_QUOTE_VERIFICATION_RATIO = 0.75;
-// A chapter tells its decisive moments one per slide and groups the others by three.
-const MAX_MOMENTS_PER_GROUP = 3;
+// A chapter tells its decisive moments one per slide and groups the others by two,
+// so their text stays large; a bilan and the season end are split the same way.
+const MAX_MOMENTS_PER_GROUP = 2;
+const MAX_LINES_PER_CHANGES_SLIDE = 5;
+const MAX_CHARACTERS_PER_ENDING_SLIDE = 4;
 const MAX_MOMENTS_PER_EPISODE = 10;
 const MIN_MOMENTS_PER_EPISODE = 3;
 const MAX_MOMENT_CHARS = 240;
@@ -83,6 +87,12 @@ export type EpisodeSource = {
   evidence: RecapEvidence[];
   // TMDB stills of the episode, best first; absent from snapshots taken before format version 10.
   stills?: string[];
+};
+
+/** Position of an image's main face or subject, in percent of its width (x) and height (y). */
+export type RecapImageFocus = {
+  x: number;
+  y: number;
 };
 
 /** A character's portrait on TVmaze, or its actor's when the character has none. */
@@ -142,6 +152,8 @@ export type RecapSourceSnapshot = {
   };
   episodes: EpisodeSource[];
   characterPortraits?: RecapCharacterPortrait[];
+  // Where each image's main face (or subject) stands, so crops keep it in frame.
+  imageFocus?: Record<string, RecapImageFocus>;
 };
 
 export type RecapEventImportance = 'supporting' | 'major' | 'critical';
@@ -607,6 +619,10 @@ export async function fetchRecapSourceSnapshot(input: {
     if (stills?.length) episode.stills = stills;
   });
   const characterPortraits = enrichmentResults.flatMap(enrichment => (enrichment && 'portraits' in enrichment ? enrichment.portraits ?? [] : []));
+  const imageFocus = await locateImageFocus([
+    ...episodes.flatMap(episode => episode.stills ?? []),
+    ...(tmdbImages?.backdrops ?? []),
+  ]);
   const seasonEvidence: RecapEvidence[] = [];
   let wikidataId: string | null = null;
 
@@ -653,6 +669,7 @@ export async function fetchRecapSourceSnapshot(input: {
     },
     episodes,
     characterPortraits,
+    imageFocus,
   };
 }
 
@@ -865,6 +882,80 @@ async function fetchTvMazeEvidence(input: {
     console.warn('TVmaze recap enrichment is unavailable; continuing with other sources.', toErrorMessage(error));
     return null;
   }
+}
+
+const IMAGE_FOCUS_BATCH_SIZE = 8;
+
+const imageFocusJsonSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['images'],
+  properties: {
+    images: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['index', 'x', 'y'],
+        properties: {
+          index: { type: 'integer' },
+          x: { type: 'number' },
+          y: { type: 'number' },
+        },
+      },
+    },
+  },
+} as const;
+
+/**
+ * Asks a vision model, eight low-resolution images at a time, where the face of
+ * each image's main person stands (or its main subject, without anyone), so a
+ * tall or wide crop of a still keeps it in frame. It never identifies anyone.
+ * A batch that fails leaves its images centered.
+ */
+async function locateImageFocus(urls: string[]): Promise<Record<string, RecapImageFocus>> {
+  const candidates = [...new Set(urls)].filter(url => url.startsWith(TMDB_IMAGE_BASE_URL));
+  if (!candidates.length || !process.env.OPENAI_API_KEY) return {};
+  const client = createOpenAIClient();
+  const model = getRecapModel();
+  const batches = Array.from(
+    { length: Math.ceil(candidates.length / IMAGE_FOCUS_BATCH_SIZE) },
+    (_, index) => candidates.slice(index * IMAGE_FOCUS_BATCH_SIZE, (index + 1) * IMAGE_FOCUS_BATCH_SIZE),
+  );
+  const focus: Record<string, RecapImageFocus> = {};
+  await Promise.all(batches.map(async (batch) => {
+    try {
+      const response = await client.responses.create({
+        model,
+        reasoning: { effort: 'low' },
+        instructions: [
+          'Pour chaque image numérotée, donne la position du visage de la personne principale : celle qui est au premier plan ou occupe le plus de place.',
+          'x est la position horizontale en pourcentage de la largeur (0 = bord gauche, 100 = bord droit), y la position verticale en pourcentage de la hauteur (0 = haut).',
+          'Sans personne visible, donne le centre du sujet principal. N’identifie jamais les personnes.',
+        ].join(' '),
+        input: [{
+          role: 'user',
+          content: batch.flatMap((url, index) => [
+            { type: 'input_text' as const, text: `Image ${index + 1}` },
+            { type: 'input_image' as const, image_url: url.replace(TMDB_IMAGE_BASE_URL, 'https://image.tmdb.org/t/p/w780'), detail: 'low' as const },
+          ]),
+        }],
+        max_output_tokens: 4_000,
+        text: { format: { type: 'json_schema', name: 'synupsis_image_focus', strict: true, schema: imageFocusJsonSchema } },
+      }, { timeout: 90_000 });
+      const raw = JSON.parse(response.output_text);
+      (Array.isArray(raw?.images) ? raw.images : []).forEach((item: any) => {
+        const url = batch[Number(item?.index) - 1];
+        const x = Number(item?.x);
+        const y = Number(item?.y);
+        if (!url || !Number.isFinite(x) || !Number.isFinite(y)) return;
+        focus[url] = { x: Math.round(Math.min(100, Math.max(0, x))), y: Math.round(Math.min(100, Math.max(0, y))) };
+      });
+    } catch (error) {
+      console.warn('Image focus is unavailable for a batch; those crops stay centered.', toErrorMessage(error));
+    }
+  }));
+  return focus;
 }
 
 /**
@@ -1256,9 +1347,8 @@ export async function startEpisodeExtraction(input: {
   episodeNumber: number;
   maxOutputTokens: number;
 }): Promise<{ id: string; status: string }> {
-  const response = await createOpenAIClient().responses.create({
+  return await startStreamedResponse(createOpenAIClient(), {
     model: input.model,
-    background: true,
     instructions: [
       'Tu extrais les scènes précises d’un épisode depuis les seules sources fournies.',
       'Ne rédige pas le recap final et ne complète jamais une information avec ta mémoire.',
@@ -1282,8 +1372,6 @@ export async function startEpisodeExtraction(input: {
       },
     },
   });
-
-  return { id: response.id, status: response.status ?? 'queued' };
 }
 
 export async function startSceneLinking(input: {
@@ -1291,9 +1379,8 @@ export async function startSceneLinking(input: {
   model: string;
   jobId: string;
 }): Promise<{ id: string; status: string }> {
-  const response = await createOpenAIClient().responses.create({
+  return await startStreamedResponse(createOpenAIClient(), {
     model: input.model,
-    background: true,
     instructions: [
       'Tu relies des scènes vérifiées : arcs narratifs, causes directes et variantes de noms des personnages.',
       'Tu ne crées, ne modifies et ne supprimes aucun fait.',
@@ -1315,8 +1402,6 @@ export async function startSceneLinking(input: {
       },
     },
   });
-
-  return { id: response.id, status: response.status ?? 'queued' };
 }
 
 export async function startRecapGeneration(input: {
@@ -1324,10 +1409,8 @@ export async function startRecapGeneration(input: {
   model: string;
   jobId: string;
 }): Promise<{ id: string; status: string }> {
-  const client = createOpenAIClient();
-  const response = await client.responses.create({
+  return await startStreamedResponse(createOpenAIClient(), {
     model: input.model,
-    background: true,
     instructions: [
       'Tu produis un recap factuel en français à partir des seules scènes fournies.',
       'Ne complète jamais une scène avec ta mémoire ou avec des détails absents.',
@@ -1351,8 +1434,6 @@ export async function startRecapGeneration(input: {
       },
     },
   });
-
-  return { id: response.id, status: response.status ?? 'queued' };
 }
 
 export async function startSceneCritic(input: {
@@ -1360,9 +1441,8 @@ export async function startSceneCritic(input: {
   model: string;
   jobId: string;
 }): Promise<{ id: string; status: string }> {
-  const response = await createOpenAIClient().responses.create({
+  return await startStreamedResponse(createOpenAIClient(), {
     model: input.model,
-    background: true,
     instructions: [
       'Tu signales les moments majeurs absents d’une chronologie de saison, épisode par épisode.',
       'Tu ne signales que des moments dont tu es certain, et tu t’abstiens dans le doute.',
@@ -1384,8 +1464,6 @@ export async function startSceneCritic(input: {
       },
     },
   });
-
-  return { id: response.id, status: response.status ?? 'queued' };
 }
 
 export async function startSceneRecovery(input: {
@@ -1394,9 +1472,8 @@ export async function startSceneRecovery(input: {
   jobId: string;
   episodeNumber: number;
 }): Promise<{ id: string; status: string }> {
-  const response = await createOpenAIClient().responses.create({
+  return await startStreamedResponse(createOpenAIClient(), {
     model: input.model,
-    background: true,
     instructions: [
       'Tu cherches des moments signalés dans les seules sources d’un épisode.',
       'Tu ne crées une scène que si un passage la décrit, avec une citation mot pour mot ; sinon tu ne renvoies rien.',
@@ -1419,8 +1496,6 @@ export async function startSceneRecovery(input: {
       },
     },
   });
-
-  return { id: response.id, status: response.status ?? 'queued' };
 }
 
 export async function startStoryVerification(input: {
@@ -1428,9 +1503,8 @@ export async function startStoryVerification(input: {
   model: string;
   jobId: string;
 }): Promise<{ id: string; status: string }> {
-  const response = await createOpenAIClient().responses.create({
+  return await startStreamedResponse(createOpenAIClient(), {
     model: input.model,
-    background: true,
     instructions: [
       'Tu vérifies qu’un recap ne contient que des affirmations soutenues par les scènes qu’il cite.',
       'Tu corriges les textes fautifs sans ajouter de fait, et tu n’utilises jamais ta mémoire.',
@@ -1452,12 +1526,10 @@ export async function startStoryVerification(input: {
       },
     },
   });
-
-  return { id: response.id, status: response.status ?? 'queued' };
 }
 
 export async function retrieveRecapGeneration(responseId: string) {
-  return createOpenAIClient().responses.retrieve(responseId);
+  return retrieveStreamedResponse(createOpenAIClient(), responseId);
 }
 
 /**
@@ -2069,7 +2141,7 @@ export function planStorySlides(
   let backdropCursor = 0;
   const nextBackdrop = () => (backdrops.length ? backdrops[backdropCursor++ % backdrops.length]! : null);
 
-  const slides: RecapPlannedSlide[] = [{
+  const slides: Array<Omit<RecapPlannedSlide, 'imageFocus'>> = [{
     content: { kind: 'cover', ...story.cover, episodeCount: snapshot.episodes.length },
     eventIds: [],
     imageUrl: null,
@@ -2153,31 +2225,50 @@ export function planStorySlides(
     const changes = episode.changes;
     if (changes && listEpisodeChanges(episode).length) {
       const nextEpisode = episodes[index + 1];
-      slides.push({
-        content: {
-          kind: 'changes',
-          episodeNumber,
-          deaths: changes.deaths.map(changeItem),
-          situations: changes.situations.map(changeItem),
-          questions: changes.questions.map(question => question.text),
-          nextEpisode: nextEpisode
-            ? {
-                number: nextEpisode.episodeNumber,
-                title: snapshot.episodes.find(item => item.number === nextEpisode.episodeNumber)?.title ?? '',
-              }
-            : null,
-        },
-        eventIds: listEpisodeChanges(episode).flatMap(change => change.eventIds),
-        imageUrl: nextImage(),
+      // Deaths first, then situations, five lines a slide; the questions close the last slide
+      // (a question takes about a line and a half), or get their own when it is full.
+      const lines = [
+        ...changes.deaths.map(change => ({ change, death: true })),
+        ...changes.situations.map(change => ({ change, death: false })),
+      ];
+      const pages: Array<typeof lines> = [];
+      for (let start = 0; start < lines.length; start += MAX_LINES_PER_CHANGES_SLIDE) {
+        pages.push(lines.slice(start, start + MAX_LINES_PER_CHANGES_SLIDE));
+      }
+      const lastPage = pages[pages.length - 1];
+      if (!lastPage || (changes.questions.length && lastPage.length + changes.questions.length * 1.5 > MAX_LINES_PER_CHANGES_SLIDE + 1)) {
+        pages.push([]);
+      }
+      pages.forEach((page, pageIndex) => {
+        const isLast = pageIndex === pages.length - 1;
+        const questions = isLast ? changes.questions : [];
+        slides.push({
+          content: {
+            kind: 'changes',
+            episodeNumber,
+            deaths: page.filter(line => line.death).map(line => changeItem(line.change)),
+            situations: page.filter(line => !line.death).map(line => changeItem(line.change)),
+            questions: questions.map(question => question.text),
+            nextEpisode: isLast && nextEpisode
+              ? {
+                  number: nextEpisode.episodeNumber,
+                  title: snapshot.episodes.find(item => item.number === nextEpisode.episodeNumber)?.title ?? '',
+                }
+              : null,
+          },
+          eventIds: [...page.map(line => line.change), ...questions].flatMap(change => change.eventIds),
+          imageUrl: nextImage(),
+        });
       });
     }
   });
 
   const ending = story.ending;
-  if (ending?.characters.length) {
+  for (let start = 0; start < (ending?.characters.length ?? 0); start += MAX_CHARACTERS_PER_ENDING_SLIDE) {
+    const lines = ending!.characters.slice(start, start + MAX_CHARACTERS_PER_ENDING_SLIDE);
     slides.push({
-      content: { kind: 'ending-status', characters: ending.characters.map(changeItem) },
-      eventIds: ending.characters.flatMap(line => line.eventIds),
+      content: { kind: 'ending-status', characters: lines.map(changeItem) },
+      eventIds: lines.flatMap(line => line.eventIds),
       imageUrl: nextBackdrop(),
     });
   }
@@ -2212,7 +2303,7 @@ export function planStorySlides(
       imageUrl: nextBackdrop(),
     });
   }
-  return slides;
+  return slides.map(slide => ({ ...slide, imageFocus: slide.imageUrl ? snapshot.imageFocus?.[slide.imageUrl] ?? null : null }));
 }
 
 const PORTRAIT_NAME_PARTICLES = new Set(['les', 'des', 'del', 'van', 'von', 'der', 'den', 'ser', 'lord', 'lady', 'the']);

@@ -3,21 +3,7 @@
     class="relative isolate h-full w-full overflow-hidden bg-slate-950 text-white [container-type:inline-size]"
     :class="densityClass"
   >
-    <!-- Text-heavy chapter slides keep only the blurred colors of their still. -->
-    <template v-if="imageLayout === 'ambient'">
-      <Transition name="story-image" mode="out-in">
-        <img
-          :key="`ambient-${imageUrl}`"
-          :src="imageUrl ?? undefined"
-          alt=""
-          aria-hidden="true"
-          class="absolute inset-0 h-full w-full scale-125 object-cover opacity-45 blur-2xl"
-        >
-      </Transition>
-      <div class="absolute inset-0 bg-black/55" />
-      <div class="absolute inset-x-0 bottom-0 h-[70%] bg-gradient-to-t from-black via-black/80 to-transparent" />
-    </template>
-    <template v-else-if="imageLayout === 'full'">
+    <template v-if="imageLayout === 'full'">
       <Transition name="story-image" mode="out-in">
         <img
           v-if="imageUrl"
@@ -57,7 +43,8 @@
             :key="imageUrl ?? ''"
             :src="imageUrl ?? undefined"
             alt=""
-            class="absolute inset-0 h-full w-full object-cover object-[center_30%]"
+            class="absolute inset-0 h-full w-full object-cover"
+            :style="{ objectPosition: imageFocus ? `${imageFocus.x}% ${imageFocus.y}%` : '50% 30%' }"
           >
         </Transition>
         <div class="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/70 to-transparent" />
@@ -94,28 +81,19 @@
 
       <template v-else-if="content.kind === 'chapter'">
         <div class="relative mt-auto">
-          <p class="text-[112px] font-extrabold leading-[0.8] tracking-[-0.06em] text-white/[0.12] tabular-nums" aria-hidden="true">
+          <p class="text-[104px] font-extrabold leading-[0.8] tracking-[-0.06em] text-white/[0.14] tabular-nums" aria-hidden="true">
             {{ String(content.episodeNumber).padStart(2, '0') }}
           </p>
-          <div class="mt-5 flex items-center gap-2.5">
-            <span class="h-px w-8" :style="{ backgroundColor: accentColor }" />
-            <p class="text-[11px] font-semibold uppercase tracking-[0.19em]" :style="{ color: accentColor }">
-              Épisode {{ content.episodeNumber }}<template v-if="content.episodeTitle"> · {{ content.episodeTitle }}</template>
-            </p>
-          </div>
-          <h2 class="recap-chapter-title mt-3.5 text-[34px] font-bold leading-[1.04] tracking-[-0.035em]">
+          <p class="mt-5 text-xs font-semibold uppercase tracking-[0.18em]" :style="{ color: accentColor }">
+            Épisode {{ content.episodeNumber }}<template v-if="content.episodeTitle"> · {{ content.episodeTitle }}</template>
+          </p>
+          <h2 class="recap-chapter-title mt-3 font-bold tracking-[-0.035em]">
             {{ content.headline }}
           </h2>
-          <ul v-if="content.locations.length" class="mt-5 flex flex-wrap gap-2">
-            <li
-              v-for="location in content.locations"
-              :key="location"
-              class="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-xs font-semibold text-white/85"
-            >
-              {{ location }}
-            </li>
-          </ul>
-          <p class="mt-6 flex min-h-11 items-center border-t border-white/10 pt-4 text-xs text-white/60 tabular-nums">
+          <p v-if="content.locations.length" class="mt-4 text-[15px] leading-snug text-white/75">
+            {{ content.locations.join(' · ') }}
+          </p>
+          <p class="mt-6 flex min-h-11 items-center border-t border-white/10 pt-4 text-sm text-white/60 tabular-nums">
             {{ chapterSummary }}
           </p>
         </div>
@@ -123,150 +101,108 @@
 
       <template v-else-if="content.kind === 'moment'">
         <div class="relative mt-auto">
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2.5">
             <span class="rounded-full border border-amber-500/50 bg-amber-500/15 px-2.5 py-1 text-xs font-semibold text-amber-300">
               Décisif
             </span>
-            <span class="text-xs text-white/60">
+            <span class="text-[13px] text-white/65">
               Épisode {{ content.episodeNumber }}<template v-if="content.location"> · {{ content.location }}</template>
             </span>
           </div>
           <h2 class="recap-moment-title mt-4 font-bold tracking-[-0.03em]">
             {{ content.text }}
           </h2>
-          <div v-if="content.detail" class="mt-5 flex gap-3 rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3.5">
-            <span class="mt-[0.55em] h-1.5 w-1.5 shrink-0 rounded-full" :style="{ backgroundColor: accentColor }" aria-hidden="true" />
-            <p class="text-sm leading-relaxed text-white/85">{{ content.detail }}</p>
-          </div>
-          <template v-if="content.characters.length">
-            <p class="mt-5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/60">Dans la scène</p>
-            <ul class="mt-2.5 flex flex-wrap gap-2">
-              <li
-                v-for="character in content.characters"
-                :key="character.name"
-                class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] py-1 pl-1 pr-3"
-              >
-                <RecapCharacterAvatar :character="character" class="h-7 w-7 bg-white/15 text-[11px]" />
-                <span class="text-[13px] font-medium text-white/90">{{ character.name }}</span>
-              </li>
-            </ul>
-          </template>
+          <p v-if="content.detail" class="recap-detail mt-4 flex gap-2.5 text-white/80">
+            <span class="mt-[0.6em] h-1.5 w-1.5 shrink-0 rounded-full" :style="{ backgroundColor: accentColor }" aria-hidden="true" />
+            <span>{{ content.detail }}</span>
+          </p>
+          <ul v-if="content.characters.length" class="mt-5 flex flex-wrap gap-x-4 gap-y-2.5" aria-label="Dans la scène">
+            <li v-for="character in content.characters" :key="character.name" class="flex items-center gap-2">
+              <RecapCharacterAvatar :character="character" class="h-9 w-9 bg-white/15 text-xs" />
+              <span class="text-[15px] font-medium text-white/90">{{ character.name }}</span>
+            </li>
+          </ul>
         </div>
       </template>
 
       <template v-else-if="content.kind === 'moment-group'">
         <div class="relative flex min-h-0 flex-col" :class="{ 'flex-1': imageLayout !== 'band' }">
-          <div class="flex items-center gap-2.5">
-            <span class="h-px w-8" :style="{ backgroundColor: accentColor }" />
-            <p class="text-[11px] font-semibold uppercase tracking-[0.19em]" :style="{ color: accentColor }">
-              Épisode {{ content.episodeNumber }}
-            </p>
-          </div>
-          <h2 class="mt-3.5 text-[32px] font-bold leading-[1.05] tracking-[-0.03em]">{{ content.heading }}</h2>
-          <ul class="flex flex-col gap-3" :class="imageLayout === 'band' ? 'mt-5' : 'mt-auto'">
-            <li
-              v-for="(item, index) in content.items"
-              :key="index"
-              class="flex flex-col gap-2.5 rounded-2xl border border-white/10 bg-white/[0.035] p-4"
-            >
-              <div v-if="item.location || item.characters.length" class="flex items-center justify-between gap-2">
-                <span class="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/60">{{ item.location }}</span>
-                <span class="flex" :aria-label="item.characters.map(character => character.name).join(', ')">
+          <p class="text-xs font-semibold uppercase tracking-[0.18em]" :style="{ color: accentColor }">
+            Épisode {{ content.episodeNumber }} · {{ content.heading }}
+          </p>
+          <ul class="flex flex-col divide-y divide-white/10" :class="imageLayout === 'band' ? 'mt-3' : 'mt-auto'">
+            <li v-for="(item, index) in content.items" :key="index" class="py-4 first:pt-2 last:pb-0">
+              <div v-if="item.location || item.characters.length" class="flex items-center justify-between gap-3">
+                <span class="text-xs font-semibold uppercase tracking-[0.16em] text-white/60">{{ item.location }}</span>
+                <span class="flex pl-1.5" :aria-label="item.characters.map(character => character.name).join(', ')">
                   <RecapCharacterAvatar
                     v-for="character in item.characters"
                     :key="character.name"
                     :character="character"
-                    class="-ml-1.5 h-[26px] w-[26px] border-2 border-slate-950 bg-zinc-800 text-[10px]"
+                    class="-ml-1.5 h-8 w-8 border-2 border-slate-950 bg-zinc-800 text-[11px]"
                   />
                 </span>
               </div>
-              <p class="recap-moment text-white/90">{{ item.text }}</p>
+              <p class="recap-group-text mt-2 font-medium text-white/95">{{ item.text }}</p>
             </li>
           </ul>
         </div>
       </template>
 
       <template v-else-if="content.kind === 'changes'">
-        <div class="flex min-h-0 flex-1 flex-col">
-          <div class="flex items-center gap-2.5">
-            <span class="h-px w-8" :style="{ backgroundColor: accentColor }" />
-            <p class="text-[11px] font-semibold uppercase tracking-[0.19em]" :style="{ color: accentColor }">
-              Épisode {{ content.episodeNumber }} · Bilan
-            </p>
-          </div>
-          <h2 class="mt-3 text-[32px] font-bold leading-[1.05] tracking-[-0.03em]">Ce qui a changé</h2>
-          <div class="recap-changes mt-auto flex flex-col gap-4">
-            <ul v-if="content.deaths.length" class="flex flex-col gap-2">
-              <li
-                v-for="(death, index) in content.deaths"
-                :key="index"
-                class="flex items-center gap-3 rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-3"
-              >
-                <RecapCharacterAvatar :character="death.character" muted class="h-9 w-9 bg-zinc-700/60 text-[11px] text-zinc-300" />
+        <div class="relative flex min-h-0 flex-col" :class="{ 'flex-1': imageLayout !== 'band' }">
+          <p class="text-xs font-semibold uppercase tracking-[0.18em]" :style="{ color: accentColor }">
+            Épisode {{ content.episodeNumber }} · Bilan
+          </p>
+          <h2 class="mt-3 text-[34px] font-bold leading-[1.05] tracking-[-0.03em]">Ce qui a changé</h2>
+          <div class="flex flex-col gap-5" :class="imageLayout === 'band' ? 'mt-5' : 'mt-auto'">
+            <ul v-if="content.deaths.length || content.situations.length" class="flex flex-col divide-y divide-white/10">
+              <li v-for="(death, index) in content.deaths" :key="`death-${index}`" class="flex items-start gap-3.5 py-3 first:pt-0">
+                <RecapCharacterAvatar :character="death.character" muted class="mt-0.5 h-10 w-10 border border-dashed border-white/20 bg-zinc-700/60 text-xs text-zinc-300" />
                 <span class="min-w-0">
-                  <span class="block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/60">Mort</span>
-                  <span class="recap-change-text block text-white/85"><span v-if="needsName(death)" class="font-semibold text-white">{{ death.character?.name }} · </span>{{ death.text }}</span>
+                  <span class="block text-xs font-semibold uppercase tracking-[0.16em] text-white/55">Mort</span>
+                  <span class="recap-line mt-0.5 block text-white/90"><span v-if="needsName(death)" class="font-semibold text-white">{{ death.character?.name }} · </span>{{ death.text }}</span>
                 </span>
               </li>
+              <li v-for="(situation, index) in content.situations" :key="`situation-${index}`" class="flex items-start gap-3.5 py-3 first:pt-0">
+                <RecapCharacterAvatar :character="situation.character" class="mt-0.5 h-10 w-10 bg-white/15 text-xs" />
+                <span class="recap-line min-w-0 text-white/90"><span v-if="needsName(situation)" class="font-semibold text-white">{{ situation.character?.name }} · </span>{{ situation.text }}</span>
+              </li>
             </ul>
-            <div v-if="content.situations.length">
-              <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/60">Nouvelles situations</p>
-              <ul class="mt-1.5">
-                <li
-                  v-for="(situation, index) in content.situations"
-                  :key="index"
-                  class="flex items-center gap-3 border-b border-white/10 py-2.5"
-                >
-                  <RecapCharacterAvatar :character="situation.character" class="h-[30px] w-[30px] bg-white/15 text-[11px]" />
-                  <span class="recap-change-text min-w-0 text-white/85"><span v-if="needsName(situation)" class="font-semibold text-white">{{ situation.character?.name }} · </span>{{ situation.text }}</span>
-                </li>
-              </ul>
-            </div>
-            <div
-              v-for="(question, index) in content.questions"
-              :key="`question-${index}`"
-              class="rounded-2xl border border-white/10 bg-white/[0.03] p-3.5"
-            >
-              <p class="text-[10px] font-semibold uppercase tracking-[0.16em]" :style="{ color: accentColor }">Question ouverte</p>
-              <p class="mt-1.5 text-base font-semibold leading-snug">{{ question }}</p>
+            <div v-for="(question, index) in content.questions" :key="`question-${index}`">
+              <p class="text-xs font-semibold uppercase tracking-[0.16em]" :style="{ color: accentColor }">Question ouverte</p>
+              <p class="recap-question mt-1.5 font-semibold">{{ question }}</p>
             </div>
           </div>
         </div>
       </template>
 
       <template v-else-if="content.kind === 'ending-status'">
-        <div class="flex min-h-0 flex-1 flex-col">
-          <div class="flex items-center gap-2.5">
-            <span class="h-px w-8" :style="{ backgroundColor: accentColor }" />
-            <p class="text-[11px] font-semibold uppercase tracking-[0.19em]" :style="{ color: accentColor }">Fin de la saison {{ seasonNumber }}</p>
-          </div>
-          <h2 class="mt-3 text-[32px] font-bold leading-[1.05] tracking-[-0.03em]">Où en est-on</h2>
-          <ul class="mt-auto">
-            <li
-              v-for="(line, index) in content.characters"
-              :key="index"
-              class="flex items-center gap-3 border-b border-white/10 py-2.5"
-            >
-              <RecapCharacterAvatar :character="line.character" class="h-[30px] w-[30px] bg-white/15 text-[11px]" />
-              <span class="recap-change-text min-w-0 text-white/85"><span v-if="needsName(line)" class="font-semibold text-white">{{ line.character?.name }} · </span>{{ line.text }}</span>
+        <div class="relative flex min-h-0 flex-col" :class="{ 'flex-1': imageLayout !== 'band' }">
+          <p class="text-xs font-semibold uppercase tracking-[0.18em]" :style="{ color: accentColor }">Fin de la saison {{ seasonNumber }}</p>
+          <h2 class="mt-3 text-[34px] font-bold leading-[1.05] tracking-[-0.03em]">Où en est-on</h2>
+          <ul class="flex flex-col divide-y divide-white/10" :class="imageLayout === 'band' ? 'mt-5' : 'mt-auto'">
+            <li v-for="(line, index) in content.characters" :key="index" class="flex items-start gap-3.5 py-3.5 first:pt-0 last:pb-0">
+              <RecapCharacterAvatar :character="line.character" class="mt-0.5 h-11 w-11 bg-white/15 text-xs" />
+              <span class="min-w-0">
+                <span v-if="line.character" class="block text-[15px] font-semibold text-white">{{ line.character.name }}</span>
+                <span class="recap-line block text-white/85">{{ line.text }}</span>
+              </span>
             </li>
           </ul>
         </div>
       </template>
 
       <template v-else-if="content.kind === 'ending-deaths'">
-        <div class="flex min-h-0 flex-1 flex-col">
-          <div class="flex items-center gap-2.5">
-            <span class="h-px w-8" :style="{ backgroundColor: accentColor }" />
-            <p class="text-[11px] font-semibold uppercase tracking-[0.19em]" :style="{ color: accentColor }">Fin de la saison {{ seasonNumber }}</p>
-          </div>
-          <h2 class="mt-3 text-[32px] font-bold leading-[1.05] tracking-[-0.03em]">Morts cette saison</h2>
-          <ul class="mt-auto grid grid-cols-2 gap-x-3 gap-y-3">
-            <li v-for="death in content.deaths" :key="death.character.name" class="flex min-w-0 items-center gap-2.5">
-              <RecapCharacterAvatar :character="death.character" muted class="h-9 w-9 border border-dashed border-white/15 bg-zinc-700/60 text-[11px] text-zinc-300" />
-              <span class="min-w-0 text-[13px] leading-tight text-white/85">
+        <div class="relative flex min-h-0 flex-col" :class="{ 'flex-1': imageLayout !== 'band' }">
+          <p class="text-xs font-semibold uppercase tracking-[0.18em]" :style="{ color: accentColor }">Fin de la saison {{ seasonNumber }}</p>
+          <h2 class="mt-3 text-[34px] font-bold leading-[1.05] tracking-[-0.03em]">Morts cette saison</h2>
+          <ul class="grid grid-cols-2 gap-x-4 gap-y-4" :class="imageLayout === 'band' ? 'mt-5' : 'mt-auto'">
+            <li v-for="death in content.deaths" :key="death.character.name" class="flex min-w-0 items-center gap-3">
+              <RecapCharacterAvatar :character="death.character" muted class="h-11 w-11 border border-dashed border-white/20 bg-zinc-700/60 text-xs text-zinc-300" />
+              <span class="min-w-0 text-[15px] font-medium leading-tight text-white/90">
                 {{ death.character.name }}
-                <span class="block text-xs text-white/60 tabular-nums">Épisode {{ death.episodeNumber }}</span>
+                <span class="mt-0.5 block text-[13px] font-normal text-white/60 tabular-nums">Épisode {{ death.episodeNumber }}</span>
               </span>
             </li>
           </ul>
@@ -274,22 +210,15 @@
       </template>
 
       <template v-else-if="content.kind === 'ending-questions'">
-        <div class="flex min-h-0 flex-1 flex-col">
-          <div class="flex items-center gap-2.5">
-            <span class="h-px w-8" :style="{ backgroundColor: accentColor }" />
-            <p class="text-[11px] font-semibold uppercase tracking-[0.19em]" :style="{ color: accentColor }">Fin de la saison {{ seasonNumber }}</p>
-          </div>
-          <h2 class="mt-3 text-[32px] font-bold leading-[1.05] tracking-[-0.03em]">Questions ouvertes</h2>
-          <ul class="mt-auto flex flex-col gap-2.5">
-            <li
-              v-for="(question, index) in content.questions"
-              :key="index"
-              class="flex flex-col gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] p-3.5"
-            >
-              <span class="text-base font-semibold leading-snug">{{ question.text }}</span>
-              <span v-if="question.episodeNumbers.length" class="text-xs text-white/60 tabular-nums">
+        <div class="relative flex min-h-0 flex-col" :class="{ 'flex-1': imageLayout !== 'band' }">
+          <p class="text-xs font-semibold uppercase tracking-[0.18em]" :style="{ color: accentColor }">Fin de la saison {{ seasonNumber }}</p>
+          <h2 class="mt-3 text-[34px] font-bold leading-[1.05] tracking-[-0.03em]">Questions ouvertes</h2>
+          <ul class="flex flex-col divide-y divide-white/10" :class="imageLayout === 'band' ? 'mt-5' : 'mt-auto'">
+            <li v-for="(question, index) in content.questions" :key="index" class="py-4 first:pt-0 last:pb-0">
+              <p class="recap-question font-semibold">{{ question.text }}</p>
+              <p v-if="question.episodeNumbers.length" class="mt-1.5 text-[13px] text-white/60 tabular-nums">
                 {{ question.episodeNumbers.length > 1 ? 'Épisodes' : 'Épisode' }} {{ question.episodeNumbers.join(' · ') }}
-              </span>
+              </p>
             </li>
           </ul>
         </div>
@@ -358,6 +287,8 @@ import type { RecapChangeItem, RecapStorySlideContent } from '~/types/recap-stor
 const props = defineProps<{
   content: RecapStorySlideContent;
   imageUrl: string | null;
+  // Where the image's main face or subject stands (percent): the crop keeps it in frame.
+  imageFocus?: { x: number; y: number } | null;
   seasonNumber: number;
   slideNumber: number;
   totalSlides: number;
@@ -375,7 +306,32 @@ const accentColor = computed(() => {
   return '#93c5fd';
 });
 
+const CHAPTER_KINDS = new Set(['chapter', 'moment', 'moment-group', 'changes', 'ending-status', 'ending-deaths', 'ending-questions']);
+
+// Chapters slides scale their reading text to how much of it the slide holds.
+const textScale = computed<'lg' | 'md' | 'sm'>(() => {
+  const content = props.content;
+  const scale = (length: number, large: number, medium: number) => (length <= large ? 'lg' : length <= medium ? 'md' : 'sm');
+  switch (content.kind) {
+    case 'chapter':
+      return scale(content.headline.length, 40, 70);
+    case 'moment':
+      return scale(content.text.length + (content.detail?.length ?? 0) * 0.4, 150, 220);
+    case 'moment-group':
+      return scale(content.items.map(item => item.text).join(' ').length, 260, 360);
+    case 'changes':
+      return scale([...content.deaths, ...content.situations].map(item => item.text).join(' ').length + content.questions.join(' ').length * 1.3, 380, 540);
+    case 'ending-status':
+      return scale(content.characters.map(item => item.text).join(' ').length, 360, 480);
+    case 'ending-questions':
+      return scale(content.questions.map(question => question.text).join(' ').length, 280, 420);
+    default:
+      return 'md';
+  }
+});
+
 const densityClass = computed(() => {
+  if (CHAPTER_KINDS.has(props.content.kind)) return `text-scale-${textScale.value}`;
   if (props.content.kind === 'cover') {
     const length = props.content.title.length + props.content.subtitle.length + props.content.logline.length;
     return length > 390 || props.content.title.length > 52
@@ -388,25 +344,10 @@ const densityClass = computed(() => {
   return 'density-comfortable';
 });
 
-/** Characters of reading text, weighted like a narration, that set the density. */
+/** Characters of reading text, weighted like a narration, that set the density of older slides. */
 function measureSlideText(content: RecapStorySlideContent): number {
-  switch (content.kind) {
-    case 'episode':
-      return content.moments.join(' ').length * 0.75;
-    case 'beat':
-      return content.narration.length;
-    case 'moment':
-      return content.text.length * 1.4 + (content.detail?.length ?? 0) * 0.5;
-    case 'moment-group':
-      return content.items.map(item => item.text).join(' ').length * 0.75;
-    case 'changes':
-      return [...content.deaths, ...content.situations].map(item => item.text).join(' ').length * 0.8
-        + content.questions.join(' ').length;
-    case 'ending-status':
-      return content.characters.map(item => item.text).join(' ').length * 0.8;
-    default:
-      return 0;
-  }
+  if (content.kind === 'episode') return content.moments.join(' ').length * 0.75;
+  return content.kind === 'beat' ? content.narration.length : 0;
 }
 
 // A line that only says "elle" or "il" gets its character's name in front. A
@@ -424,26 +365,13 @@ function normalizeName(value: string): string {
 }
 
 /**
- * Chapters slides use landscape stills: moments and cards give the still the
- * height their text leaves, text-heavy slides only its blurred colors.
+ * Chapters slides use landscape stills: each one gives its still the height
+ * its text leaves, so a short slide shows more of the image.
  * Older slides and the cover keep the full-screen image.
  */
-const imageLayout = computed<'full' | 'band' | 'ambient'>(() => {
-  if (!props.imageUrl) return 'full';
-  switch (props.content.kind) {
-    case 'chapter':
-    case 'moment':
-    case 'moment-group':
-      return 'band';
-    case 'changes':
-    case 'ending-status':
-    case 'ending-deaths':
-    case 'ending-questions':
-      return 'ambient';
-    default:
-      return 'full';
-  }
-});
+const imageLayout = computed<'full' | 'band'>(() => (
+  props.imageUrl && CHAPTER_KINDS.has(props.content.kind) ? 'band' : 'full'
+));
 
 const chapterSummary = computed(() => {
   if (props.content.kind !== 'chapter') return '';
@@ -510,36 +438,32 @@ function looksArtificiallyTruncated(value: string): boolean {
   line-height: 1.45;
 }
 
+.recap-chapter-title { font-size: 40px; line-height: 1.04; }
+.text-scale-md .recap-chapter-title { font-size: 36px; }
+.text-scale-sm .recap-chapter-title { font-size: 31px; line-height: 1.08; }
+
+.recap-moment-title { font-size: 36px; line-height: 1.1; }
+.text-scale-md .recap-moment-title { font-size: 31px; line-height: 1.12; }
+.text-scale-sm .recap-moment-title { font-size: 27px; line-height: 1.15; }
+
+.recap-detail { font-size: 17px; line-height: 1.45; }
+.text-scale-sm .recap-detail { font-size: 15px; }
+
+.recap-group-text { font-size: 21px; line-height: 1.36; }
+.text-scale-md .recap-group-text { font-size: 19px; line-height: 1.38; }
+.text-scale-sm .recap-group-text { font-size: 17px; line-height: 1.4; }
+
+.recap-line { font-size: 18px; line-height: 1.4; }
+.text-scale-md .recap-line { font-size: 16.5px; }
+.text-scale-sm .recap-line { font-size: 15px; line-height: 1.38; }
+
+.recap-question { font-size: 22px; line-height: 1.28; }
+.text-scale-md .recap-question { font-size: 20px; }
+.text-scale-sm .recap-question { font-size: 18px; line-height: 1.32; }
+
 .recap-still-fade {
   -webkit-mask-image: linear-gradient(to bottom, #000 45%, rgb(0 0 0 / 0.55) 72%, transparent 100%);
   mask-image: linear-gradient(to bottom, #000 45%, rgb(0 0 0 / 0.55) 72%, transparent 100%);
-}
-
-.recap-moment-title {
-  font-size: 28px;
-  line-height: 1.12;
-}
-
-.density-medium .recap-moment-title {
-  font-size: 25px;
-}
-
-.density-high .recap-moment-title {
-  font-size: 22px;
-}
-
-.recap-change-text {
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-.density-high .recap-change-text {
-  font-size: 13px;
-  line-height: 1.35;
-}
-
-.density-high .recap-changes {
-  gap: 0.6rem;
 }
 
 .density-medium .recap-moment {

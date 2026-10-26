@@ -171,4 +171,7 @@ export type RecapPlannedSlide = {
   eventIds: string[];
   // Source URL of the slide's background image; null uses the season cover.
   imageUrl: string | null;
+  // Where the image's main face or subject stands (percent of width and height);
+  // null keeps the crop centered.
+  imageFocus: { x: number; y: number } | null;
 };
