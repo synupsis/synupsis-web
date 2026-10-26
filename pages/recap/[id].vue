@@ -127,22 +127,12 @@
           @touchstart.stop
           @touchend.stop
         >
-          <div v-if="currentSlide.content?.kind === 'chapter'" class="flex justify-end px-6 pb-3 sm:px-7">
-            <button
-              type="button"
-              class="pointer-events-auto inline-flex min-h-11 items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-4 text-sm font-medium text-white backdrop-blur-md transition-colors hover:bg-white/10"
-              @click="skipChapter"
-            >
-              Je m’en souviens
-              <ForwardIcon class="h-4 w-4" aria-hidden="true" />
-            </button>
-          </div>
-          <div class="pointer-events-auto border-t border-white/10 bg-black/85 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-md">
+          <div class="pointer-events-auto flex items-center border-t border-white/10 bg-black/85 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-md">
             <!-- A scroller clips both axes: its padding, taken back by negative margins, leaves room for the halo. -->
             <nav
               ref="railElement"
               aria-label="Épisodes"
-              class="-my-4 overflow-x-auto px-5 py-4 [scrollbar-width:none]"
+              class="-my-4 min-w-0 flex-1 overflow-x-auto px-5 py-4 [scrollbar-width:none]"
               :class="{ 'recap-rail-fade-start': railOverflows && railHasBefore, 'recap-rail-fade-end': railOverflows && railHasAfter }"
               @scroll.passive="updateRailEdges"
             >
@@ -185,6 +175,20 @@
                 </template>
               </div>
             </nav>
+            <!-- Story actions sit beside the rail, out of the slide text; the correction action will join them. -->
+            <div class="flex shrink-0 items-center border-l border-white/10 pl-1.5 pr-2.5">
+              <button
+                type="button"
+                class="flex h-11 w-11 items-center justify-center rounded-full text-white transition-colors hover:bg-white/10 active:bg-white/15"
+                :class="{ invisible: !skipLabel }"
+                :aria-label="skipLabel || undefined"
+                :title="skipLabel || undefined"
+                :tabindex="skipLabel ? undefined : -1"
+                @click="skipChapter"
+              >
+                <ForwardIcon class="h-6 w-6" aria-hidden="true" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -561,10 +565,22 @@ const jumpTo = (index: number) => {
 };
 
 // "Je m'en souviens": straight to the episode's bilan, or to the next chapter without one.
+// Skipping leads from the cover to the first episode, through an episode to its
+// bilan, and from the bilan to the next episode.
+const skipLabel = computed(() => {
+  if (currentChapter.value?.key === 'cover') return 'Commencer au premier épisode';
+  if (!currentChapter.value?.key.startsWith('episode-')) return '';
+  return currentSlide.value?.content?.kind === 'changes' ? 'Épisode suivant' : 'Je m’en souviens : passer au bilan';
+});
+
 const skipChapter = () => {
   const chapter = currentChapter.value;
   if (!chapter || !data.value) return;
-  const bilanIndex = chapter.indexes.find(index => index > currentSlideIndex.value && data.value?.slides[index]?.content?.kind === 'changes');
+  // From a bilan page (a long bilan has several), go on to the next episode.
+  const onBilan = currentSlide.value?.content?.kind === 'changes';
+  const bilanIndex = onBilan
+    ? undefined
+    : chapter.indexes.find(index => index > currentSlideIndex.value && data.value?.slides[index]?.content?.kind === 'changes');
   const lastIndex = chapter.indexes[chapter.indexes.length - 1] ?? currentSlideIndex.value;
   jumpTo(bilanIndex ?? Math.min(lastIndex + 1, data.value.slides.length - 1));
 };
