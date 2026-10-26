@@ -1,11 +1,6 @@
 <template>
   <div class="w-full min-h-screen bg-background text-foreground">
-    <header class="flex w-full justify-between items-center py-6 px-8 border-b">
-      <router-link to="/">
-        <img src="/svg/logo_text.svg" alt="Synupsis Logo" class="h-8" />
-      </router-link>
-      <UserAuthStatus />
-    </header>
+    <AppHeader class="border-b" />
     <main class="p-4 sm:p-8">
       <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
         <!-- Left Column: User Card -->
@@ -147,7 +142,6 @@ import {
 import { Button } from '~/components/shadcn/button'
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/shadcn/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/shadcn/tabs'
-import UserAuthStatus from '~/components/UserAuthStatus.vue';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import { PencilIcon, EyeIcon } from '@heroicons/vue/24/outline';
 import AvatarUploadModal from '~/components/AvatarUploadModal.vue';

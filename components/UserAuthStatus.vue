@@ -1,6 +1,6 @@
 <template>
   <ClientOnly>
-    <div v-if="user" class="flex gap-4 items-center justify-end">
+    <div v-if="user" class="flex items-center justify-end gap-1 sm:gap-4">
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
           <Button variant="ghost" class="flex items-center gap-2">
@@ -8,7 +8,7 @@
               <AvatarImage v-if="avatarUrl" :src="avatarUrl" :alt="displayName" />
               <AvatarFallback>{{ displayName.charAt(0) }}</AvatarFallback>
             </Avatar>
-            <span>{{ displayName }}</span>
+            <span class="hidden sm:inline">{{ displayName }}</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
@@ -28,9 +28,9 @@
       </DropdownMenu>
       
     </div>
-    <div v-else class="flex gap-4 items-center justify-end">
-      <Button variant="ghost" @click="goToLogin">Log in</Button>
-      <Button @click="goToSignup">Sign up</Button>
+    <div v-else class="flex items-center justify-end gap-1 sm:gap-4">
+      <Button variant="ghost" class="px-2 sm:px-4" @click="goToLogin">Log in</Button>
+      <Button class="px-2 sm:px-4" @click="goToSignup">Sign up</Button>
       
     </div>
     <template #fallback>

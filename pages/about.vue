@@ -1,9 +1,6 @@
 <template>
   <div class="w-full min-h-screen bg-background text-foreground">
-    <header class="flex w-full justify-between items-center py-6 px-8 border-b">
-      <Logo display-text />
-      <UserAuthStatus />
-    </header>
+    <AppHeader class="border-b" />
     <main class="p-8">
       <div class="max-w-4xl mx-auto text-center">
         <h1 class="text-5xl font-extrabold tracking-tighter mb-4">About Synupsis</h1>
@@ -25,7 +22,3 @@
     </main>
   </div>
 </template>
-
-<script setup lang="ts">
-import UserAuthStatus from '~/components/UserAuthStatus.vue';
-</script>

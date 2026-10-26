@@ -7,10 +7,7 @@
     </div>
 
     <!-- Header -->
-    <header class="relative z-10 flex w-full justify-between items-center py-6 px-8">
-      <Logo display-text />
-      <UserAuthStatus />
-    </header>
+    <AppHeader class="relative z-10" />
 
     <!-- Main Content -->
     <main class="relative z-10 flex flex-1 flex-col items-center justify-center text-center p-4">
@@ -90,10 +87,8 @@
 import { ref, watch } from 'vue';
 import { useDebounceFn } from '@vueuse/core';
 import VanishingInput from '~/components/ui/VanishingInput.vue';
-import UserAuthStatus from '~/components/UserAuthStatus.vue';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import BlurReveal from '~/components/ui/BlurReveal.vue';
-import Logo from '~/components/Logo.vue';
 import {
   Carousel,
   CarouselContent,
