@@ -12,7 +12,9 @@ function parseTrustedImageUrl(rawUrl: string): string {
   }
 
   const hostname = parsedUrl.hostname.toLowerCase();
-  const isTrustedHost = hostname === 'trakt.tv' || hostname.endsWith('.trakt.tv');
+  const isTrustedHost = hostname === 'static.tvmaze.com'
+    || hostname === 'trakt.tv'
+    || hostname.endsWith('.trakt.tv');
 
   if (parsedUrl.protocol !== 'https:' || !isTrustedHost) {
     throw createError({ statusCode: 400, statusMessage: 'Unsupported image host.' });
@@ -56,7 +58,7 @@ export default defineEventHandler(async (event) => {
     }
 
     setHeader(event, 'Content-Type', contentType);
-    setHeader(event, 'Cache-Control', 'public, max-age=3600, s-maxage=86400');
+    setHeader(event, 'Cache-Control', 'public, max-age=31536000, immutable');
 
     return sendStream(event, response.body);
   } catch (error) {

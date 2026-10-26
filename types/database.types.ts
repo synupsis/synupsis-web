@@ -1,4 +1,5 @@
 import type { Database as DatabaseGenerated } from './database-generated.types';
+import type { ShowCharacterProfile } from './show-character.types';
 
 export type { Json } from './database-generated.types';
 
@@ -14,5 +15,8 @@ export type Recap = Database['public']['Tables']['recap']['Row'];
 export type SeasonWithRecaps = Season & { recap: Recap[] };
 export type ShowWithSeasons = Show & {
   seasons: SeasonWithRecaps[];
-  _embedded?: { cast?: unknown[] };
+  _embedded?: {
+    cast?: unknown[];
+    characterProfiles?: ShowCharacterProfile[];
+  };
 };

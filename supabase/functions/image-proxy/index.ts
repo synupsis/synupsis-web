@@ -42,16 +42,20 @@ function getSupabaseSecretKey(): string {
   return secretKey
 }
 
-function parseTrustedImageUrl(rawUrl: string): URL {
+function parseTrustedImageUrl(rawUrl: string): { imageUrl: URL; provider: 'trakt' | 'tvmaze' } {
   const parsedUrl = new URL(rawUrl)
   const hostname = parsedUrl.hostname.toLowerCase()
-  const isTrustedHost = hostname === 'trakt.tv' || hostname.endsWith('.trakt.tv')
+  const provider = hostname === 'static.tvmaze.com'
+    ? 'tvmaze'
+    : hostname === 'trakt.tv' || hostname.endsWith('.trakt.tv')
+      ? 'trakt'
+      : null
 
-  if (parsedUrl.protocol !== 'https:' || !isTrustedHost) {
+  if (parsedUrl.protocol !== 'https:' || !provider) {
     throw new Error('Unsupported image host')
   }
 
-  return parsedUrl
+  return { imageUrl: parsedUrl, provider }
 }
 
 Deno.serve(async (req) => {
@@ -67,15 +71,18 @@ Deno.serve(async (req) => {
   }
 
   let imageUrl: URL
+  let imageProvider: 'trakt' | 'tvmaze'
 
   try {
-    imageUrl = parseTrustedImageUrl(rawImageUrl)
+    const trustedImage = parseTrustedImageUrl(rawImageUrl)
+    imageUrl = trustedImage.imageUrl
+    imageProvider = trustedImage.provider
   } catch {
     return new Response('Unsupported image host', { status: 400 })
   }
 
   const imagePath = imageUrl.pathname.replace(/^\/+/, '')
-  const storagePath = `trakt-cache/${imageUrl.hostname}/${imagePath}`
+  const storagePath = `${imageProvider}-cache/${imageUrl.hostname}/${imagePath}`
 
   const supabaseClient = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -106,22 +113,22 @@ Deno.serve(async (req) => {
 
 
   // Cache MISS: Fetch from original URL
-  const traktRes = await fetch(imageUrl.toString())
-  if (!traktRes.ok) {
-    return new Response(`Failed to fetch image from Trakt: ${traktRes.statusText}`, { status: traktRes.status })
+  const imageResponse = await fetch(imageUrl.toString())
+  if (!imageResponse.ok) {
+    return new Response(`Failed to fetch image: ${imageResponse.statusText}`, { status: imageResponse.status })
   }
 
-  const contentType = traktRes.headers.get('content-type')?.toLowerCase() ?? ''
+  const contentType = imageResponse.headers.get('content-type')?.toLowerCase() ?? ''
   if (!contentType.startsWith('image/')) {
     return new Response('Unsupported content type', { status: 415 })
   }
 
-  const contentLength = Number(traktRes.headers.get('content-length') ?? 0)
+  const contentLength = Number(imageResponse.headers.get('content-length') ?? 0)
   if (Number.isFinite(contentLength) && contentLength > MAX_IMAGE_BYTES) {
     return new Response('Image too large', { status: 413 })
   }
 
-  const imageBlob = await traktRes.blob()
+  const imageBlob = await imageResponse.blob()
 
   if (imageBlob.size > MAX_IMAGE_BYTES) {
     return new Response('Image too large', { status: 413 })

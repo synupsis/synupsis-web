@@ -1,8 +1,43 @@
 import { serverSupabaseClient } from '#supabase/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '~/types/database.types';
+import type { ShowCharacterProfile } from '~/types/show-character.types';
+import type { TvMazeLookup } from '~/server/services/tvmaze-character-cast';
+import {
+  selectTvMazeLookup,
+  toTvMazeCharacterProfiles,
+} from '~/server/services/tvmaze-character-cast';
 import axios from 'axios';
 import { createTraktHeaders } from '~/server/utils/trakt';
+
+const getTvMazeCharacterProfiles = defineCachedFunction(
+  async (lookup: TvMazeLookup): Promise<ShowCharacterProfile[]> => {
+    const lookupUrl = new URL('https://api.tvmaze.com/lookup/shows');
+    lookupUrl.searchParams.set(lookup.type, lookup.value);
+    const requestConfig = {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'Synupsis character timeline',
+      },
+      timeout: 8_000,
+    };
+    const { data: tvMazeShow } = await axios.get<{ id?: number }>(lookupUrl.toString(), requestConfig);
+    if (!Number.isInteger(tvMazeShow?.id)) return [];
+
+    const { data: tvMazeCast } = await axios.get<unknown>(
+      `https://api.tvmaze.com/shows/${tvMazeShow.id}/cast`,
+      requestConfig,
+    );
+    return toTvMazeCharacterProfiles(tvMazeCast);
+  },
+  {
+    name: 'tvmaze-character-profiles',
+    maxAge: 60 * 60 * 24 * 7,
+    staleMaxAge: 60 * 60 * 24 * 30,
+    swr: true,
+    getKey: (lookup: TvMazeLookup) => `${lookup.type}:${lookup.value}`,
+  },
+);
 
 // Type definitions for clarity
 type SeasonWithRecaps = Database['public']['Tables']['season']['Row'] & {
@@ -83,6 +118,7 @@ export default defineEventHandler(async (event) => {
   try {
     let show: ShowWithSeasons | null = null;
     let cast: any[] = [];
+    let traktShowDetails: any = null;
 
     // 1. Try to get show from our local database
     const dbShow = await getShowFromDb(supabase, traktId);
@@ -96,6 +132,7 @@ export default defineEventHandler(async (event) => {
 
       const traktUrl = `https://api.trakt.tv/shows/${traktId}?extended=full,images`;
       const { data: traktShow } = await axios.get(traktUrl, { headers });
+      traktShowDetails = traktShow;
 
       await createShowInDb(supabase, traktShow);
       show = await getShowFromDb(supabase, traktId); // Re-fetch to get full object with seasons and recaps
@@ -105,11 +142,34 @@ export default defineEventHandler(async (event) => {
     const clientId = process.env.TRAKT_CLIENT_ID;
     const headers = createTraktHeaders(clientId);
     const castUrl = `https://api.trakt.tv/shows/${traktId}/people?extended=images`;
-    const { data: traktCast } = await axios.get(castUrl, { headers });
-    cast = traktCast.cast; // Assign cast data
+    const showDetailsRequest = traktShowDetails
+      ? Promise.resolve(traktShowDetails)
+      : axios.get(`https://api.trakt.tv/shows/${traktId}?extended=full`, { headers })
+          .then(response => response.data)
+          .catch((error) => {
+            console.warn(`Unable to retrieve external show identifiers for Trakt ${traktId}:`, error.message);
+            return null;
+          });
+    const [{ data: traktCast }, resolvedShowDetails] = await Promise.all([
+      axios.get(castUrl, { headers }),
+      showDetailsRequest,
+    ]);
+    cast = Array.isArray(traktCast?.cast) ? traktCast.cast : [];
+
+    let characterProfiles: ShowCharacterProfile[] = [];
+    const tvMazeLookup = selectTvMazeLookup(resolvedShowDetails?.ids);
+    if (tvMazeLookup) {
+      try {
+        characterProfiles = await getTvMazeCharacterProfiles(tvMazeLookup);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`TVMaze character enrichment failed for Trakt ${traktId}:`, message);
+      }
+    }
+
     // Add cast to the show object before returning
     if (show) {
-      (show as any)._embedded = { cast };
+      (show as any)._embedded = { cast, characterProfiles };
     }
 
     return { show };
