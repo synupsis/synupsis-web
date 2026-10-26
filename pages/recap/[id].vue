@@ -28,64 +28,64 @@
     </Transition>
     <div class="pointer-events-none absolute inset-0 bg-black/65" />
 
-    <!-- Progress Bars -->
-    <div
-      class="pointer-events-none absolute left-1/2 top-[calc(env(safe-area-inset-top)_+_0.55rem)] z-30 flex w-[calc(100%_-_1rem)] max-w-[360px] -translate-x-1/2 gap-1 px-1"
-      role="progressbar"
-      aria-valuemin="1"
-      :aria-valuemax="progressIndexes.length"
-      :aria-valuenow="progressIndexes.indexOf(currentSlideIndex) + 1"
-      :aria-valuetext="progressLabel"
-    >
-      <div
-        v-for="index in progressIndexes"
-        :key="data.slides[index]?.id ?? index"
-        class="h-1 flex-1 overflow-hidden rounded-full bg-white/40 data-[state=current]:bg-white/60"
-        :data-state="getProgressBarState(index)"
-        aria-hidden="true"
-      >
-        <div
-          class="h-full bg-white transition-transform duration-100 origin-left"
-          :style="{ transform: `scaleX(${getProgressBarValue(index)})` }"
-        />
-      </div>
-    </div>
-
-    <!-- Header -->
-    <header
-      class="absolute left-1/2 top-[calc(env(safe-area-inset-top)_+_1.15rem)] z-30 flex w-full max-w-[360px] -translate-x-1/2 items-center justify-between px-3"
-    >
-      <div class="flex items-center gap-3 rounded-full border border-white/10 bg-black/25 px-3 py-1.5 backdrop-blur-md">
-        <div>
-          <h1 class="text-sm font-semibold leading-tight">{{ data.show.name }}</h1>
-          <p class="text-[10px] uppercase tracking-[0.16em] text-white/60">Saison {{ data.season.number }}</p>
-        </div>
-      </div>
-      <div class="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          class="rounded-full border border-white/10 bg-black/25 backdrop-blur-md hover:bg-black/45"
-          aria-label="Voir les sources"
-          @click.stop="openSources"
-        >
-          <InformationCircleIcon class="h-6 w-6" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Fermer le recap"
-          class="rounded-full border border-white/10 bg-black/25 backdrop-blur-md hover:bg-black/45"
-          @click="goBack"
-        >
-          <XMarkIcon class="h-6 w-6" />
-        </Button>
-      </div>
-    </header>
-
     <!-- Story Content -->
     <div class="relative flex h-full w-full items-center justify-center">
       <div class="relative h-full w-full max-w-full overflow-hidden shadow-2xl sm:aspect-[390/844] sm:w-auto sm:rounded-[30px] sm:ring-1 sm:ring-white/10">
+        <!-- Progress Bars and header follow the story frame width -->
+        <div
+          class="pointer-events-none absolute inset-x-0 top-[calc(env(safe-area-inset-top)_+_0.55rem)] z-30 flex gap-1 px-3"
+          role="progressbar"
+          aria-valuemin="1"
+          :aria-valuemax="progressIndexes.length"
+          :aria-valuenow="progressIndexes.indexOf(currentSlideIndex) + 1"
+          :aria-valuetext="progressLabel"
+        >
+          <div
+            v-for="index in progressIndexes"
+            :key="data.slides[index]?.id ?? index"
+            class="h-1 flex-1 overflow-hidden rounded-full bg-white/40 data-[state=current]:bg-white/60"
+            :data-state="getProgressBarState(index)"
+            aria-hidden="true"
+          >
+            <div
+              class="h-full bg-white transition-transform duration-100 origin-left"
+              :style="{ transform: `scaleX(${getProgressBarValue(index)})` }"
+            />
+          </div>
+        </div>
+
+        <!-- Header -->
+        <header
+          class="absolute inset-x-0 top-[calc(env(safe-area-inset-top)_+_1.15rem)] z-30 flex items-center justify-between px-3"
+        >
+          <div class="flex items-center gap-3 rounded-full border border-white/10 bg-black/25 px-3 py-1.5 backdrop-blur-md">
+            <div>
+              <h1 class="text-sm font-semibold leading-tight">{{ data.show.name }}</h1>
+              <p class="text-[10px] uppercase tracking-[0.16em] text-white/60">Saison {{ data.season.number }}</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              class="rounded-full border border-white/10 bg-black/25 backdrop-blur-md hover:bg-black/45"
+              aria-label="Voir les sources"
+              @click.stop="openSources"
+            >
+              <InformationCircleIcon class="h-6 w-6" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Fermer le recap"
+              class="rounded-full border border-white/10 bg-black/25 backdrop-blur-md hover:bg-black/45"
+              @click="goBack"
+            >
+              <XMarkIcon class="h-6 w-6" />
+            </Button>
+          </div>
+        </header>
+
         <RecapStorySlide
           v-if="currentSlide.content"
           :key="currentSlide.id"
