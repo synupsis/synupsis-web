@@ -138,10 +138,11 @@
             </button>
           </div>
           <div class="pointer-events-auto border-t border-white/10 bg-black/85 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-md">
+            <!-- A scroller clips both axes: its padding, taken back by negative margins, leaves room for the halo. -->
             <nav
               ref="railElement"
               aria-label="Épisodes"
-              class="overflow-x-auto px-3 [scrollbar-width:none]"
+              class="-my-4 overflow-x-auto px-5 py-4 [scrollbar-width:none]"
               :class="{ 'recap-rail-fade-start': railOverflows && railHasBefore, 'recap-rail-fade-end': railOverflows && railHasAfter }"
               @scroll.passive="updateRailEdges"
             >
