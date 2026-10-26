@@ -88,7 +88,7 @@
           <p class="text-[104px] font-extrabold leading-[0.8] tracking-[-0.06em] text-white/[0.14] tabular-nums" aria-hidden="true">
             {{ String(content.episodeNumber).padStart(2, '0') }}
           </p>
-          <p class="mt-5 text-xs font-semibold uppercase tracking-[0.18em]" :style="{ color: accentColor }">
+          <p class="mt-5 text-sm font-semibold" :style="{ color: accentColor }">
             Épisode {{ content.episodeNumber }}<template v-if="content.episodeTitle"> · {{ content.episodeTitle }}</template>
           </p>
           <h2 class="recap-chapter-title mt-3 font-bold tracking-[-0.035em]">
@@ -131,13 +131,13 @@
 
       <template v-else-if="content.kind === 'moment-group'">
         <div class="relative flex min-h-0 flex-col" :class="{ 'flex-1': imageLayout !== 'band' }">
-          <p class="text-xs font-semibold uppercase tracking-[0.18em]" :style="{ color: accentColor }">
+          <p class="text-sm font-semibold" :style="{ color: accentColor }">
             Épisode {{ content.episodeNumber }} · {{ content.heading }}
           </p>
           <ul class="flex flex-col divide-y divide-white/10" :class="imageLayout === 'band' ? 'mt-3' : 'mt-auto'">
             <li v-for="(item, index) in content.items" :key="index" class="py-4 first:pt-2 last:pb-0">
               <div v-if="item.location || item.characters.length" class="flex items-center justify-between gap-3">
-                <span class="text-xs font-semibold uppercase tracking-[0.16em] text-white/60">{{ item.location }}</span>
+                <span class="text-sm font-semibold text-white/60">{{ item.location }}</span>
                 <span class="flex pl-1.5" :aria-label="item.characters.map(character => character.name).join(', ')">
                   <RecapCharacterAvatar
                     v-for="character in item.characters"
@@ -155,7 +155,7 @@
 
       <template v-else-if="content.kind === 'changes'">
         <div class="relative flex min-h-0 flex-col" :class="{ 'flex-1': imageLayout !== 'band' }">
-          <p class="text-xs font-semibold uppercase tracking-[0.18em]" :style="{ color: accentColor }">
+          <p class="text-sm font-semibold" :style="{ color: accentColor }">
             Épisode {{ content.episodeNumber }} · Bilan
           </p>
           <h2 class="mt-3 text-[34px] font-bold leading-[1.05] tracking-[-0.03em]">Ce qui a changé</h2>
@@ -164,7 +164,7 @@
               <li v-for="(death, index) in content.deaths" :key="`death-${index}`" class="flex items-start gap-3.5 py-3 first:pt-0">
                 <RecapCharacterAvatar :character="death.character" muted class="mt-0.5 h-10 w-10 border border-dashed border-white/20 bg-zinc-700/60 text-xs text-zinc-300" />
                 <span class="min-w-0">
-                  <span class="block text-xs font-semibold uppercase tracking-[0.16em] text-white/55">Mort</span>
+                  <span class="block text-sm font-semibold text-white/55">Mort</span>
                   <span class="recap-line mt-0.5 block text-white/90"><span v-if="needsName(death)" class="font-semibold text-white">{{ death.character?.name }} · </span>{{ death.text }}</span>
                 </span>
               </li>
@@ -174,7 +174,7 @@
               </li>
             </ul>
             <div v-for="(question, index) in content.questions" :key="`question-${index}`">
-              <p class="text-xs font-semibold uppercase tracking-[0.16em]" :style="{ color: accentColor }">Question ouverte</p>
+              <p class="text-sm font-semibold" :style="{ color: accentColor }">Question ouverte</p>
               <p class="recap-question mt-1.5 font-semibold">{{ question }}</p>
             </div>
           </div>
@@ -183,7 +183,7 @@
 
       <template v-else-if="content.kind === 'ending-status'">
         <div class="relative flex min-h-0 flex-col" :class="{ 'flex-1': imageLayout !== 'band' }">
-          <p class="text-xs font-semibold uppercase tracking-[0.18em]" :style="{ color: accentColor }">Fin de la saison {{ seasonNumber }}</p>
+          <p class="text-sm font-semibold" :style="{ color: accentColor }">Fin de la saison {{ seasonNumber }}</p>
           <h2 class="mt-3 text-[34px] font-bold leading-[1.05] tracking-[-0.03em]">Où en est-on</h2>
           <ul class="flex flex-col divide-y divide-white/10" :class="imageLayout === 'band' ? 'mt-5' : 'mt-auto'">
             <li v-for="(line, index) in content.characters" :key="index" class="flex items-start gap-3.5 py-3.5 first:pt-0 last:pb-0">
@@ -199,7 +199,7 @@
 
       <template v-else-if="content.kind === 'ending-deaths'">
         <div class="relative flex min-h-0 flex-col" :class="{ 'flex-1': imageLayout !== 'band' }">
-          <p class="text-xs font-semibold uppercase tracking-[0.18em]" :style="{ color: accentColor }">Fin de la saison {{ seasonNumber }}</p>
+          <p class="text-sm font-semibold" :style="{ color: accentColor }">Fin de la saison {{ seasonNumber }}</p>
           <h2 class="mt-3 text-[34px] font-bold leading-[1.05] tracking-[-0.03em]">Morts cette saison</h2>
           <ul class="grid grid-cols-2 gap-x-4 gap-y-4" :class="imageLayout === 'band' ? 'mt-5' : 'mt-auto'">
             <li v-for="death in content.deaths" :key="death.character.name" class="flex min-w-0 items-center gap-3">
@@ -215,7 +215,7 @@
 
       <template v-else-if="content.kind === 'ending-questions'">
         <div class="relative flex min-h-0 flex-col" :class="{ 'flex-1': imageLayout !== 'band' }">
-          <p class="text-xs font-semibold uppercase tracking-[0.18em]" :style="{ color: accentColor }">Fin de la saison {{ seasonNumber }}</p>
+          <p class="text-sm font-semibold" :style="{ color: accentColor }">Fin de la saison {{ seasonNumber }}</p>
           <h2 class="mt-3 text-[34px] font-bold leading-[1.05] tracking-[-0.03em]">Questions ouvertes</h2>
           <ul class="flex flex-col divide-y divide-white/10" :class="imageLayout === 'band' ? 'mt-5' : 'mt-auto'">
             <li v-for="(question, index) in content.questions" :key="index" class="py-4 first:pt-0 last:pb-0">
@@ -231,7 +231,7 @@
       <template v-else-if="content.kind === 'beat' || content.kind === 'episode'">
         <div class="flex items-center justify-between gap-3">
           <span
-            class="rounded-full border border-white/15 bg-black/30 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/85 backdrop-blur-md"
+            class="rounded-full border border-white/15 bg-black/30 px-3 py-1.5 text-[13px] font-semibold text-white/85 backdrop-blur-md"
           >
             {{ episodeLabel }}
           </span>
@@ -243,7 +243,7 @@
         <div v-if="content.kind === 'episode'" class="mt-auto min-h-0">
           <div class="mb-4 flex items-center gap-3">
             <span class="h-1.5 w-1.5 rounded-full" :style="{ backgroundColor: accentColor }" />
-            <p class="text-[11px] font-semibold uppercase tracking-[0.19em]" :style="{ color: accentColor }">
+            <p class="text-[13px] font-semibold" :style="{ color: accentColor }">
               Épisode par épisode
             </p>
           </div>
@@ -263,7 +263,7 @@
         <div v-else class="mt-auto min-h-0">
           <div class="mb-4 flex items-center gap-3">
             <span class="h-1.5 w-1.5 rounded-full" :style="{ backgroundColor: accentColor }" />
-            <p class="text-[11px] font-semibold uppercase tracking-[0.19em]" :style="{ color: accentColor }">
+            <p class="text-[13px] font-semibold" :style="{ color: accentColor }">
               {{ displayTag }}
             </p>
           </div>
