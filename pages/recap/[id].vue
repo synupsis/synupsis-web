@@ -54,34 +54,44 @@
           </div>
         </div>
 
+        <!-- A soft scrim keeps the bar and the header readable over any image -->
+        <div class="pointer-events-none absolute inset-x-0 top-0 z-20 h-28 bg-gradient-to-b from-black/55 via-black/20 to-transparent" />
+
         <!-- Header -->
         <header
-          class="absolute inset-x-0 top-[calc(env(safe-area-inset-top)_+_1.15rem)] z-30 flex items-center justify-between px-3"
+          class="absolute inset-x-0 top-[calc(env(safe-area-inset-top)_+_1.1rem)] z-30 flex items-center justify-between gap-3 pl-4 pr-2"
         >
-          <div class="flex items-center gap-3 rounded-full border border-white/10 bg-black/25 px-3 py-1.5 backdrop-blur-md">
-            <div>
-              <h1 class="text-sm font-semibold leading-tight">{{ data.show.name }}</h1>
-              <p class="text-[10px] uppercase tracking-[0.16em] text-white/60">Saison {{ data.season.number }}</p>
+          <div class="flex min-w-0 items-center gap-2.5 [text-shadow:0_1px_8px_rgb(0_0_0/0.45)]">
+            <img
+              v-if="data.season.image && !isPosterBroken"
+              :src="data.season.image"
+              alt=""
+              class="h-9 w-9 shrink-0 rounded-lg object-cover ring-1 ring-white/20"
+              @error="isPosterBroken = true"
+            >
+            <div class="min-w-0">
+              <h1 class="truncate text-[15px] font-semibold leading-5">{{ data.show.name }}</h1>
+              <p class="truncate text-xs leading-4 text-white/75">{{ headerContext }}</p>
             </div>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex shrink-0 items-center">
             <Button
               variant="ghost"
               size="icon"
-              class="rounded-full border border-white/10 bg-black/25 backdrop-blur-md hover:bg-black/45"
+              class="h-10 w-10 rounded-full text-white hover:bg-white/10 hover:text-white"
               aria-label="Voir les sources"
               @click.stop="openSources"
             >
-              <InformationCircleIcon class="h-6 w-6" />
+              <InformationCircleIcon class="h-6 w-6 drop-shadow" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
               aria-label="Fermer le recap"
-              class="rounded-full border border-white/10 bg-black/25 backdrop-blur-md hover:bg-black/45"
+              class="h-10 w-10 rounded-full text-white hover:bg-white/10 hover:text-white"
               @click="goBack"
             >
-              <XMarkIcon class="h-6 w-6" />
+              <XMarkIcon class="h-6 w-6 drop-shadow" />
             </Button>
           </div>
         </header>
@@ -327,6 +337,7 @@ const currentSlideIndex = ref(0);
 const progress = ref(0);
 const isPaused = ref(false);
 const isSourcesOpen = ref(false);
+const isPosterBroken = ref(false);
 let timer: ReturnType<typeof setInterval> | null = null;
 
 const errorMessage = computed(() => {
@@ -381,6 +392,15 @@ const progressLabel = computed(() => {
   const position = progressIndexes.value.indexOf(currentSlideIndex.value) + 1;
   const label = isChapterStory.value && currentChapter.value?.key !== 'cover' ? `${currentChapter.value?.ariaLabel} · ` : '';
   return `${label}Slide ${position} sur ${progressIndexes.value.length}`;
+});
+
+// Under the show name: the season, and the chapter the top bar is counting.
+const headerContext = computed(() => {
+  const season = `Saison ${data.value?.season.number ?? ''}`;
+  const key = isChapterStory.value ? currentChapter.value?.key : null;
+  if (key === 'end') return `${season} · Fin de saison`;
+  if (key?.startsWith('episode-')) return `${season} · ${currentChapter.value?.ariaLabel}`;
+  return season;
 });
 
 const railChapters = computed(() => chapters.value

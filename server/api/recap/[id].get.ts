@@ -134,7 +134,8 @@ export default defineEventHandler(async event => {
     id: recap.id,
     status: recap.status,
     show: recap.show,
-    season: recap.season,
+    // Trakt posters go through the image proxy, like the slide images.
+    season: recap.season?.image ? { ...recap.season, image: toDisplayImageUrl(recap.season.image) } : recap.season,
     slides,
     sourceProviders: providers.map((provider) => {
       const value = asObject(provider);
