@@ -71,6 +71,10 @@ export type RecapStory = {
 export type RecapCoverSlideContent = RecapStoryCover & {
   kind: 'cover';
   episodeCount: number;
+  // The show's title logo (TMDB), added when the recap is read; the title stands in without it.
+  logoUrl?: string | null;
+  // Year the season first aired.
+  year?: number | null;
 };
 
 export type RecapBeatSlideContent = Pick<

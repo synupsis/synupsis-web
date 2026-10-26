@@ -11,6 +11,7 @@
           :src="imageUrl"
           alt=""
           class="absolute inset-0 h-full w-full object-cover"
+          :class="{ 'recap-cover-drift': content.kind === 'cover' }"
         >
         <div v-else :key="'gradient'" class="absolute inset-0 bg-gradient-to-br from-slate-700 to-slate-950" />
       </Transition>
@@ -51,30 +52,33 @@
       </div>
 
       <template v-if="content.kind === 'cover'">
-        <div class="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/75">
-          <span class="h-px w-8" :style="{ backgroundColor: accentColor }" />
-          <span>Saison {{ seasonNumber }}</span>
-          <span aria-hidden="true">·</span>
-          <span>{{ episodeCountLabel }}</span>
-        </div>
-
-        <div class="mt-auto">
-          <p class="mb-4 text-xs font-semibold uppercase tracking-[0.2em]" :style="{ color: accentColor }">
-            Le recap essentiel
-          </p>
-          <h2 class="recap-cover-title max-w-[10ch] text-[42px] font-bold leading-[0.98] tracking-[-0.035em] sm:text-[46px]">
+        <!-- A title card over the season poster: the show's logo, then the season at a glance. -->
+        <div class="mt-auto flex flex-col items-center text-center">
+          <h2 v-if="content.logoUrl && !isLogoBroken" class="sr-only">{{ content.title }}</h2>
+          <img
+            v-if="content.logoUrl && !isLogoBroken"
+            :src="content.logoUrl"
+            alt=""
+            class="recap-cover-logo w-auto object-contain drop-shadow-[0_6px_28px_rgb(0_0_0/0.65)]"
+            @error="isLogoBroken = true"
+          >
+          <h2 v-else class="recap-cover-title max-w-[12ch] font-bold leading-[0.98] tracking-[-0.035em]">
             {{ content.title }}
           </h2>
-          <p v-if="content.subtitle" class="recap-cover-subtitle mt-5 max-w-[28ch] text-xl font-medium leading-tight text-white/90">
-            {{ content.subtitle }}
+          <p class="mt-5 flex flex-wrap items-center justify-center gap-x-2 text-[15px] font-medium text-white/80">
+            <span>Saison {{ seasonNumber }}</span>
+            <span aria-hidden="true">·</span>
+            <span>{{ episodeCountLabel }}</span>
+            <template v-if="content.year">
+              <span aria-hidden="true">·</span>
+              <span>{{ content.year }}</span>
+            </template>
           </p>
-          <div v-if="displayLogline" class="mt-6 border-l-2 pl-4" :style="{ borderColor: accentColor }">
-            <p class="recap-cover-logline max-w-[34ch] text-[15px] leading-relaxed text-white/[0.78]">
-              {{ displayLogline }}
-            </p>
-          </div>
-          <p class="mt-7 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/45">
-            La saison, moment par moment
+          <p v-if="displaySubtitle" class="recap-cover-subtitle mt-5 max-w-[24ch] font-semibold leading-snug text-white">
+            {{ displaySubtitle }}
+          </p>
+          <p v-if="displayLogline" class="recap-cover-logline mt-3 max-w-[34ch] leading-relaxed text-white/75">
+            {{ displayLogline }}
           </p>
         </div>
       </template>
@@ -280,7 +284,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import RecapCharacterAvatar from '~/components/RecapCharacterAvatar.vue';
 import type { RecapChangeItem, RecapStorySlideContent } from '~/types/recap-story.types';
 
@@ -389,6 +393,15 @@ const episodeCountLabel = computed(() => {
   return `${count} épisode${count > 1 ? 's' : ''}`;
 });
 
+const isLogoBroken = ref(false);
+
+// A subtitle that only says "Saison 1" repeats the line above it.
+const displaySubtitle = computed(() => {
+  if (props.content.kind !== 'cover') return '';
+  const subtitle = props.content.subtitle.trim();
+  return /^saison\s+\d+\.?$/i.test(subtitle) ? '' : subtitle;
+});
+
 const displayLogline = computed(() => {
   if (props.content.kind !== 'cover') return '';
   return looksArtificiallyTruncated(props.content.logline) ? '' : props.content.logline;
@@ -479,6 +492,27 @@ function looksArtificiallyTruncated(value: string): boolean {
   font-size: 30px;
 }
 
+.recap-cover-logo {
+  max-height: 7rem;
+  max-width: 82%;
+}
+
+.recap-cover-title {
+  font-size: 44px;
+}
+
+.recap-cover-subtitle {
+  font-size: 21px;
+}
+
+.recap-cover-logline {
+  font-size: 15px;
+}
+
+.density-cover-high .recap-cover-logo {
+  max-height: 5.5rem;
+}
+
 .density-cover-high .recap-cover-title {
   font-size: 34px;
 }
@@ -490,6 +524,23 @@ function looksArtificiallyTruncated(value: string): boolean {
 .density-cover-high .recap-cover-logline {
   font-size: 13px;
   line-height: 1.55;
+}
+
+/* The poster slowly comes closer while the cover is on screen. */
+.recap-cover-drift {
+  animation: recap-cover-drift 14s ease-out forwards;
+  transform-origin: 50% 35%;
+}
+
+@keyframes recap-cover-drift {
+  from { transform: scale(1.02); }
+  to { transform: scale(1.1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recap-cover-drift {
+    animation: none;
+  }
 }
 
 .story-image-enter-active,

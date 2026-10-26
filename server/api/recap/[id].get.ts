@@ -5,6 +5,7 @@ import {
   type RecapEventGraph,
   type RecapSourceSnapshot,
 } from '~/server/services/recap-generation';
+import { getRecapCoverArt } from '~/server/services/recap-cover-art';
 import type { Database } from '~/types/database.types';
 import type { RecapPlannedSlide, RecapStory } from '~/types/recap-story.types';
 
@@ -129,6 +130,25 @@ export default defineEventHandler(async event => {
       evidence: describeEvidence(evidenceIds, evidenceById, providerById),
     };
   });
+
+  // The cover shows the season poster and the show's title logo when TMDB has them.
+  const cover = slides[0];
+  if (cover?.content?.kind === 'cover') {
+    const tmdbId = Number(asObject(sourceSnapshot?.show)?.tmdbId);
+    const coverArt = Number.isInteger(tmdbId) && tmdbId > 0 && recap.season
+      ? await getRecapCoverArt(tmdbId, recap.season.number).catch(() => null)
+      : null;
+    const firstAired = Date.parse(String(season?.firstAired ?? ''));
+    slides[0] = {
+      ...cover,
+      image_url: coverArt?.posterUrl ?? cover.image_url,
+      content: {
+        ...cover.content,
+        logoUrl: coverArt?.logoUrl ?? null,
+        year: Number.isFinite(firstAired) ? new Date(firstAired).getUTCFullYear() : null,
+      },
+    } as typeof cover;
+  }
 
   return {
     id: recap.id,

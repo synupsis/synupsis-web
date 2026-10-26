@@ -698,6 +698,52 @@ function createTmdbRequestConfig() {
   };
 }
 
+export type RecapCoverArt = {
+  posterUrl: string | null;
+  logoUrl: string | null;
+};
+
+/**
+ * The cover's art: a season poster without text (else the show's, else any
+ * season poster) and the show's title logo, French first, then English.
+ */
+export async function fetchTmdbCoverArt(input: { tmdbId: number | null; seasonNumber: number }): Promise<RecapCoverArt | null> {
+  const requestConfig = createTmdbRequestConfig();
+  if (!input.tmdbId || !requestConfig) return null;
+  const imageConfig = {
+    ...requestConfig,
+    params: { ...requestConfig.params, include_image_language: 'fr,en,null' },
+  };
+  const byVotes = (first: any, second: any) => (Number(second.vote_average) || 0) - (Number(first.vote_average) || 0);
+  const withPath = (images: unknown) => (Array.isArray(images) ? images : []).filter((image: any) => typeof image?.file_path === 'string');
+
+  try {
+    const [showImages, seasonImages] = await Promise.all([
+      axios.get(`https://api.themoviedb.org/3/tv/${input.tmdbId}/images`, imageConfig),
+      axios.get(`https://api.themoviedb.org/3/tv/${input.tmdbId}/season/${input.seasonNumber}/images`, imageConfig).catch(() => null),
+    ]);
+    const seasonPosters = withPath(seasonImages?.data?.posters).sort(byVotes);
+    const showPosters = withPath(showImages.data?.posters).sort(byVotes);
+    const poster = seasonPosters.find((image: any) => !image.iso_639_1)
+      ?? showPosters.find((image: any) => !image.iso_639_1)
+      ?? seasonPosters[0]
+      ?? showPosters[0];
+    const languageRank = (image: any) => (image.iso_639_1 === 'fr' ? 0 : image.iso_639_1 === 'en' ? 1 : 2);
+    const logo = withPath(showImages.data?.logos)
+      .sort((first: any, second: any) => languageRank(first) - languageRank(second) || byVotes(first, second))[0];
+    return {
+      posterUrl: poster ? `https://image.tmdb.org/t/p/w780${poster.file_path}` : null,
+      // SVG logos stay vectors; bitmaps come at a width that stays sharp on a phone.
+      logoUrl: logo
+        ? `https://image.tmdb.org/t/p/${String(logo.file_path).endsWith('.svg') ? 'original' : 'w500'}${logo.file_path}`
+        : null,
+    };
+  } catch (error) {
+    console.warn('TMDB cover art is unavailable; the cover keeps its image.', toErrorMessage(error));
+    return null;
+  }
+}
+
 /**
  * Several stills per episode and the show's backdrops, so the slides of a
  * chapter do not repeat one image. Text-free images come first.
