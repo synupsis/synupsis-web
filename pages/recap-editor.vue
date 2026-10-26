@@ -736,6 +736,8 @@ function parseStoryData(value: unknown): RecapStory | null {
   const story = asObject(value);
   const cover = asObject(story?.cover);
   if (!story || !cover || !Array.isArray(story.beats) || typeof cover.title !== 'string') return null;
+  // Chapters stories (format version 10) are edited as canvases only for now.
+  if (story.layout === 'chapters') return null;
 
   return {
     locale: typeof story.locale === 'string' ? story.locale : 'fr',

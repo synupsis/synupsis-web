@@ -53,7 +53,7 @@
         />
       </template>
 
-      <template v-else>
+      <template v-else-if="content.kind === 'beat'">
         <StoryField
           label="Accroche"
           :model-value="content.headline"

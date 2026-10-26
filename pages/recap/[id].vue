@@ -10,7 +10,7 @@
   </div>
   <div
     v-else-if="data && currentSlide"
-    class="fixed inset-0 z-40 flex h-dvh w-screen select-none flex-col overflow-hidden bg-black text-white"
+    class="fixed inset-0 z-40 flex h-dvh w-screen select-none flex-col overflow-clip bg-black text-white"
     @mousedown="pauseStory"
     @mouseup="resumeStory"
     @touchstart.passive="pauseStory"
@@ -33,13 +33,13 @@
       class="pointer-events-none absolute left-1/2 top-[calc(env(safe-area-inset-top)_+_0.55rem)] z-30 flex w-[calc(100%_-_1rem)] max-w-[360px] -translate-x-1/2 gap-1 px-1"
       role="progressbar"
       aria-valuemin="1"
-      :aria-valuemax="data.slides.length"
-      :aria-valuenow="currentSlideIndex + 1"
-      :aria-valuetext="`Slide ${currentSlideIndex + 1} sur ${data.slides.length}`"
+      :aria-valuemax="progressIndexes.length"
+      :aria-valuenow="progressIndexes.indexOf(currentSlideIndex) + 1"
+      :aria-valuetext="progressLabel"
     >
       <div
-        v-for="(slide, index) in data.slides"
-        :key="slide.id"
+        v-for="index in progressIndexes"
+        :key="data.slides[index]?.id ?? index"
         class="h-1 flex-1 overflow-hidden rounded-full bg-white/40 data-[state=current]:bg-white/60"
         :data-state="getProgressBarState(index)"
         aria-hidden="true"
@@ -95,6 +95,7 @@
           :slide-number="currentSlideIndex + 1"
           :total-slides="data.slides.length"
           :genres="data.show.genres"
+          :has-rail="isChapterStory"
           class="animate-fade-in-up"
         />
         <ClientOnly v-else>
@@ -105,6 +106,60 @@
             class="h-full w-full animate-fade-in-up"
           />
         </ClientOnly>
+
+        <!-- Chapters: skip an episode, or jump to another one -->
+        <div
+          v-if="isChapterStory"
+          class="pointer-events-none absolute inset-x-0 bottom-0 z-30"
+          @mousedown.stop
+          @mouseup.stop
+          @touchstart.stop
+          @touchend.stop
+        >
+          <div v-if="currentSlide.content?.kind === 'chapter'" class="flex justify-end px-6 pb-3 sm:px-7">
+            <button
+              type="button"
+              class="pointer-events-auto inline-flex min-h-11 items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-4 text-sm font-medium text-white backdrop-blur-md transition-colors hover:bg-white/10"
+              @click="skipChapter"
+            >
+              Je m’en souviens
+              <ForwardIcon class="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+          <nav
+            aria-label="Épisodes"
+            class="pointer-events-auto flex justify-between overflow-x-auto border-t border-white/10 bg-black/85 px-2 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-md"
+          >
+            <button
+              v-for="chapter in railChapters"
+              :key="chapter.key"
+              type="button"
+              class="flex h-11 w-8 shrink-0 flex-col items-center justify-center gap-1"
+              :aria-label="chapter.ariaLabel"
+              :aria-current="chapter.state === 'current' ? 'step' : undefined"
+              @click="jumpTo(chapter.firstIndex)"
+            >
+              <span
+                class="flex h-[30px] w-[30px] items-center justify-center rounded-full border font-semibold tabular-nums transition-colors"
+                :class="[
+                  chapter.label.length > 2 ? 'text-[10px]' : 'text-[13px]',
+                  chapter.state === 'current'
+                    ? 'border-white bg-white text-neutral-900'
+                    : chapter.state === 'read'
+                      ? 'border-transparent text-white/60'
+                      : 'border-white/15 text-white',
+                ]"
+              >
+                {{ chapter.label }}
+              </span>
+              <span
+                class="h-1 w-1 rounded-full"
+                :class="chapter.state === 'read' ? 'bg-white/60' : 'bg-transparent'"
+                aria-hidden="true"
+              />
+            </button>
+          </nav>
+        </div>
       </div>
     </div>
 
@@ -181,6 +236,9 @@
         </ul>
         <p v-else class="text-sm text-muted-foreground">Aucune source publique n'est liée à cette slide.</p>
 
+        <p v-if="isChapterStory" class="mt-4 text-xs text-muted-foreground">
+          Images : Trakt et TMDB. Portraits et casting enrichis par TVMaze (CC BY-SA).
+        </p>
         <p v-if="data.sourceRights?.warnings?.length" class="mt-4 text-xs text-muted-foreground">
           Certaines sources restent soumises aux conditions de leur fournisseur. Leur statut est suivi dans le
           registre de droits Synupsis.
@@ -197,7 +255,7 @@
 <script lang="ts" setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { Button } from '~/components/shadcn/button';
-import { InformationCircleIcon, XMarkIcon } from '@heroicons/vue/24/outline';
+import { ForwardIcon, InformationCircleIcon, XMarkIcon } from '@heroicons/vue/24/outline';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import RecapCanvas from '~/components/RecapCanvas.client.vue';
 import RecapStorySlide from '~/components/RecapStorySlide.vue';
@@ -280,6 +338,74 @@ const currentSlide = computed(() => {
 });
 
 const currentEvents = computed(() => currentSlide.value?.events || []);
+
+// Format version 10 tells the season chapter by chapter: one per episode, then the end.
+const CHAPTER_KINDS = new Set(['chapter', 'moment', 'moment-group', 'changes', 'ending-status', 'ending-deaths', 'ending-questions']);
+
+type Chapter = { key: string; label: string; ariaLabel: string; indexes: number[] };
+
+function chapterOf(content: SlideContent | null): { key: string; label: string; ariaLabel: string } {
+  if (!content || content.kind === 'cover') return { key: 'cover', label: '', ariaLabel: 'Couverture' };
+  if (content.kind === 'ending-status' || content.kind === 'ending-deaths' || content.kind === 'ending-questions') {
+    return { key: 'end', label: 'Fin', ariaLabel: 'Fin de saison' };
+  }
+  if (content.kind === 'beat') return { key: 'beats', label: '', ariaLabel: 'L’essentiel' };
+  return { key: `episode-${content.episodeNumber}`, label: String(content.episodeNumber), ariaLabel: `Épisode ${content.episodeNumber}` };
+}
+
+const isChapterStory = computed(() => (data.value?.slides || []).some(slide => slide.content && CHAPTER_KINDS.has(slide.content.kind)));
+
+const chapters = computed<Chapter[]>(() => {
+  const list: Chapter[] = [];
+  (data.value?.slides || []).forEach((slide, index) => {
+    const chapter = chapterOf(slide.content);
+    const last = list[list.length - 1];
+    if (last?.key === chapter.key) last.indexes.push(index);
+    else list.push({ ...chapter, indexes: [index] });
+  });
+  return list;
+});
+
+const currentChapter = computed(() => chapters.value.find(chapter => chapter.indexes.includes(currentSlideIndex.value)) ?? null);
+
+// The top bar shows the slides of the current chapter; older recaps show every slide.
+const progressIndexes = computed(() => (
+  isChapterStory.value && currentChapter.value
+    ? currentChapter.value.indexes
+    : (data.value?.slides || []).map((_, index) => index)
+));
+
+const progressLabel = computed(() => {
+  const position = progressIndexes.value.indexOf(currentSlideIndex.value) + 1;
+  const label = isChapterStory.value && currentChapter.value?.key !== 'cover' ? `${currentChapter.value?.ariaLabel} · ` : '';
+  return `${label}Slide ${position} sur ${progressIndexes.value.length}`;
+});
+
+const railChapters = computed(() => chapters.value
+  .filter(chapter => chapter.label)
+  .map((chapter) => {
+    const firstIndex = chapter.indexes[0] ?? 0;
+    const lastIndex = chapter.indexes[chapter.indexes.length - 1] ?? 0;
+    const state = chapter.indexes.includes(currentSlideIndex.value)
+      ? 'current'
+      : lastIndex < currentSlideIndex.value ? 'read' : 'upcoming';
+    return { ...chapter, firstIndex, state };
+  }));
+
+const jumpTo = (index: number) => {
+  if (!data.value || index < 0 || index >= data.value.slides.length) return;
+  currentSlideIndex.value = index;
+  resetTimer();
+};
+
+// "Je m'en souviens": straight to the episode's bilan, or to the next chapter without one.
+const skipChapter = () => {
+  const chapter = currentChapter.value;
+  if (!chapter || !data.value) return;
+  const bilanIndex = chapter.indexes.find(index => index > currentSlideIndex.value && data.value?.slides[index]?.content?.kind === 'changes');
+  const lastIndex = chapter.indexes[chapter.indexes.length - 1] ?? currentSlideIndex.value;
+  jumpTo(bilanIndex ?? Math.min(lastIndex + 1, data.value.slides.length - 1));
+};
 
 const currentSources = computed(() => {
   const evidence = currentSlide.value?.evidence || [];

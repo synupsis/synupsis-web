@@ -37,7 +37,7 @@ const {
   getExtractableEpisodes,
   normalizeRecapEventGraph,
   normalizeRecapStory,
-  splitDenseEpisodes,
+  planStorySlides,
 } = await import('../../server/services/recap-generation.ts')
 const { createStoryVerificationPrompt, listStoryTexts } = await import('../../server/services/recap-story-quality.ts')
 const {
@@ -193,6 +193,8 @@ function createScene(episodeNumber, title, quoteText = teaserQuote) {
   }
 }
 
+const eventId = number => `event-${String(number).padStart(3, '0')}`
+
 function createRawStory() {
   return {
     cover: {
@@ -200,25 +202,15 @@ function createRawStory() {
       subtitle: 'Saison 1',
       logline: 'Les décisions qui changent toute la saison.',
     },
-    beats: [
-      createBeat('Le point de départ', [1, 2], 1),
-      createBeat('La première rupture', [3], 3),
-      createBeat('Les conséquences', [4, 5], 5),
-      createBeat('Le choix décisif', [6], 6),
-      createBeat('Le dénouement', [7, 8], 8),
-    ],
     episodes: Array.from({ length: 8 }, (_, index) => createStoryEpisode(index + 1)),
-  }
-}
-
-function createBeat(headline, episodeNumbers, imageEpisodeNumber) {
-  return {
-    headline,
-    narration: `Personnage ${episodeNumbers[0]} fait avancer l'intrigue des épisodes ${episodeNumbers.join(' et ')}.`,
-    tag: 'Moment clé',
-    episodeNumbers,
-    imageEpisodeNumber,
-    eventIds: episodeNumbers.map(number => `event-${String(number).padStart(3, '0')}`),
+    ending: {
+      characters: [1, 4, 8].map(number => ({
+        character: `Personnage ${number}`,
+        text: `Personnage ${number} garde la place prise à l'épisode ${number}.`,
+        eventIds: [eventId(number)],
+      })),
+      questions: [{ character: '', text: 'Que deviendra la décision de Personnage 8 ?', eventIds: [eventId(8)] }],
+    },
   }
 }
 
@@ -226,7 +218,14 @@ function createStoryEpisode(number) {
   return {
     episodeNumber: number,
     headline: `Le choix de Personnage ${number}`,
-    moments: [{ text: `Personnage ${number} prend une décision précise.`, eventIds: [`event-${String(number).padStart(3, '0')}`] }],
+    moments: [{ text: `Personnage ${number} prend une décision précise.`, eventIds: [eventId(number)] }],
+    changes: {
+      deaths: number === 6
+        ? [{ character: 'Personnage 6', text: 'Personnage 6 meurt pendant l’épisode 6.', eventIds: [eventId(6)] }]
+        : [],
+      situations: [{ character: `Personnage ${number}`, text: `Personnage ${number} change de situation.`, eventIds: [eventId(number)] }],
+      questions: [],
+    },
   }
 }
 
@@ -516,7 +515,7 @@ test('écarte les liens causaux inconnus ou révélés dans un épisode ultérie
 test('bloque une slide qui cite un événement absent', () => {
   const eventGraph = createEventGraph()
   const rawStory = createRawStory()
-  rawStory.beats[1].eventIds = ['event-999']
+  rawStory.episodes[1].moments[0].eventIds = ['event-999']
 
   const story = normalizeRecapStory(rawStory, snapshot, eventGraph)
   const quality = evaluateRecapStory(story, snapshot, eventGraph)
@@ -525,41 +524,103 @@ test('bloque une slide qui cite un événement absent', () => {
   assert.ok(quality.referenceValidity < 1)
   assert.ok(quality.evidenceCoverage < 1)
   assert.ok(quality.issues.includes('invalid_story_references'))
-  assert.ok(quality.issues.includes('uncited_story_beats'))
+  assert.ok(quality.issues.includes('uncited_story_texts'))
+})
+
+test('n’accepte dans un bilan que des scènes de son épisode', () => {
+  const eventGraph = createEventGraph()
+  const rawStory = createRawStory()
+  rawStory.episodes[0].changes.situations[0].eventIds = ['event-002']
+  rawStory.ending.characters[0].eventIds = ['event-007']
+
+  const story = normalizeRecapStory(rawStory, snapshot, eventGraph)
+  const quality = evaluateRecapStory(story, snapshot, eventGraph)
+
+  // The bilan line of episode 1 cannot cite episode 2; the season end may cite any episode.
+  assert.equal(quality.referenceValidity, 0.95)
+  assert.ok(quality.issues.includes('invalid_story_references'))
 })
 
 test('le serveur dérive les preuves depuis les événements cités', () => {
   const eventGraph = createEventGraph()
   const story = normalizeRecapStory(createRawStory(), snapshot, eventGraph)
 
-  assert.deepEqual(story.beats[0].evidenceIds, ['trakt-e1-overview', 'wikipedia-en-e1-summary', 'trakt-e2-overview'])
+  assert.deepEqual(story.episodes[0].evidenceIds, ['trakt-e1-overview', 'wikipedia-en-e1-summary'])
+  assert.equal(story.layout, 'chapters')
+  assert.deepEqual(story.beats, [])
 })
 
-test('conserve intégralement une narration longue au lieu d’ajouter une ellipse', () => {
+test('retire le numéro d’épisode répété en tête du titre de chapitre', () => {
   const eventGraph = createEventGraph()
   const rawStory = createRawStory()
-  const longNarration = `${'Une conséquence factuelle clairement sourcée se développe. '.repeat(8)}Fin complète.`
-  rawStory.beats[0].narration = longNarration
+  rawStory.episodes[0].headline = 'Épisode 1 — Le choix de Personnage 1'
+  rawStory.episodes[1].headline = 'Un épisode 2 sans préfixe'
+
+  const story = normalizeRecapStory(rawStory, snapshot, eventGraph)
+
+  assert.equal(story.episodes[0].headline, 'Le choix de Personnage 1')
+  assert.equal(story.episodes[1].headline, 'Un épisode 2 sans préfixe')
+})
+
+test('conserve intégralement un moment long au lieu d’ajouter une ellipse', () => {
+  const eventGraph = createEventGraph()
+  const rawStory = createRawStory()
+  const longMoment = `Personnage 1 ${'agit précisément. '.repeat(11)}Fin complète.`
+  rawStory.episodes[0].moments[0].text = longMoment
 
   const story = normalizeRecapStory(rawStory, snapshot, eventGraph)
   const quality = evaluateRecapStory(story, snapshot, eventGraph)
 
-  assert.equal(story.beats[0].narration, longNarration.trim())
-  assert.equal(story.beats[0].narration.endsWith('…'), false)
+  assert.equal(story.episodes[0].moments[0].text, longMoment.trim())
+  assert.equal(story.episodes[0].moments[0].text.endsWith('…'), false)
   assert.equal(quality.issues.includes('story_copy_too_long'), false)
 })
 
-test('refuse une narration impossible à afficher plutôt que de la tronquer', () => {
+test('refuse une ligne de bilan impossible à afficher plutôt que de la tronquer', () => {
   const eventGraph = createEventGraph()
   const rawStory = createRawStory()
-  rawStory.beats[0].narration = 'F'.repeat(521)
+  rawStory.episodes[0].changes.situations[0].text = 'F'.repeat(201)
 
   const story = normalizeRecapStory(rawStory, snapshot, eventGraph)
   const quality = evaluateRecapStory(story, snapshot, eventGraph)
 
-  assert.equal(story.beats[0].narration.length, 521)
+  assert.equal(story.episodes[0].changes.situations[0].text.length, 201)
   assert.equal(quality.publishable, false)
   assert.ok(quality.issues.includes('story_copy_too_long'))
+})
+
+test('ne répète pas une mort dans les situations du même épisode', () => {
+  const eventGraph = createEventGraph()
+  const rawStory = createRawStory()
+  rawStory.episodes[5].changes.situations.push({ character: 'Autre personnage', text: 'Autre personnage part.', eventIds: [eventId(6)] })
+
+  const story = normalizeRecapStory(rawStory, snapshot, eventGraph)
+
+  assert.deepEqual(story.episodes[5].changes.situations.map(line => line.character), ['Autre personnage'])
+})
+
+test('vérifie une question ouverte contre tout son épisode, ou toute la saison', () => {
+  const eventGraph = createEventGraph()
+  const rawStory = createRawStory()
+  rawStory.episodes[0].moments.push({ text: 'Personnage 1 tranche la question.', eventIds: ['event-001'] })
+  rawStory.episodes[0].changes.questions = [{ character: '', text: 'Personnage 1 survivra-t-il ?', eventIds: [] }]
+  const story = normalizeRecapStory(rawStory, snapshot, eventGraph)
+  const texts = new Map(listStoryTexts(story).map(text => [text.key, text.eventIds]))
+
+  assert.deepEqual(texts.get('episode-1-question-1'), ['event-001'])
+  assert.deepEqual(texts.get('ending-question-1'), [])
+  assert.deepEqual(texts.get('ending-character-1'), ['event-001'])
+})
+
+test('exige une fin de saison qui dit où en sont les personnages', () => {
+  const eventGraph = createEventGraph()
+  const rawStory = createRawStory()
+  rawStory.ending.characters = rawStory.ending.characters.slice(0, 2)
+
+  const quality = evaluateRecapStory(normalizeRecapStory(rawStory, snapshot, eventGraph), snapshot, eventGraph)
+
+  assert.equal(quality.publishable, false)
+  assert.ok(quality.issues.includes('missing_season_ending'))
 })
 
 test('refuse un récit sans la partie épisode par épisode', () => {
@@ -601,57 +662,66 @@ test('refuse un moment qui cite une scène d’un autre épisode', () => {
 test('refuse les formules creuses et les textes qui ne nomment personne', () => {
   const eventGraph = createEventGraph()
   const rawStory = createRawStory()
-  rawStory.beats[0].narration = 'Tout bascule et les tensions montent dans la ville.'
-  rawStory.beats.slice(1).forEach((beat) => { beat.narration = 'Une suite d’événements importants se produit.' })
+  rawStory.episodes[0].moments[0].text = 'Tout bascule et les tensions montent dans la ville.'
+  rawStory.episodes.slice(1, 4).forEach((episode) => { episode.moments[0].text = 'Une suite d’événements importants se produit.' })
 
   const story = normalizeRecapStory(rawStory, snapshot, eventGraph)
   const quality = evaluateRecapStory(story, snapshot, eventGraph)
 
   assert.deepEqual(quality.vaguePhrases, [
-    { key: 'beat-1-narration', phrase: 'tout bascule' },
-    { key: 'beat-1-narration', phrase: 'les tensions montent' },
+    { key: 'episode-1-moment-1', phrase: 'tout bascule' },
+    { key: 'episode-1-moment-1', phrase: 'les tensions montent' },
   ])
-  assert.equal(quality.characterMentionRatio, 0.62)
+  assert.equal(quality.characterMentionRatio, 0.5)
   assert.ok(quality.issues.includes('vague_story_copy'))
   assert.ok(quality.issues.includes('unspecific_story_copy'))
 })
 
-test('applique les corrections de la vérification des affirmations', () => {
+test('vérifie aussi les bilans et la fin de saison', () => {
   const eventGraph = createEventGraph()
   const draft = normalizeRecapStory(createRawStory(), snapshot, eventGraph)
   const verificationPrompt = createStoryVerificationPrompt(draft, eventGraph)
   const { story, quality, slides } = finalizeRecapStory(draft, JSON.stringify({
     corrections: [
-      { key: 'beat-1-narration', unsupportedClaims: ['un duel'], correctedText: 'Personnage 1 fait un choix décisif.' },
+      { key: 'episode-1-situation-1', unsupportedClaims: ['un duel'], correctedText: 'Personnage 1 change de camp.' },
       { key: 'episode-2-moment-1', unsupportedClaims: ['une trahison'], correctedText: '' },
-      { key: 'beat-9-narration', unsupportedClaims: ['clé inconnue'], correctedText: 'Ignoré.' },
+      { key: 'ending-question-1', unsupportedClaims: ['une réponse suggérée'], correctedText: '' },
+      { key: 'episode-9-death-1', unsupportedClaims: ['clé inconnue'], correctedText: 'Ignoré.' },
     ],
   }), snapshot, eventGraph)
 
   assert.match(verificationPrompt, /<<episode-3-moment-1>> scènes citées : event-003/)
+  assert.match(verificationPrompt, /<<episode-6-death-1>> scènes citées : event-006/)
+  assert.match(verificationPrompt, /<<ending-character-1>> scènes citées : event-001/)
+  assert.match(verificationPrompt, /<<ending-question-1>> scènes citées : toutes les scènes/)
   assert.doesNotMatch(verificationPrompt, new RegExp(teaserQuote))
-  assert.equal(story.beats[0].narration, 'Personnage 1 fait un choix décisif.')
-  assert.equal(draft.beats[0].narration.startsWith('Personnage 1 fait avancer'), true)
+  assert.equal(story.episodes[0].changes.situations[0].text, 'Personnage 1 change de camp.')
+  assert.equal(draft.episodes[0].changes.situations[0].text, 'Personnage 1 change de situation.')
   assert.deepEqual(story.episodes.map(episode => episode.episodeNumber), [1, 3, 4, 5, 6, 7, 8])
+  assert.deepEqual(story.ending.questions, [])
   assert.deepEqual(quality.claimVerification, {
-    checkedTexts: 1 + 5 * 2 + 8 * 2,
+    // Episode 6 tells its death only: its situation line about the same character is dropped.
+    checkedTexts: 1 + 8 * 2 + 7 + 1 + 3 + 1,
     correctedTexts: 1,
     removedMoments: 1,
+    removedLines: 1,
     unresolvedTexts: 0,
     corrections: [
-      { key: 'beat-1-narration', unsupportedClaims: ['un duel'] },
+      { key: 'episode-1-situation-1', unsupportedClaims: ['un duel'] },
       { key: 'episode-2-moment-1', unsupportedClaims: ['une trahison'] },
+      { key: 'ending-question-1', unsupportedClaims: ['une réponse suggérée'] },
     ],
   })
   assert.ok(quality.issues.includes('missing_episode_recaps'))
-  assert.equal(slides.length, 1 + 5 + 7)
+  // Cover, then a card, a moment slide and a bilan per episode, then "Où en est-on" and the deaths.
+  assert.equal(slides.length, 1 + 7 * 3 + 2)
 })
 
 test('bloque un récit dont une affirmation reste non soutenue', () => {
   const eventGraph = createEventGraph()
   const draft = normalizeRecapStory(createRawStory(), snapshot, eventGraph)
   const { quality } = finalizeRecapStory(draft, JSON.stringify({
-    corrections: [{ key: 'beat-2-narration', unsupportedClaims: ['une mort'], correctedText: '' }],
+    corrections: [{ key: 'episode-2-headline', unsupportedClaims: ['une mort'], correctedText: '' }],
   }), snapshot, eventGraph)
 
   assert.equal(quality.claimVerification.unresolvedTexts, 1)
@@ -673,52 +743,100 @@ test('fixe un objectif de moments par épisode selon ses scènes importantes', (
 
   assert.equal(getEpisodeMomentTarget(eventGraph, 1), 8)
   assert.equal(getEpisodeMomentTarget(eventGraph, 2), 3)
-  assert.match(prompt, /- Épisode 1 : 8 moments \(répartis automatiquement sur deux slides\)\n- Épisode 2 : 3 moments\n/)
+  assert.match(prompt, /- Épisode 1 : 8 moments\n- Épisode 2 : 3 moments\n/)
+  assert.doesNotMatch(prompt, /beats|L'essentiel/)
 })
 
-test('répartit un épisode chargé sur deux slides après la vérification', () => {
-  const eventGraph = createEventGraph()
+test('découpe chaque épisode en chapitre : carton, moments, bilan', () => {
+  const rawEventGraph = createRawEventGraph()
+  rawEventGraph.events.push(...[1, 2, 3, 4].map(index => ({
+    ...rawEventGraph.events[2],
+    id: `event-03${index}`,
+    title: `Scène secondaire ${index}`,
+    importance: 'major',
+    location: index % 2 ? 'Le Mur' : 'Port-Réal',
+    characters: [`Second rôle ${index}`],
+    causedByEventIds: [],
+    consequenceEventIds: [],
+  })))
+  const eventGraph = normalizeRecapEventGraph(rawEventGraph, snapshot)
   const rawStory = createRawStory()
-  rawStory.episodes[0].moments = Array.from({ length: 7 }, (_, index) => ({
-    text: `Personnage 1 vit le moment ${index + 1}.`,
-    eventIds: ['event-001'],
-  }))
-  const draft = normalizeRecapStory(rawStory, snapshot, eventGraph)
-  const { story, quality, slides } = finalizeRecapStory(draft, JSON.stringify({
-    corrections: [{ key: 'episode-1-moment-6', unsupportedClaims: ['un détail'], correctedText: 'Personnage 1 vit le moment corrigé.' }],
-  }), snapshot, eventGraph)
-  const keys = listStoryTexts(story).map(text => text.key)
+  rawStory.episodes[2].moments = ['event-031', 'event-003', 'event-032', 'event-033', 'event-034']
+    .map(id => ({ text: `Un moment précis cite ${id}.`, eventIds: [id] }))
+  const story = normalizeRecapStory(rawStory, snapshot, eventGraph)
+  const plan = planStorySlides(story, eventGraph, snapshot)
+  const chapter = plan.filter(slide => slide.content.episodeNumber === 3)
 
-  assert.deepEqual(
-    story.episodes.slice(0, 3).map(episode => [episode.episodeNumber, episode.part, episode.partCount, episode.moments.length]),
-    [[1, 1, 2, 4], [1, 2, 2, 3], [2, undefined, undefined, 1]],
-  )
-  assert.equal(story.episodes[1].moments[1].text, 'Personnage 1 vit le moment corrigé.')
-  assert.equal(new Set(keys).size, keys.length)
-  assert.ok(keys.includes('episode-1-moment-7'))
-  assert.equal(slides.length, 1 + 5 + 9)
-  assert.ok(slides[6].canvas.children[0].children.some(node => node.children?.some(child => child.attrs?.text === 'Épisode 1 · 1/2')))
-  assert.equal(quality.issues.includes('story_copy_too_long'), false)
-  assert.equal(quality.importantEpisodeCoverage, 1)
-  assert.deepEqual(splitDenseEpisodes(draft).episodes.length, 9)
+  assert.deepEqual(chapter.map(slide => slide.content.kind), ['chapter', 'moment-group', 'moment', 'moment-group', 'changes'])
+  assert.deepEqual(chapter[0].content, {
+    kind: 'chapter',
+    episodeNumber: 3,
+    episodeTitle: 'Épisode 3',
+    headline: 'Le choix de Personnage 3',
+    locations: ['Le Mur', 'Port-Réal'],
+    decisiveCount: 1,
+    otherCount: 4,
+  })
+  assert.equal(chapter[1].content.heading, 'Au début de l’épisode')
+  assert.equal(chapter[3].content.heading, 'Pendant ce temps')
+  assert.equal(chapter[3].content.items.length, 3)
+  assert.deepEqual(chapter[3].content.items[0].characters, [{ name: 'Second rôle 2', initials: 'SE', imageUrl: null }])
+  assert.deepEqual(chapter[3].eventIds, ['event-032', 'event-033', 'event-034'])
+  assert.equal(chapter[2].content.text, 'Un moment précis cite event-003.')
+  assert.deepEqual(chapter[4].content.nextEpisode, { number: 4, title: 'Épisode 4' })
+  assert.deepEqual(plan.slice(-3).map(slide => slide.content.kind), ['ending-status', 'ending-deaths', 'ending-questions'])
+  assert.deepEqual(plan.at(-2).content.deaths, [{ character: { name: 'Personnage 6', initials: 'PE', imageUrl: null }, episodeNumber: 6 }])
+  assert.deepEqual(plan.at(-2).eventIds, ['event-006'])
+  assert.deepEqual(plan.at(-1).content.questions, [{ text: 'Que deviendra la décision de Personnage 8 ?', episodeNumbers: [8] }])
 })
 
-test('produit des slides ordonnées au format v9', () => {
+test('donne à chaque slide d’un chapitre sa propre image, puis des images de fond', () => {
+  const eventGraph = { ...createEventGraph(), characterAliases: [{ name: 'Personnage 3', aliases: ['Trois Durand'] }] }
+  const stills = ['https://image.tmdb.org/t/p/w1280/e3-a.jpg', 'https://image.tmdb.org/t/p/w1280/e3-b.jpg']
+  const backdrops = ['https://image.tmdb.org/t/p/w1280/fond-1.jpg', 'https://image.tmdb.org/t/p/w1280/fond-2.jpg']
+  const imageSnapshot = {
+    ...snapshot,
+    show: { ...snapshot.show, backdrops },
+    episodes: snapshot.episodes.map(episode => (episode.number === 3 ? { ...episode, stills } : episode)),
+    characterPortraits: [
+      { name: 'Personnage 3 « Trois » Durand', imageUrl: 'https://static.tvmaze.com/p3.jpg' },
+      { name: 'Personnage 33', imageUrl: 'https://static.tvmaze.com/p33.jpg' },
+    ],
+  }
+  const story = normalizeRecapStory(createRawStory(), imageSnapshot, eventGraph)
+  const plan = planStorySlides(story, eventGraph, imageSnapshot)
+  const chapter3 = plan.filter(slide => slide.content.episodeNumber === 3)
+
+  // Card, moment and bilan: two stills, then the first backdrop.
+  assert.deepEqual(chapter3.map(slide => slide.imageUrl), [...stills, backdrops[0]])
+  // Without stills, an episode keeps its Trakt image, then takes the next backdrops.
+  assert.deepEqual(
+    plan.filter(slide => slide.content.episodeNumber === 4).map(slide => slide.imageUrl),
+    ['https://walter-r2.trakt.tv/episode-4.webp', backdrops[1], backdrops[0]],
+  )
+  assert.equal(plan[0].imageUrl, null)
+  // "Personnage 3" fits both portraits; its alias "Trois Durand" fits one. "Personnage 6" has none.
+  assert.equal(chapter3[1].content.characters[0].imageUrl, 'https://static.tvmaze.com/p3.jpg')
+  assert.equal(plan.find(slide => slide.content.kind === 'ending-deaths').content.deaths[0].character.imageUrl, null)
+})
+
+test('produit des slides ordonnées au format v10', () => {
   const eventGraph = createEventGraph()
   const story = normalizeRecapStory(createRawStory(), snapshot, eventGraph)
-  const slides = buildRecapSlides(story, snapshot)
+  const slides = buildRecapSlides(story, snapshot, eventGraph)
 
-  assert.deepEqual(slides.map(slide => slide.order), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])
-  assert.ok(slides[6].canvas.children[0].children.some(node => node.attrs?.id === 'group-slide-7-moments'))
-  assert.equal(slides[0].canvas.attrs.formatVersion, 9)
+  assert.deepEqual(slides.map(slide => slide.order), Array.from({ length: 1 + 8 * 3 + 3 }, (_, index) => index + 1))
+  assert.ok(slides[1].canvas.children[0].children.some(node => node.attrs?.id === 'group-slide-2-headline'))
+  assert.equal(slides[0].canvas.attrs.formatVersion, 10)
   assert.equal(slides[0].canvas.attrs.width, 390)
   assert.equal(slides[0].canvas.attrs.height, 844)
   assert.deepEqual(
     slides[0].canvas.children[0].children.slice(0, 4).map(node => node.className),
     ['Rect', 'Image', 'Rect', 'Group'],
   )
-  assert.ok(slides[1].canvas.attrs.durationMs >= 5_500)
-  assert.ok(slides[1].canvas.attrs.durationMs <= 22_000)
+  assert.equal(slides[1].canvas.attrs.durationMs, 5_000)
+  assert.ok(slides[2].canvas.attrs.durationMs >= 6_000)
+  assert.ok(slides[2].canvas.attrs.durationMs <= 20_000)
 })
 
 test('bloque les sources contractuelles en mode strict', () => {
@@ -735,10 +853,11 @@ test('bloque les sources contractuelles en mode strict', () => {
 })
 
 test('détecte les prompts incompatibles avec le pipeline courant', () => {
-  const compatible = '{{seasonQuickFacts}} {{eventGraph}} {{targetBeatCount}}'
-  const incompatible = '{{seasonQuickFacts}} {{eventGraph}}'
+  const compatible = '{{seasonQuickFacts}} {{eventGraph}} {{episodeMomentTargets}}'
+  // A prompt written for season turning points predates the chapters format.
+  const beatsPrompt = '{{seasonQuickFacts}} {{eventGraph}} {{targetBeatCount}}'
 
   assert.equal(isRecapPromptCompatible(compatible), true)
-  assert.equal(isRecapPromptCompatible(incompatible), false)
-  assert.deepEqual(getMissingRecapPromptVariables(incompatible), ['{{targetBeatCount}}'])
+  assert.equal(isRecapPromptCompatible(beatsPrompt), false)
+  assert.deepEqual(getMissingRecapPromptVariables(beatsPrompt), ['{{episodeMomentTargets}}'])
 })

@@ -1,5 +1,12 @@
 import { serverSupabaseClient } from '#supabase/server';
+import {
+  planStorySlides,
+  toDisplayImageUrl,
+  type RecapEventGraph,
+  type RecapSourceSnapshot,
+} from '~/server/services/recap-generation';
 import type { Database } from '~/types/database.types';
+import type { RecapPlannedSlide, RecapStory } from '~/types/recap-story.types';
 
 export default defineEventHandler(async event => {
   const client = await serverSupabaseClient<Database>(event);
@@ -73,8 +80,35 @@ export default defineEventHandler(async event => {
     });
   });
 
-  const slides = recap.slides.map((slide) => {
-    // Slides follow the story: cover, then the turning points, then one slide per episode.
+  // Format version 10: the slides follow the chapters plan the generation used.
+  const plannedSlides: RecapPlannedSlide[] | null = story?.layout === 'chapters' && sourceSnapshot && eventGraph
+    ? planStorySlides(story as unknown as RecapStory, eventGraph as unknown as RecapEventGraph, sourceSnapshot as unknown as RecapSourceSnapshot)
+    : null;
+
+  // The plan decides the slides; a stored slide only lends its canvas and image,
+  // so a recap stored before a change of the plan still shows every slide.
+  const coverImage = recap.slides[0] ? extractCanvasImageUrl(recap.slides[0].canvas_data) : null;
+  const chapterSlides = plannedSlides?.map((planned, index) => {
+    const stored = recap.slides.find(slide => slide.order === index + 1);
+    const evidenceIds = [...new Set(planned.eventIds.flatMap((id) => {
+      const evidence = eventById.get(id)?.evidenceIds;
+      return Array.isArray(evidence) ? evidence.map(String) : [];
+    }))];
+    return {
+      id: stored?.id ?? `${recap.id}-planned-${index + 1}`,
+      order: index + 1,
+      canvas_data: stored?.canvas_data ?? null,
+      image_url: planned.imageUrl
+        ? toDisplayImageUrl(planned.imageUrl)
+        : (stored ? extractCanvasImageUrl(stored.canvas_data) : null) ?? coverImage,
+      content: planned.content,
+      events: describeEvents(planned.eventIds, eventById),
+      evidence: describeEvidence(evidenceIds, evidenceById, providerById),
+    };
+  });
+
+  const slides = chapterSlides ?? recap.slides.map((slide) => {
+    // Format versions 4 to 9: cover, then the turning points, then one slide per episode.
     const beatIndex = slide.order - 2;
     const beat = slide.order > 1 && beatIndex < beats.length ? asObject(beats[beatIndex]) : null;
     const storyEpisode = beatIndex >= beats.length ? asObject(storyEpisodes[beatIndex - beats.length]) : null;
@@ -90,28 +124,8 @@ export default defineEventHandler(async event => {
       content: slide.order === 1
         ? createCoverContent(story, episodes.length)
         : beat ? createBeatContent(beat) : createEpisodeContent(storyEpisode),
-      events: eventIds.map((id) => {
-        const storyEvent = eventById.get(id);
-        return storyEvent ? {
-          id,
-          title: String(storyEvent.title || ''),
-          confidence: Number(storyEvent.confidence) || 0,
-        } : null;
-      }).filter(Boolean),
-      evidence: evidenceIds.map((id) => {
-        const fragment = evidenceById.get(id);
-        const provider = fragment ? providerById.get(String(fragment.providerId || '')) : null;
-        return fragment ? {
-          id,
-          episodeNumber: Number(fragment.episodeNumber) || null,
-          locale: String(fragment.locale || 'und'),
-          provider: String(provider?.label || fragment.providerId || 'Source'),
-          sourceUrl: typeof fragment.sourceUrl === 'string' ? fragment.sourceUrl : null,
-          revisionId: typeof fragment.revisionId === 'string' ? fragment.revisionId : null,
-          licenseName: String(provider?.licenseName || fragment.licenseId || 'Licence non précisée'),
-          licenseUrl: typeof provider?.licenseUrl === 'string' ? provider.licenseUrl : null,
-        } : null;
-      }).filter(Boolean),
+      events: describeEvents(eventIds, eventById),
+      evidence: describeEvidence(evidenceIds, evidenceById, providerById),
     };
   });
 
@@ -138,6 +152,38 @@ export default defineEventHandler(async event => {
     qualityReport: recap.quality_report,
   };
 });
+
+function describeEvents(eventIds: string[], eventById: Map<string, Record<string, any> | null>) {
+  return eventIds.map((id) => {
+    const storyEvent = eventById.get(id);
+    return storyEvent ? {
+      id,
+      title: String(storyEvent.title || ''),
+      confidence: Number(storyEvent.confidence) || 0,
+    } : null;
+  }).filter(Boolean);
+}
+
+function describeEvidence(
+  evidenceIds: string[],
+  evidenceById: Map<string, Record<string, any>>,
+  providerById: Map<string, Record<string, any> | null>,
+) {
+  return evidenceIds.map((id) => {
+    const fragment = evidenceById.get(id);
+    const provider = fragment ? providerById.get(String(fragment.providerId || '')) : null;
+    return fragment ? {
+      id,
+      episodeNumber: Number(fragment.episodeNumber) || null,
+      locale: String(fragment.locale || 'und'),
+      provider: String(provider?.label || fragment.providerId || 'Source'),
+      sourceUrl: typeof fragment.sourceUrl === 'string' ? fragment.sourceUrl : null,
+      revisionId: typeof fragment.revisionId === 'string' ? fragment.revisionId : null,
+      licenseName: String(provider?.licenseName || fragment.licenseId || 'Licence non précisée'),
+      licenseUrl: typeof provider?.licenseUrl === 'string' ? provider.licenseUrl : null,
+    } : null;
+  }).filter(Boolean);
+}
 
 function asObject(value: unknown): Record<string, any> | null {
   return value && typeof value === 'object' && !Array.isArray(value)

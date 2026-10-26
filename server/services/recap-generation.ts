@@ -18,12 +18,19 @@ import {
   type VaguePhrase,
 } from '~/server/services/recap-story-quality';
 import { createTraktHeaders } from '~/server/utils/trakt';
-import type { RecapStory, RecapStoryBeat, RecapStoryEpisode, RecapStoryMoment } from '~/types/recap-story.types';
+import type {
+  RecapPlannedSlide,
+  RecapSlideCharacter,
+  RecapStory,
+  RecapStoryChange,
+  RecapStoryEpisode,
+  RecapStoryMoment,
+} from '~/types/recap-story.types';
 
 export type { RecapStory, RecapStoryBeat } from '~/types/recap-story.types';
 
-export const RECAP_FORMAT_VERSION = 9;
-export const RECAP_PROMPT_VERSION = 'recap-story-v9-dense-episodes';
+export const RECAP_FORMAT_VERSION = 10;
+export const RECAP_PROMPT_VERSION = 'recap-story-v10-chapters';
 export const RECAP_EVENT_PROMPT_VERSION = 'recap-scenes-v5-critic';
 export const RECAP_LOCALE = 'fr';
 
@@ -41,12 +48,19 @@ const MAX_SEASON_EVENTS = 300;
 const MIN_QUOTE_WORDS = 4;
 // Below this share of verified scenes, the extraction is paraphrasing instead of quoting.
 const MIN_QUOTE_VERIFICATION_RATIO = 0.75;
-// An episode slide stays readable up to five moments; a dense episode gets a
-// second slide, so it can tell up to ten.
-const MAX_MOMENTS_PER_SLIDE = 5;
+// A chapter tells its decisive moments one per slide and groups the others by three.
+const MAX_MOMENTS_PER_GROUP = 3;
 const MAX_MOMENTS_PER_EPISODE = 10;
 const MIN_MOMENTS_PER_EPISODE = 3;
 const MAX_MOMENT_CHARS = 240;
+// A bilan lists what an episode changed; it does not retell the episode.
+const MAX_CHANGE_DEATHS = 4;
+const MAX_CHANGE_SITUATIONS = 5;
+const MAX_CHANGE_QUESTIONS = 2;
+const MAX_CHANGE_CHARS = 200;
+const MIN_ENDING_CHARACTERS = 3;
+const MAX_ENDING_CHARACTERS = 8;
+const MAX_ENDING_QUESTIONS = 4;
 // Share of story texts that must name a character of the scenes they cite.
 const MIN_CHARACTER_MENTION_RATIO = 0.7;
 const MAX_CRITIC_GAPS_PER_EPISODE = 3;
@@ -67,6 +81,14 @@ export type EpisodeSource = {
   rating: number | null;
   traktId: number | null;
   evidence: RecapEvidence[];
+  // TMDB stills of the episode, best first; absent from snapshots taken before format version 10.
+  stills?: string[];
+};
+
+/** A character's portrait on TVmaze, or its actor's when the character has none. */
+export type RecapCharacterPortrait = {
+  name: string;
+  imageUrl: string;
 };
 
 export type RecapEvidence = {
@@ -108,6 +130,8 @@ export type RecapSourceSnapshot = {
     genres: string[];
     overview: string | null;
     image: string | null;
+    // TMDB backdrops without text first, then the best rated.
+    backdrops?: string[];
   };
   season: {
     id: string;
@@ -117,6 +141,7 @@ export type RecapSourceSnapshot = {
     evidence: RecapEvidence[];
   };
   episodes: EpisodeSource[];
+  characterPortraits?: RecapCharacterPortrait[];
 };
 
 export type RecapEventImportance = 'supporting' | 'major' | 'critical';
@@ -273,17 +298,39 @@ type TextGroupResult = {
   width: number;
 };
 
+// A bilan or season-end line: a full sentence naming its character (empty for a question).
+const storyChangeJsonSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['character', 'text', 'eventIds'],
+  properties: {
+    character: { type: 'string' },
+    text: { type: 'string' },
+    eventIds: { type: 'array', items: { type: 'string' } },
+  },
+} as const;
+
 export const recapStoryJsonSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['cover', 'beats', 'episodes'],
+  required: ['cover', 'episodes', 'ending'],
   properties: {
+    cover: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['title', 'subtitle', 'logline'],
+      properties: {
+        title: { type: 'string' },
+        subtitle: { type: 'string' },
+        logline: { type: 'string' },
+      },
+    },
     episodes: {
       type: 'array',
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['episodeNumber', 'headline', 'moments'],
+        required: ['episodeNumber', 'headline', 'moments', 'changes'],
         properties: {
           episodeNumber: { type: 'integer' },
           headline: { type: 'string' },
@@ -299,39 +346,26 @@ export const recapStoryJsonSchema = {
               },
             },
           },
+          changes: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['deaths', 'situations', 'questions'],
+            properties: {
+              deaths: { type: 'array', items: storyChangeJsonSchema },
+              situations: { type: 'array', items: storyChangeJsonSchema },
+              questions: { type: 'array', items: storyChangeJsonSchema },
+            },
+          },
         },
       },
     },
-    cover: {
+    ending: {
       type: 'object',
       additionalProperties: false,
-      required: ['title', 'subtitle', 'logline'],
+      required: ['characters', 'questions'],
       properties: {
-        title: { type: 'string' },
-        subtitle: { type: 'string' },
-        logline: { type: 'string' },
-      },
-    },
-    beats: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['headline', 'narration', 'tag', 'episodeNumbers', 'imageEpisodeNumber', 'eventIds'],
-        properties: {
-          headline: { type: 'string' },
-          narration: { type: 'string' },
-          tag: { type: 'string' },
-          episodeNumbers: {
-            type: 'array',
-            items: { type: 'integer' },
-          },
-          imageEpisodeNumber: { type: 'integer' },
-          eventIds: {
-            type: 'array',
-            items: { type: 'string' },
-          },
-        },
+        characters: { type: 'array', items: storyChangeJsonSchema },
+        questions: { type: 'array', items: storyChangeJsonSchema },
       },
     },
   },
@@ -555,16 +589,24 @@ export async function fetchRecapSourceSnapshot(input: {
     throw new Error('Trakt returned no regular episodes for this season.');
   }
 
-  const enrichmentResults = await Promise.all([
-    fetchTmdbEvidence({ tmdbId, seasonNumber: input.seasonNumber, fetchedAt }),
-    fetchTvMazeEvidence({ tvdbId, imdbId, seasonNumber: input.seasonNumber, fetchedAt }),
-    fetchWikimediaRecapEnrichment({
-      showName: input.showName,
-      imdbId,
-      seasonNumber: input.seasonNumber,
-      fetchedAt,
-    }),
+  const [enrichmentResults, tmdbImages] = await Promise.all([
+    Promise.all([
+      fetchTmdbEvidence({ tmdbId, seasonNumber: input.seasonNumber, fetchedAt }),
+      fetchTvMazeEvidence({ tvdbId, imdbId, seasonNumber: input.seasonNumber, fetchedAt }),
+      fetchWikimediaRecapEnrichment({
+        showName: input.showName,
+        imdbId,
+        seasonNumber: input.seasonNumber,
+        fetchedAt,
+      }),
+    ]),
+    fetchTmdbImages({ tmdbId, seasonNumber: input.seasonNumber, episodeNumbers: episodes.map(episode => episode.number) }),
   ]);
+  episodes.forEach((episode) => {
+    const stills = tmdbImages?.stills.get(episode.number);
+    if (stills?.length) episode.stills = stills;
+  });
+  const characterPortraits = enrichmentResults.flatMap(enrichment => (enrichment && 'portraits' in enrichment ? enrichment.portraits ?? [] : []));
   const seasonEvidence: RecapEvidence[] = [];
   let wikidataId: string | null = null;
 
@@ -600,6 +642,7 @@ export async function fetchRecapSourceSnapshot(input: {
       genres: input.showGenres ?? [],
       overview: sanitizeText(input.showOverview) || null,
       image: normalizeImageUrl(input.showImage),
+      backdrops: tmdbImages?.backdrops ?? [],
     },
     season: {
       id: input.seasonId,
@@ -609,6 +652,7 @@ export async function fetchRecapSourceSnapshot(input: {
       evidence: deduplicateEvidence(seasonEvidence),
     },
     episodes,
+    characterPortraits,
   };
 }
 
@@ -616,26 +660,77 @@ type SourceEnrichment = {
   providers: RecapSourceProvider[];
   seasonEvidence: RecapEvidence[];
   episodeEvidence: Map<number, RecapEvidence[]>;
+  portraits?: RecapCharacterPortrait[];
 };
+
+const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w1280';
+const MAX_STILLS_PER_EPISODE = 12;
+const MAX_BACKDROPS = 40;
+
+function createTmdbRequestConfig() {
+  const configuredAccessToken = process.env.TMDB_API_READ_ACCESS_TOKEN;
+  const configuredApiKey = process.env.TMDB_API_KEY;
+  const accessToken = configuredAccessToken
+    || (looksLikeTmdbReadAccessToken(configuredApiKey) ? configuredApiKey : undefined);
+  const apiKey = accessToken ? undefined : configuredApiKey;
+  if (!accessToken && !apiKey) return null;
+  return {
+    timeout: 15_000,
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+    params: apiKey ? { api_key: apiKey } : undefined,
+  };
+}
+
+/**
+ * Several stills per episode and the show's backdrops, so the slides of a
+ * chapter do not repeat one image. Text-free images come first.
+ */
+async function fetchTmdbImages(input: {
+  tmdbId: number | null;
+  seasonNumber: number;
+  episodeNumbers: number[];
+}): Promise<{ stills: Map<number, string[]>; backdrops: string[] } | null> {
+  const requestConfig = createTmdbRequestConfig();
+  if (!input.tmdbId || !requestConfig) return null;
+
+  const toUrls = (images: unknown, limit: number) => (Array.isArray(images) ? images : [])
+    .filter((image: any) => typeof image?.file_path === 'string')
+    .sort((first: any, second: any) => Number(Boolean(first.iso_639_1)) - Number(Boolean(second.iso_639_1))
+      || (Number(second.vote_average) || 0) - (Number(first.vote_average) || 0))
+    .slice(0, limit)
+    .map((image: any) => `${TMDB_IMAGE_BASE_URL}${image.file_path}`);
+
+  try {
+    const [showImages, ...episodeImages] = await Promise.all([
+      axios.get(`https://api.themoviedb.org/3/tv/${input.tmdbId}/images`, {
+        ...requestConfig,
+        params: { ...requestConfig.params, include_image_language: 'null,en' },
+      }),
+      ...input.episodeNumbers.map(episodeNumber => axios
+        .get(`https://api.themoviedb.org/3/tv/${input.tmdbId}/season/${input.seasonNumber}/episode/${episodeNumber}/images`, requestConfig)
+        .catch(() => null)),
+    ]);
+    const stills = new Map<number, string[]>();
+    input.episodeNumbers.forEach((episodeNumber, index) => {
+      const urls = toUrls(episodeImages[index]?.data?.stills, MAX_STILLS_PER_EPISODE);
+      if (urls.length) stills.set(episodeNumber, urls);
+    });
+    return { stills, backdrops: toUrls(showImages.data?.backdrops, MAX_BACKDROPS) };
+  } catch (error) {
+    console.warn('TMDB images are unavailable; slides keep the episode images.', toErrorMessage(error));
+    return null;
+  }
+}
 
 async function fetchTmdbEvidence(input: {
   tmdbId: number | null;
   seasonNumber: number;
   fetchedAt: string;
 }): Promise<SourceEnrichment | null> {
-  const configuredAccessToken = process.env.TMDB_API_READ_ACCESS_TOKEN;
-  const configuredApiKey = process.env.TMDB_API_KEY;
-  const accessToken = configuredAccessToken
-    || (looksLikeTmdbReadAccessToken(configuredApiKey) ? configuredApiKey : undefined);
-  const apiKey = accessToken ? undefined : configuredApiKey;
-  if (!input.tmdbId || (!accessToken && !apiKey)) return null;
+  const requestConfig = createTmdbRequestConfig();
+  if (!input.tmdbId || !requestConfig) return null;
 
   const url = `https://api.themoviedb.org/3/tv/${input.tmdbId}/season/${input.seasonNumber}`;
-  const requestConfig = {
-    timeout: 15_000,
-    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-    params: apiKey ? { api_key: apiKey } : undefined,
-  };
 
   try {
     const [frenchResponse, englishResponse] = await Promise.all([
@@ -727,6 +822,10 @@ async function fetchTvMazeEvidence(input: {
       params: { specials: 1 },
       timeout: 15_000,
     });
+    const seasonEpisodeIds = (Array.isArray(data) ? data : [])
+      .filter((episode: any) => Number(episode?.season) === input.seasonNumber)
+      .flatMap((episode: any) => toPositiveInteger(episode?.id) ?? []);
+    const portraits = await fetchTvMazePortraits(showId, seasonEpisodeIds);
     const locale = normalizeSourceLocale(show?.language);
     const episodeEvidence = new Map<number, RecapEvidence[]>();
     const tvmazePolicy = getRecapSourcePolicy('tvmaze');
@@ -751,7 +850,7 @@ async function fetchTvMazeEvidence(input: {
       }]);
     });
 
-    if (episodeEvidence.size === 0) return null;
+    if (episodeEvidence.size === 0 && portraits.length === 0) return null;
     return {
       providers: [createRecapSourceProvider(
         'tvmaze',
@@ -760,10 +859,40 @@ async function fetchTvMazeEvidence(input: {
       )],
       seasonEvidence: [],
       episodeEvidence,
+      portraits,
     };
   } catch (error) {
     console.warn('TVmaze recap enrichment is unavailable; continuing with other sources.', toErrorMessage(error));
     return null;
+  }
+}
+
+/**
+ * Portraits of the main cast and of the season's guests (the main cast only
+ * lists the show's current regulars): the character's image, else its actor's.
+ */
+async function fetchTvMazePortraits(showId: number, episodeIds: number[]): Promise<RecapCharacterPortrait[]> {
+  const toPortraits = (members: unknown) => (Array.isArray(members) ? members : []).flatMap((member: any) => {
+    const name = sanitizeText(member?.character?.name);
+    const imageUrl = normalizeImageUrl(member?.character?.image?.medium ?? member?.person?.image?.medium);
+    return name && imageUrl ? [{ name, imageUrl }] : [];
+  });
+  try {
+    const [cast, ...guestCasts] = await Promise.all([
+      axios.get(`https://api.tvmaze.com/shows/${showId}/cast`, { timeout: 15_000 }),
+      ...episodeIds.map(episodeId => axios
+        .get(`https://api.tvmaze.com/episodes/${episodeId}/guestcast`, { timeout: 15_000 })
+        .catch(() => null)),
+    ]);
+    const portraits = new Map<string, RecapCharacterPortrait>();
+    [cast, ...guestCasts].flatMap(response => toPortraits(response?.data)).forEach((portrait) => {
+      const key = normalizeCharacterKey(portrait.name);
+      if (!portraits.has(key)) portraits.set(key, portrait);
+    });
+    return [...portraits.values()];
+  } catch (error) {
+    console.warn('TVmaze portraits are unavailable; slides keep the initials.', toErrorMessage(error));
+    return [];
   }
 }
 
@@ -1082,7 +1211,6 @@ export function createRecapPrompt(
   eventGraph: RecapEventGraph,
   promptTemplate?: string,
 ): string {
-  const targetBeatCount = getTargetBeatCount(snapshot.episodes.length);
   const eventGraphText = eventGraph.events.map(event => [
     `[${event.id}] ${event.title}`,
     `Épisodes : ${event.episodeNumbers.join(', ')}`,
@@ -1102,11 +1230,10 @@ export function createRecapPrompt(
     .replace(/{{toneGuidance}}/g, deriveToneGuidance(snapshot.show.genres))
     .replace(/{{eventGraph}}/g, eventGraphText)
     .replace(/{{episodeMomentTargets}}/g, createEpisodeMomentTargets(eventGraph))
-    .replace(/{{episodeCount}}/g, String(snapshot.episodes.length))
-    .replace(/{{targetBeatCount}}/g, String(targetBeatCount));
+    .replace(/{{episodeCount}}/g, String(snapshot.episodes.length));
 }
 
-/** One moment per critical or major scene, within the readable range of one or two slides. */
+/** One moment per critical or major scene, within a readable chapter. */
 export function getEpisodeMomentTarget(eventGraph: RecapEventGraph, episodeNumber: number): number {
   const importantScenes = eventGraph.events.filter(event => (
     event.episodeNumbers.includes(episodeNumber) && event.importance !== 'supporting'
@@ -1118,29 +1245,8 @@ function createEpisodeMomentTargets(eventGraph: RecapEventGraph): string {
   const episodeNumbers = [...new Set(eventGraph.events.flatMap(event => event.episodeNumbers))].sort((a, b) => a - b);
   return episodeNumbers.map((episodeNumber) => {
     const target = getEpisodeMomentTarget(eventGraph, episodeNumber);
-    return `- Épisode ${episodeNumber} : ${target} moments${target > MAX_MOMENTS_PER_SLIDE ? ' (répartis automatiquement sur deux slides)' : ''}`;
+    return `- Épisode ${episodeNumber} : ${target} moments`;
   }).join('\n');
-}
-
-/**
- * Splits an episode whose moments exceed one slide into two consecutive
- * parts, so each story entry still maps to exactly one slide.
- */
-export function splitDenseEpisodes(story: RecapStory): RecapStory {
-  if (!story.episodes) return story;
-  return {
-    ...story,
-    episodes: story.episodes.flatMap((episode) => {
-      if (episode.moments.length <= MAX_MOMENTS_PER_SLIDE) return [episode];
-      const firstPartLength = Math.ceil(episode.moments.length / 2);
-      return [episode.moments.slice(0, firstPartLength), episode.moments.slice(firstPartLength)].map((moments, index) => ({
-        ...episode,
-        part: index + 1,
-        partCount: 2,
-        moments,
-      }));
-    }),
-  };
 }
 
 export async function startEpisodeExtraction(input: {
@@ -1458,11 +1564,9 @@ export function finalizeRecapStory(
   if (!verificationText) {
     throw new Error('OpenAI returned an empty story verification.');
   }
-  const { story: verifiedStory, verification } = applyStoryCorrections(draft, verificationText);
-  // Verification keys follow the draft, so dense episodes are split afterwards.
-  const story = splitDenseEpisodes(verifiedStory);
+  const { story, verification } = applyStoryCorrections(draft, verificationText);
   const quality = evaluateRecapStory(story, snapshot, eventGraph, eventQuality, verification);
-  const slides = buildRecapSlides(story, snapshot);
+  const slides = buildRecapSlides(story, snapshot, eventGraph);
   return { story, quality, slides };
 }
 
@@ -1719,42 +1823,6 @@ export function normalizeRecapStory(
   eventGraph: RecapEventGraph,
 ): RecapStory {
   const eventById = new Map(eventGraph.events.map(event => [event.id, event]));
-  const beats = (Array.isArray(raw?.beats) ? raw.beats : [])
-    .map((beat: any): RecapStoryBeat | null => {
-      const episodeNumbers = Array.from(new Set(
-        (Array.isArray(beat?.episodeNumbers) ? beat.episodeNumbers : [])
-          .map(Number)
-          .filter((value: number) => Number.isInteger(value) && value > 0),
-      )) as number[];
-      const requestedImageEpisode = Number(beat?.imageEpisodeNumber);
-      const imageEpisodeNumber = Number.isInteger(requestedImageEpisode) && requestedImageEpisode > 0
-        ? requestedImageEpisode
-        : episodeNumbers[0];
-      const eventIds = uniqueIdentifiers(beat?.eventIds, 12);
-      const evidenceIds = Array.from(new Set(eventIds.flatMap(id => eventById.get(id)?.evidenceIds || [])))
-        .slice(0, 20);
-
-      if (!episodeNumbers.length || !imageEpisodeNumber) return null;
-
-      return {
-        headline: sanitizeText(beat.headline),
-        narration: sanitizeText(beat.narration),
-        tag: sanitizeText(beat.tag),
-        episodeNumbers,
-        imageEpisodeNumber,
-        eventIds,
-        evidenceIds,
-      };
-    })
-    .filter((beat: RecapStoryBeat | null): beat is RecapStoryBeat => Boolean(
-      beat?.headline && beat.narration,
-    ))
-    .slice(0, 12);
-
-  if (beats.length < 3) {
-    throw new Error('The generated story does not contain enough valid story beats.');
-  }
-
   const seenEpisodeNumbers = new Set<number>();
   const episodes = (Array.isArray(raw?.episodes) ? raw.episodes : [])
     .map((value: any): RecapStoryEpisode | null => {
@@ -1768,7 +1836,8 @@ export function normalizeRecapStory(
         }))
         .filter((moment: RecapStoryMoment) => moment.text)
         .slice(0, MAX_MOMENTS_PER_EPISODE);
-      const headline = sanitizeText(value?.headline);
+      // The chapter card already shows the episode number and title.
+      const headline = sanitizeText(value?.headline).replace(/^épisode\s*\d+\s*[—–:·.-]\s*/i, '');
       if (!headline || !moments.length) return null;
       return {
         episodeNumber,
@@ -1777,6 +1846,7 @@ export function normalizeRecapStory(
         evidenceIds: Array.from(new Set(moments
           .flatMap((moment: RecapStoryMoment) => moment.eventIds)
           .flatMap((id: string) => eventById.get(id)?.evidenceIds || []))),
+        changes: normalizeEpisodeChanges(value?.changes),
       };
     })
     .filter((episode: RecapStoryEpisode | null): episode is RecapStoryEpisode => Boolean(episode))
@@ -1785,14 +1855,48 @@ export function normalizeRecapStory(
   return {
     locale: RECAP_LOCALE,
     spoilerScope: 'through-season',
+    layout: 'chapters',
     cover: {
       title: sanitizeText(raw?.cover?.title) || snapshot.show.name,
       subtitle: sanitizeText(raw?.cover?.subtitle) || `Saison ${snapshot.season.number}`,
       logline: sanitizeText(raw?.cover?.logline) || 'Les moments essentiels de cette saison.',
     },
-    beats,
+    beats: [],
     episodes,
+    ending: {
+      characters: normalizeStoryChanges(raw?.ending?.characters, MAX_ENDING_CHARACTERS),
+      questions: normalizeStoryChanges(raw?.ending?.questions, MAX_ENDING_QUESTIONS),
+    },
   };
+}
+
+function normalizeStoryChanges(value: unknown, limit: number): RecapStoryChange[] {
+  return (Array.isArray(value) ? value : [])
+    .map((item: any): RecapStoryChange => ({
+      character: sanitizeText(item?.character),
+      text: sanitizeText(item?.text),
+      eventIds: uniqueIdentifiers(item?.eventIds, 6),
+    }))
+    .filter(item => item.text)
+    .slice(0, limit);
+}
+
+// A character who dies in the episode has no other new situation to tell.
+function normalizeEpisodeChanges(raw: any): NonNullable<RecapStoryEpisode['changes']> {
+  const deaths = normalizeStoryChanges(raw?.deaths, MAX_CHANGE_DEATHS);
+  const dead = new Set(deaths.map(death => normalizeCharacterKey(death.character)).filter(Boolean));
+  return {
+    deaths,
+    situations: normalizeStoryChanges(raw?.situations, MAX_CHANGE_SITUATIONS)
+      .filter(situation => !dead.has(normalizeCharacterKey(situation.character))),
+    questions: normalizeStoryChanges(raw?.questions, MAX_CHANGE_QUESTIONS),
+  };
+}
+
+function listEpisodeChanges(episode: RecapStoryEpisode): RecapStoryChange[] {
+  return episode.changes
+    ? [...episode.changes.deaths, ...episode.changes.situations, ...episode.changes.questions]
+    : [];
 }
 
 export function evaluateRecapStory(
@@ -1806,24 +1910,6 @@ export function evaluateRecapStory(
   const allEpisodeNumbers = new Set(snapshot.episodes.map((episode) => episode.number));
   const allEvidence = getAllEvidence(snapshot);
   const eventById = new Map(eventGraph.events.map(event => [event.id, event]));
-  const referencedEpisodeNumbers = new Set(
-    story.beats.flatMap(beat => beat.episodeNumbers).filter(number => allEpisodeNumbers.has(number)),
-  );
-  const referenceCount = story.beats.reduce(
-    (count, beat) => count + beat.episodeNumbers.length + 1 + beat.eventIds.length,
-    0,
-  );
-  const validReferenceCount = story.beats.reduce((count, beat) => {
-    const validEpisodes = beat.episodeNumbers.filter(number => allEpisodeNumbers.has(number)).length;
-    const validImage = allEpisodeNumbers.has(beat.imageEpisodeNumber)
-      && beat.episodeNumbers.includes(beat.imageEpisodeNumber);
-    const validEvents = beat.eventIds.filter((id) => {
-      const event = eventById.get(id);
-      return event && event.episodeNumbers.every(number => beat.episodeNumbers.includes(number));
-    }).length;
-    return count + validEpisodes + (validImage ? 1 : 0) + validEvents;
-  }, 0);
-  const beatsWithEvidence = story.beats.filter(beat => beat.eventIds.some(id => eventById.has(id))).length;
   const episodesWithSources = snapshot.episodes.filter(episode => episode.evidence.length > 0).length;
   const sourceReadiness = evaluateRecapSourceReadiness(snapshot);
   const providerIds = new Set(allEvidence.map(evidence => evidence.providerId));
@@ -1833,23 +1919,33 @@ export function evaluateRecapStory(
   const coverageTargetEvents = criticalEvents.length
     ? criticalEvents
     : majorEvents.length ? majorEvents : eventGraph.events;
-  const referencedEventIds = new Set(story.beats.flatMap(beat => beat.eventIds));
   const storyEpisodes = story.episodes || [];
   const moments = storyEpisodes.flatMap(episode => episode.moments.map(moment => ({ episode, moment })));
-  // A moment may only cite scenes of its own episode.
-  const momentReferenceCount = moments.reduce((count, { moment }) => count + moment.eventIds.length, 0);
-  const validMomentReferenceCount = moments.reduce((count, { episode, moment }) => count + moment.eventIds
-    .filter(id => eventById.get(id)?.episodeNumbers.includes(episode.episodeNumber)).length, 0);
-  const momentsWithEvidence = moments.filter(({ moment }) => moment.eventIds.some(id => eventById.has(id))).length;
-  // Every episode of the timeline gets its own "Épisode par épisode" slide.
+  const referencedEventIds = new Set(moments.flatMap(({ moment }) => moment.eventIds));
+  const endingLines = [...(story.ending?.characters || []), ...(story.ending?.questions || [])];
+  // A moment or a bilan line cites scenes of its own episode; the end of the season may cite any scene.
+  const citedTexts = [
+    ...moments.map(({ episode, moment }) => ({ eventIds: moment.eventIds, episodeNumber: episode.episodeNumber as number | null })),
+    ...storyEpisodes.flatMap(episode => listEpisodeChanges(episode).map(change => ({
+      eventIds: change.eventIds,
+      episodeNumber: episode.episodeNumber as number | null,
+    }))),
+    ...endingLines.map(line => ({ eventIds: line.eventIds, episodeNumber: null as number | null })),
+  ];
+  const referenceCount = citedTexts.reduce((count, text) => count + text.eventIds.length, 0);
+  const validReferenceCount = citedTexts.reduce((count, text) => count + text.eventIds.filter((id) => {
+    const event = eventById.get(id);
+    return Boolean(event && (text.episodeNumber === null || event.episodeNumbers.includes(text.episodeNumber)));
+  }).length, 0);
+  const textsWithEvidence = citedTexts.filter(text => text.eventIds.some(id => eventById.has(id))).length;
+  // Every episode of the timeline gets its own chapter.
   const episodesWithScenes = new Set(eventGraph.events.flatMap(event => event.episodeNumbers));
   const recappedEpisodes = new Set(storyEpisodes.map(episode => episode.episodeNumber));
   const episodeRecapCoverage = ratio(
     [...episodesWithScenes].filter(number => recappedEpisodes.has(number)).length,
     episodesWithScenes.size,
   );
-  // A turning point must also appear in its own episode slide.
-  // A dense episode spans two story entries: their moments count together.
+  // A turning point must be told in its own chapter.
   const momentEventIdsByEpisode = new Map<number, Set<string>>();
   storyEpisodes.forEach((episode) => {
     const eventIds = momentEventIdsByEpisode.get(episode.episodeNumber) ?? new Set<string>();
@@ -1864,11 +1960,12 @@ export function evaluateRecapStory(
     ? ratio(criticalEvents.filter(isToldInItsEpisode).length, criticalEvents.length)
     : 1;
   const specificity = measureStorySpecificity(story, eventGraph);
+  const endingCharacterCount = story.ending?.characters.length ?? 0;
 
   const sourceCoverage = ratio(episodesWithSources, snapshot.episodes.length);
-  const episodeCoverage = ratio(referencedEpisodeNumbers.size, snapshot.episodes.length);
-  const referenceValidity = ratio(validReferenceCount + validMomentReferenceCount, referenceCount + momentReferenceCount);
-  const evidenceCoverage = ratio(beatsWithEvidence + momentsWithEvidence, story.beats.length + moments.length);
+  const episodeCoverage = ratio([...recappedEpisodes].filter(number => allEpisodeNumbers.has(number)).length, snapshot.episodes.length);
+  const referenceValidity = ratio(validReferenceCount, referenceCount);
+  const evidenceCoverage = ratio(textsWithEvidence, citedTexts.length);
   const sourceRichness = sourceReadiness.richness;
   const eventCoverage = ratio(
     coverageTargetEvents.filter(event => referencedEventIds.has(event.id)).length,
@@ -1878,40 +1975,34 @@ export function evaluateRecapStory(
   const eventEvidenceCoverage = eventQuality.evidenceCoverage;
   const causalIntegrity = eventQuality.causalIntegrity;
   const rightsCompliance = snapshot.rights.ready ? 1 : 0;
-  const targetBeatCount = getTargetBeatCount(snapshot.episodes.length);
-  const beatCountScore = Math.min(1, story.beats.length / Math.max(targetBeatCount - 1, 1));
+  const endingScore = Math.min(1, endingCharacterCount / MIN_ENDING_CHARACTERS);
 
   if (sourceCoverage < 0.5) issues.push('insufficient_source_coverage');
   if (!sourceReadiness.ready) issues.push('thin_source_material');
   if (episodeCoverage < 0.45) issues.push('low_episode_coverage');
   if (referenceValidity < 1) issues.push('invalid_story_references');
-  if (evidenceCoverage < 1) issues.push('uncited_story_beats');
+  if (evidenceCoverage < 1) issues.push('uncited_story_texts');
   if (eventCoverage < 0.6) issues.push('low_event_coverage');
   if (
     story.cover.title.length > 90
     || story.cover.subtitle.length > 140
     || story.cover.logline.length > 360
-    || story.beats.some(beat => (
-      beat.headline.length > 90
-      || beat.narration.length > 520
-      || beat.tag.length > 60
-    ))
     || storyEpisodes.some(episode => (
       episode.headline.length > 90
-      || episode.moments.length > MAX_MOMENTS_PER_SLIDE
+      || episode.moments.length > MAX_MOMENTS_PER_EPISODE
       || episode.moments.some(moment => moment.text.length > MAX_MOMENT_CHARS)
+      || listEpisodeChanges(episode).some(change => change.text.length > MAX_CHANGE_CHARS)
     ))
+    || endingLines.some(line => line.text.length > MAX_CHANGE_CHARS)
   ) issues.push('story_copy_too_long');
   if (episodeRecapCoverage < 0.9) issues.push('missing_episode_recaps');
-  if (story.episodes && criticalEpisodeCoverage < MIN_CRITICAL_EPISODE_COVERAGE) {
-    issues.push('critical_scenes_missing_from_episodes');
-  }
+  if (criticalEpisodeCoverage < MIN_CRITICAL_EPISODE_COVERAGE) issues.push('critical_scenes_missing_from_episodes');
+  if (endingCharacterCount < MIN_ENDING_CHARACTERS) issues.push('missing_season_ending');
   if (specificity.vaguePhrases.length) issues.push('vague_story_copy');
   if (specificity.characterMentionRatio < MIN_CHARACTER_MENTION_RATIO) issues.push('unspecific_story_copy');
   if (claimVerification?.unresolvedTexts) issues.push('unsupported_story_claims');
   if (!eventQuality.publishable) issues.push(...eventQuality.issues.map(issue => `event_graph:${issue}`));
   if (!snapshot.rights.ready) issues.push('source_rights_not_cleared');
-  if (story.beats.length < Math.max(3, targetBeatCount - 2)) issues.push('too_few_story_beats');
 
   const score = roundScore(
     sourceCoverage * 0.1
@@ -1926,7 +2017,7 @@ export function evaluateRecapStory(
       + eventEvidenceCoverage * 0.1
       + causalIntegrity * 0.05
       + rightsCompliance * 0.03
-      + beatCountScore * 0.02,
+      + endingScore * 0.02,
   );
 
   return {
@@ -1953,9 +2044,218 @@ export function evaluateRecapStory(
   };
 }
 
+/**
+ * The slides of a chapters story, in reading order: the cover, then for each
+ * episode its card, its decisive moments one per slide, its other moments in
+ * groups of three and its bilan, then the end of the season. Generation and
+ * the player both read this plan, so they always agree.
+ */
+export function planStorySlides(
+  story: RecapStory,
+  eventGraph: RecapEventGraph,
+  snapshot: RecapSourceSnapshot,
+): RecapPlannedSlide[] {
+  const eventById = new Map(eventGraph.events.map(event => [event.id, event]));
+  const eventsOf = (eventIds: string[]) => eventIds.flatMap(id => eventById.get(id) ?? []);
+  const episodes = story.episodes || [];
+  const portraitOf = createPortraitResolver(snapshot, eventGraph);
+  const character = (name: string): RecapSlideCharacter => ({ ...toSlideCharacter(name), imageUrl: portraitOf(name) });
+  const characters = (events: RecapEvent[], limit: number) => [...new Set(events.flatMap(event => event.characters))]
+    .slice(0, limit)
+    .map(character);
+  const changeItem = (change: RecapStoryChange) => ({ character: change.character ? character(change.character) : null, text: change.text });
+  // Backdrops take over once an episode has shown all its stills, and dress the end of the season.
+  const backdrops = snapshot.show.backdrops ?? [];
+  let backdropCursor = 0;
+  const nextBackdrop = () => (backdrops.length ? backdrops[backdropCursor++ % backdrops.length]! : null);
+
+  const slides: RecapPlannedSlide[] = [{
+    content: { kind: 'cover', ...story.cover, episodeCount: snapshot.episodes.length },
+    eventIds: [],
+    imageUrl: null,
+  }];
+
+  episodes.forEach((episode, index) => {
+    const { episodeNumber } = episode;
+    const sourceEpisode = snapshot.episodes.find(item => item.number === episodeNumber);
+    // Each slide of the chapter gets its own still; Trakt's episode image is usually one of them.
+    const stills = sourceEpisode?.stills?.length
+      ? sourceEpisode.stills
+      : [sourceEpisode?.image].filter((url): url is string => Boolean(url));
+    let stillCursor = 0;
+    const nextImage = () => (stillCursor < stills.length
+      ? stills[stillCursor++]!
+      : nextBackdrop() ?? sourceEpisode?.image ?? null);
+    const momentEvents = episode.moments.map(moment => eventsOf(moment.eventIds));
+    const isDecisive = momentEvents.map(events => events.some(event => event.importance === 'critical'));
+    const locations = [...new Set(momentEvents.flat().flatMap(event => event.location ?? []))].slice(0, 4);
+    const chapterStart = slides.length;
+    slides.push({
+      content: {
+        kind: 'chapter',
+        episodeNumber,
+        episodeTitle: sourceEpisode?.title ?? '',
+        headline: episode.headline,
+        locations,
+        decisiveCount: isDecisive.filter(Boolean).length,
+        otherCount: isDecisive.filter(decisive => !decisive).length,
+      },
+      eventIds: [],
+      imageUrl: nextImage(),
+    });
+
+    let group: number[] = [];
+    const flushGroup = () => {
+      if (!group.length) return;
+      const items = group.map(momentIndex => ({
+        text: episode.moments[momentIndex]!.text,
+        location: momentEvents[momentIndex]![0]?.location ?? null,
+        characters: characters(momentEvents[momentIndex]!, 3),
+      }));
+      const places = new Set(items.map(item => item.location).filter(Boolean));
+      slides.push({
+        content: {
+          kind: 'moment-group',
+          episodeNumber,
+          heading: slides.length === chapterStart + 1
+            ? 'Au début de l’épisode'
+            : places.size > 1 ? 'Pendant ce temps' : 'Ensuite',
+          items,
+        },
+        eventIds: [...new Set(group.flatMap(momentIndex => episode.moments[momentIndex]!.eventIds))],
+        imageUrl: nextImage(),
+      });
+      group = [];
+    };
+    episode.moments.forEach((moment, momentIndex) => {
+      if (!isDecisive[momentIndex]) {
+        group.push(momentIndex);
+        if (group.length === MAX_MOMENTS_PER_GROUP) flushGroup();
+        return;
+      }
+      flushGroup();
+      const events = momentEvents[momentIndex]!;
+      slides.push({
+        content: {
+          kind: 'moment',
+          episodeNumber,
+          text: moment.text,
+          location: events[0]?.location ?? null,
+          detail: events.find(event => event.detail)?.detail ?? null,
+          characters: characters(events, 4),
+        },
+        eventIds: moment.eventIds,
+        imageUrl: nextImage(),
+      });
+    });
+    flushGroup();
+
+    const changes = episode.changes;
+    if (changes && listEpisodeChanges(episode).length) {
+      const nextEpisode = episodes[index + 1];
+      slides.push({
+        content: {
+          kind: 'changes',
+          episodeNumber,
+          deaths: changes.deaths.map(changeItem),
+          situations: changes.situations.map(changeItem),
+          questions: changes.questions.map(question => question.text),
+          nextEpisode: nextEpisode
+            ? {
+                number: nextEpisode.episodeNumber,
+                title: snapshot.episodes.find(item => item.number === nextEpisode.episodeNumber)?.title ?? '',
+              }
+            : null,
+        },
+        eventIds: listEpisodeChanges(episode).flatMap(change => change.eventIds),
+        imageUrl: nextImage(),
+      });
+    }
+  });
+
+  const ending = story.ending;
+  if (ending?.characters.length) {
+    slides.push({
+      content: { kind: 'ending-status', characters: ending.characters.map(changeItem) },
+      eventIds: ending.characters.flatMap(line => line.eventIds),
+      imageUrl: nextBackdrop(),
+    });
+  }
+  // A season can lose a dozen characters: they get their own slide.
+  const seenDeaths = new Set<string>();
+  const deaths = episodes.flatMap(episode => (episode.changes?.deaths ?? []).flatMap((death) => {
+    const name = death.character || '';
+    if (!name || seenDeaths.has(name)) return [];
+    seenDeaths.add(name);
+    return [{ name, episodeNumber: episode.episodeNumber, eventIds: death.eventIds }];
+  }));
+  if (ending && deaths.length) {
+    slides.push({
+      content: {
+        kind: 'ending-deaths',
+        deaths: deaths.map(death => ({ character: character(death.name), episodeNumber: death.episodeNumber })),
+      },
+      eventIds: deaths.flatMap(death => death.eventIds),
+      imageUrl: nextBackdrop(),
+    });
+  }
+  if (ending?.questions.length) {
+    slides.push({
+      content: {
+        kind: 'ending-questions',
+        questions: ending.questions.map(question => ({
+          text: question.text,
+          episodeNumbers: [...new Set(eventsOf(question.eventIds).flatMap(event => event.episodeNumbers))].sort((a, b) => a - b),
+        })),
+      },
+      eventIds: ending.questions.flatMap(question => question.eventIds),
+      imageUrl: nextBackdrop(),
+    });
+  }
+  return slides;
+}
+
+const PORTRAIT_NAME_PARTICLES = new Set(['les', 'des', 'del', 'van', 'von', 'der', 'den', 'ser', 'lord', 'lady', 'the']);
+
+/**
+ * Finds a character's TVmaze portrait under any of its names (Ned = Eddard
+ * Stark): every significant word of one of its names must appear in exactly
+ * one portrait's name.
+ */
+function createPortraitResolver(snapshot: RecapSourceSnapshot, eventGraph: RecapEventGraph) {
+  const words = (name: string) => normalizeCharacterKey(name)
+    .split(' ')
+    .filter(word => word.length >= 3 && !PORTRAIT_NAME_PARTICLES.has(word));
+  const portraits = (snapshot.characterPortraits ?? []).map(portrait => ({ ...portrait, words: new Set(words(portrait.name)) }));
+  const namesByKey = new Map<string, string[]>();
+  (eventGraph.characterAliases ?? []).forEach((group) => {
+    const names = [group.name, ...group.aliases];
+    names.forEach(name => namesByKey.set(normalizeCharacterKey(name), names));
+  });
+  return (name: string): string | null => {
+    for (const candidate of namesByKey.get(normalizeCharacterKey(name)) ?? [name]) {
+      const candidateWords = words(candidate);
+      if (!candidateWords.length) continue;
+      const matches = portraits.filter(portrait => candidateWords.every(word => portrait.words.has(word)));
+      if (matches.length === 1) return matches[0]!.imageUrl;
+    }
+    return null;
+  };
+}
+
+/** Initials of the first and last capitalized words: "Eddard Stark" → "ES". */
+function toSlideCharacter(name: string): RecapSlideCharacter {
+  const words = name.replace(/[«»"“”()]/g, ' ').split(/\s+/).filter(word => /^\p{Lu}/u.test(word));
+  const initials = words.length > 1
+    ? `${words[0]![0]}${words[words.length - 1]![0]}`
+    : (words[0] ?? name).slice(0, 2);
+  return { name, initials: initials.toLocaleUpperCase(), imageUrl: null };
+}
+
 export function buildRecapSlides(
   story: RecapStory,
   snapshot: RecapSourceSnapshot,
+  eventGraph: RecapEventGraph,
 ): GeneratedSlide[] {
   const palette = determinePalette(snapshot.show.genres);
   const coverImage = snapshot.season.image
@@ -1963,42 +2263,16 @@ export function buildRecapSlides(
     || snapshot.episodes.find((episode) => episode.image)?.image
     || null;
 
-  const slides: GeneratedSlide[] = [{
-    order: 1,
-    canvas: createCoverCanvas(story, palette, coverImage, snapshot),
-  }];
-
-  story.beats.forEach((beat, index) => {
-    const episode = snapshot.episodes.find((item) => item.number === beat.imageEpisodeNumber)
-      || snapshot.episodes.find((item) => beat.episodeNumbers.includes(item.number));
-    slides.push({
-      order: index + 2,
-      canvas: createBeatCanvas({
-        order: index + 2,
-        beat,
-        episode,
-        palette,
-        backgroundImage: episode?.image || coverImage,
-        alignRight: index % 2 === 1,
-      }),
-    });
-  });
-
-  (story.episodes || []).forEach((storyEpisode) => {
-    const order = slides.length + 1;
-    const episode = snapshot.episodes.find(item => item.number === storyEpisode.episodeNumber);
-    slides.push({
+  return planStorySlides(story, eventGraph, snapshot).map((slide, index) => {
+    const order = index + 1;
+    if (slide.content.kind === 'cover') {
+      return { order, canvas: createCoverCanvas(story, palette, coverImage, snapshot) };
+    }
+    return {
       order,
-      canvas: createEpisodeCanvas({
-        order,
-        storyEpisode,
-        palette,
-        backgroundImage: episode?.image || coverImage,
-      }),
-    });
+      canvas: createPlannedSlideCanvas({ order, slide, palette, backgroundImage: slide.imageUrl || coverImage }),
+    };
   });
-
-  return slides;
 }
 
 function createCoverCanvas(
@@ -2072,111 +2346,23 @@ function createCoverCanvas(
   return createStage(children, 8_000);
 }
 
-function createBeatCanvas(input: {
+/**
+ * The editable canvas of a planned slide: a badge, a title and the slide's
+ * text. The player renders the slide's semantic content instead.
+ */
+function createPlannedSlideCanvas(input: {
   order: number;
-  beat: RecapStoryBeat;
-  episode?: EpisodeSource;
-  palette: Palette;
-  backgroundImage: string | null;
-  alignRight: boolean;
-}) {
-  const children: Record<string, unknown>[] = createBackgroundNodes(
-    input.backgroundImage,
-    input.palette,
-    input.order,
-  );
-  const panelX = input.alignRight ? 36 : 24;
-  let currentY = 112;
-  const episodeLabel = formatEpisodeReferences(input.beat.episodeNumbers);
-
-  const badge = createPillGroup({
-    id: `group-slide-${input.order}-badge`,
-    text: episodeLabel,
-    y: currentY,
-    palette: input.palette,
-    alignRight: input.alignRight,
-  });
-  children.push(badge.node);
-  currentY += badge.totalHeight + 22;
-
-  const headline = createTextGroup({
-    id: `group-slide-${input.order}-headline`,
-    text: input.beat.headline,
-    x: panelX,
-    y: currentY,
-    fontSize: 34,
-    lineHeight: 1.14,
-    fontFamily: TITLE_FONT_FAMILY,
-    textColor: input.palette.titleText,
-    backgroundFill: input.palette.titleBackground,
-    paddingX: 24,
-    paddingY: 20,
-    maxWidth: 306,
-    align: input.alignRight ? 'right' : 'left',
-    cornerRadius: 22,
-  });
-  children.push(headline.node);
-  currentY += headline.totalHeight + 20;
-
-  const summaryFontSize = input.beat.narration.length > 320
-    ? 17
-    : input.beat.narration.length > 260
-      ? 18
-      : input.beat.narration.length > 200
-        ? 19
-        : input.beat.narration.length > 160
-          ? 20
-          : 22;
-  const narration = createTextGroup({
-    id: `group-slide-${input.order}-summary`,
-    text: input.beat.narration,
-    x: panelX,
-    y: currentY,
-    fontSize: summaryFontSize,
-    lineHeight: 1.32,
-    fontFamily: BODY_FONT_FAMILY,
-    textColor: input.palette.bodyText,
-    backgroundFill: input.palette.bodyBackground,
-    paddingX: 24,
-    paddingY: 20,
-    maxWidth: 306,
-    align: input.alignRight ? 'right' : 'left',
-    cornerRadius: 20,
-  });
-  children.push(narration.node);
-
-  if (input.beat.tag) {
-    const tag = createPillGroup({
-      id: `group-slide-${input.order}-tag`,
-      text: input.beat.tag,
-      y: Math.min(currentY + narration.totalHeight + 18, 780),
-      palette: input.palette,
-      alignRight: !input.alignRight,
-    });
-    children.push(tag.node);
-  }
-
-  const wordCount = input.beat.narration.split(/\s+/).filter(Boolean).length;
-  const durationMs = Math.min(22_000, Math.max(7_000, Math.round((wordCount / 3.2 + 2.5) * 1_000)));
-  return createStage(children, durationMs);
-}
-
-function createEpisodeCanvas(input: {
-  order: number;
-  storyEpisode: RecapStoryEpisode;
+  slide: RecapPlannedSlide;
   palette: Palette;
   backgroundImage: string | null;
 }) {
-  const children: Record<string, unknown>[] = createBackgroundNodes(
-    input.backgroundImage,
-    input.palette,
-    input.order,
-  );
+  const { label, title, body } = describePlannedSlide(input.slide.content);
+  const children: Record<string, unknown>[] = createBackgroundNodes(input.backgroundImage, input.palette, input.order);
   let currentY = 112;
 
   const badge = createPillGroup({
     id: `group-slide-${input.order}-badge`,
-    text: formatEpisodePartLabel(input.storyEpisode),
+    text: label,
     y: currentY,
     palette: input.palette,
     alignRight: false,
@@ -2186,9 +2372,9 @@ function createEpisodeCanvas(input: {
 
   const headline = createTextGroup({
     id: `group-slide-${input.order}-headline`,
-    text: input.storyEpisode.headline,
+    text: title,
     y: currentY,
-    fontSize: 30,
+    fontSize: title.length > 120 ? 24 : 28,
     lineHeight: 1.14,
     fontFamily: TITLE_FONT_FAMILY,
     textColor: input.palette.titleText,
@@ -2201,27 +2387,64 @@ function createEpisodeCanvas(input: {
   children.push(headline.node);
   currentY += headline.totalHeight + 18;
 
-  const momentsText = input.storyEpisode.moments.map(moment => `• ${moment.text}`).join('\n');
-  const momentsFontSize = momentsText.length > 700 ? 15 : momentsText.length > 500 ? 16 : 17;
-  const moments = createTextGroup({
-    id: `group-slide-${input.order}-moments`,
-    text: momentsText,
-    y: currentY,
-    fontSize: momentsFontSize,
-    lineHeight: 1.36,
-    fontFamily: BODY_FONT_FAMILY,
-    textColor: input.palette.bodyText,
-    backgroundFill: input.palette.bodyBackground,
-    paddingX: 22,
-    paddingY: 18,
-    maxWidth: 306,
-    cornerRadius: 20,
-  });
-  children.push(moments.node);
+  if (body) {
+    const text = createTextGroup({
+      id: `group-slide-${input.order}-body`,
+      text: body,
+      y: currentY,
+      fontSize: body.length > 500 ? 15 : 17,
+      lineHeight: 1.36,
+      fontFamily: BODY_FONT_FAMILY,
+      textColor: input.palette.bodyText,
+      backgroundFill: input.palette.bodyBackground,
+      paddingX: 22,
+      paddingY: 18,
+      maxWidth: 306,
+      cornerRadius: 20,
+    });
+    children.push(text.node);
+  }
 
-  const wordCount = momentsText.split(/\s+/).filter(Boolean).length;
-  const durationMs = Math.min(26_000, Math.max(8_000, Math.round((wordCount / 3.2 + 3) * 1_000)));
+  // A chapter card is read at a glance; text slides take the time of their words.
+  const wordCount = `${title} ${body}`.split(/\s+/).filter(Boolean).length;
+  const durationMs = input.slide.content.kind === 'chapter'
+    ? 5_000
+    : Math.min(20_000, Math.max(6_000, Math.round((wordCount / 3.2 + 2.5) * 1_000)));
   return createStage(children, durationMs);
+}
+
+function describePlannedSlide(content: RecapPlannedSlide['content']): { label: string; title: string; body: string } {
+  const lines = (items: Array<{ text: string }>) => items.map(item => `• ${item.text}`).join('\n');
+  switch (content.kind) {
+    case 'chapter':
+      return {
+        label: `Épisode ${content.episodeNumber}${content.episodeTitle ? ` · ${content.episodeTitle}` : ''}`,
+        title: content.headline,
+        body: content.locations.join(' · '),
+      };
+    case 'moment':
+      return { label: `Épisode ${content.episodeNumber} · Décisif`, title: content.text, body: content.detail ?? '' };
+    case 'moment-group':
+      return { label: `Épisode ${content.episodeNumber}`, title: content.heading, body: lines(content.items) };
+    case 'changes':
+      return {
+        label: `Épisode ${content.episodeNumber} · Bilan`,
+        title: 'Ce qui a changé',
+        body: lines([...content.deaths, ...content.situations, ...content.questions.map(text => ({ text }))]),
+      };
+    case 'ending-status':
+      return { label: 'Fin de saison', title: 'Où en est-on', body: lines(content.characters) };
+    case 'ending-deaths':
+      return {
+        label: 'Fin de saison',
+        title: 'Morts cette saison',
+        body: content.deaths.map(death => `• ${death.character.name} · épisode ${death.episodeNumber}`).join('\n'),
+      };
+    case 'ending-questions':
+      return { label: 'Fin de saison', title: 'Questions ouvertes', body: lines(content.questions) };
+    default:
+      return { label: '', title: '', body: '' };
+  }
 }
 
 function createStage(children: Record<string, unknown>[], durationMs: number) {
@@ -2264,7 +2487,7 @@ function createBackgroundNodes(imageSrc: string | null, palette: Palette, order:
         y: 0,
         width: STAGE_WIDTH,
         height: STAGE_HEIGHT,
-        src: getProxiedImageUrl(imageSrc),
+        src: toDisplayImageUrl(imageSrc),
         fit: 'cover',
         focalX: 0.5,
         focalY: 0.45,
@@ -2488,8 +2711,21 @@ function normalizeImageUrl(url?: string | null): string | null {
   return `https://${trimmed}`;
 }
 
-function getProxiedImageUrl(url: string): string {
-  return `/api/image-proxy/?url=${encodeURIComponent(url)}`;
+/**
+ * Trakt's image policy requires its images to go through the cached proxy;
+ * TMDB and TVmaze images load from their own CDNs.
+ */
+export function toDisplayImageUrl(url: string): string {
+  const hostname = (() => {
+    try {
+      return new URL(url).hostname.toLowerCase();
+    } catch {
+      return '';
+    }
+  })();
+  return hostname === 'trakt.tv' || hostname.endsWith('.trakt.tv')
+    ? `/api/image-proxy/?url=${encodeURIComponent(url)}`
+    : url;
 }
 
 function sanitizeText(text?: unknown): string {
@@ -2623,21 +2859,6 @@ function sanitizeIdentifier(value: unknown): string {
     .replace(/[^a-z0-9_-]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 100);
-}
-
-function formatEpisodePartLabel(episode: RecapStoryEpisode): string {
-  const part = episode.partCount && episode.partCount > 1 ? ` · ${episode.part}/${episode.partCount}` : '';
-  return `Épisode ${episode.episodeNumber}${part}`;
-}
-
-function formatEpisodeReferences(episodeNumbers: number[]): string {
-  if (episodeNumbers.length === 1) return `Épisode ${episodeNumbers[0]}`;
-  return `Épisodes ${episodeNumbers.join(' · ')}`;
-}
-
-// "L'essentiel" keeps only the turning points: the episodes section carries the rest.
-function getTargetBeatCount(episodeCount: number): number {
-  return Math.min(8, Math.max(5, Math.ceil(episodeCount / 2)));
 }
 
 function minimumEpisode(event: RecapEvent): number {

@@ -1,5 +1,5 @@
 import type { RecapEvent, RecapEventGraph } from '~/server/services/recap-generation';
-import type { RecapStory } from '~/types/recap-story.types';
+import type { RecapStory, RecapStoryChange } from '~/types/recap-story.types';
 
 export type StoryText = {
   key: string;
@@ -23,6 +23,8 @@ export type StoryClaimVerification = {
   checkedTexts: number;
   correctedTexts: number;
   removedMoments: number;
+  // Bilan and season-end lines left with nothing exact to say.
+  removedLines?: number;
   // Corrections whose text could not be replaced: the claim stays unsupported.
   unresolvedTexts: number;
   corrections: Array<{ key: string; unsupportedClaims: string[] }>;
@@ -88,10 +90,34 @@ export function listStoryTexts(story: RecapStory): StoryText[] {
           text: moment.text,
           eventIds: moment.eventIds,
         })),
+        ...CHANGE_LISTS.flatMap(list => (episode.changes?.[list] ?? []).map((change, index) => ({
+          key: `episode-${episode.episodeNumber}-${CHANGE_KEYS[list]}-${index + 1}`,
+          text: change.text,
+          // A question is checked against the whole episode, which may already answer it.
+          eventIds: list === 'questions' ? listEpisodeEventIds(episode) : change.eventIds,
+        }))),
       ];
     }),
+    ...ENDING_LISTS.flatMap(list => (story.ending?.[list] ?? []).map((line, index) => ({
+      key: `ending-${ENDING_KEYS[list]}-${index + 1}`,
+      text: line.text,
+      // An open question at the end of the season is checked against every scene.
+      eventIds: list === 'questions' ? [] : line.eventIds,
+    }))),
   ];
 }
+
+function listEpisodeEventIds(episode: NonNullable<RecapStory['episodes']>[number]): string[] {
+  return [...new Set([
+    ...episode.moments.flatMap(moment => moment.eventIds),
+    ...CHANGE_LISTS.flatMap(list => (episode.changes?.[list] ?? []).flatMap(change => change.eventIds)),
+  ])];
+}
+
+const CHANGE_LISTS = ['deaths', 'situations', 'questions'] as const;
+const CHANGE_KEYS = { deaths: 'death', situations: 'situation', questions: 'question' } as const;
+const ENDING_LISTS = ['characters', 'questions'] as const;
+const ENDING_KEYS = { characters: 'character', questions: 'question' } as const;
 
 export function findVaguePhrases(story: RecapStory): VaguePhrase[] {
   return listStoryTexts(story).flatMap(({ key, text }) => VAGUE_PHRASE_PATTERNS
@@ -138,10 +164,11 @@ ${texts}
 
 # CONSIGNES
 - Pour chaque texte, contrôle chaque affirmation : personnage, action, lieu, cause, conséquence, chiffre, date. Elle doit figurer dans les scènes citées par ce texte (dans toutes les scènes pour la couverture).
+- Une ligne de bilan (death, situation, question) ou de fin de saison (ending) affirme un état : une mort, une captivité, un titre, un lieu, une alliance, une question laissée ouverte. Cet état doit découler des scènes citées ; une question ne doit pas suggérer de réponse. Une question que ses scènes tranchent déjà (une mort, une exécution, un accord rompu) n'est plus ouverte : laisse son correctedText vide.
 - Un texte qui contient une affirmation non soutenue, ou une formule creuse (« tout bascule », « les tensions montent », « rien ne sera plus comme avant »…), doit être corrigé.
 - correctedText réécrit le texte en français en ne gardant que ce que les scènes citées soutiennent, en restant aussi précis que possible et sans dépasser la longueur d'origine. Ne rajoute aucun fait absent des scènes.
 - unsupportedClaims liste les affirmations retirées ou les formules creuses remplacées.
-- Si plus rien d'exact ne peut être dit pour un moment d'épisode, laisse correctedText vide : le moment sera supprimé.
+- Si plus rien d'exact ne peut être dit pour un moment d'épisode, une ligne de bilan ou de fin de saison, laisse correctedText vide : elle sera supprimée.
 - Ne liste que les textes à corriger, avec leur clé exacte. Une liste vide signifie que tout est soutenu.
 - N'utilise aucune connaissance extérieure.
 
@@ -157,10 +184,12 @@ export function applyStoryCorrections(
   const raw = JSON.parse(responseText);
   const corrected: RecapStory = structuredClone(story);
   const removedMoments = new Set<string>();
+  const removedLines = new Set<RecapStoryChange>();
   const verification: StoryClaimVerification = {
     checkedTexts: listStoryTexts(story).length,
     correctedTexts: 0,
     removedMoments: 0,
+    removedLines: 0,
     unresolvedTexts: 0,
     corrections: [],
   };
@@ -171,7 +200,7 @@ export function applyStoryCorrections(
     const unsupportedClaims = (Array.isArray(correction?.unsupportedClaims) ? correction.unsupportedClaims : [])
       .filter((claim: unknown): claim is string => typeof claim === 'string' && Boolean(claim.trim()))
       .map((claim: string) => claim.trim());
-    const outcome = applyCorrection(corrected, key, text, removedMoments);
+    const outcome = applyCorrection(corrected, key, text, removedMoments, removedLines);
     if (outcome === 'unknown') return;
     verification.corrections.push({ key, unsupportedClaims });
     if (outcome === 'replaced') verification.correctedTexts += 1;
@@ -183,8 +212,25 @@ export function applyStoryCorrections(
       ...episode,
       moments: episode.moments.filter((_, index) => !removedMoments.has(`${episode.episodeNumber}:${index + 1}`)),
     }))
-    .filter(episode => episode.moments.length > 0);
+    .filter(episode => episode.moments.length > 0)
+    .map(episode => (episode.changes
+      ? {
+          ...episode,
+          changes: {
+            deaths: episode.changes.deaths.filter(line => !removedLines.has(line)),
+            situations: episode.changes.situations.filter(line => !removedLines.has(line)),
+            questions: episode.changes.questions.filter(line => !removedLines.has(line)),
+          },
+        }
+      : episode));
+  if (corrected.ending) {
+    corrected.ending = {
+      characters: corrected.ending.characters.filter(line => !removedLines.has(line)),
+      questions: corrected.ending.questions.filter(line => !removedLines.has(line)),
+    };
+  }
   verification.removedMoments = removedMoments.size;
+  verification.removedLines = removedLines.size;
   return { story: corrected, verification };
 }
 
@@ -193,7 +239,19 @@ function applyCorrection(
   key: string,
   text: string,
   removedMoments: Set<string>,
+  removedLines: Set<RecapStoryChange>,
 ): 'replaced' | 'removed' | 'unresolved' | 'unknown' {
+  const line = findStoryLine(story, key);
+  if (line !== undefined) {
+    if (!line) return 'unknown';
+    if (!text) {
+      removedLines.add(line);
+      return 'removed';
+    }
+    line.text = text;
+    return 'replaced';
+  }
+
   if (key === 'cover-logline') {
     if (!text) return 'unresolved';
     story.cover.logline = text;
@@ -228,6 +286,25 @@ function applyCorrection(
   }
   moment.text = text;
   return 'replaced';
+}
+
+/**
+ * The bilan or season-end line a key names: undefined when the key is not a
+ * line key, null when it names a line that does not exist.
+ */
+function findStoryLine(story: RecapStory, key: string): RecapStoryChange | null | undefined {
+  const changeMatch = key.match(/^episode-(\d+)-(death|situation|question)-(\d+)$/);
+  if (changeMatch) {
+    const episode = (story.episodes || []).find(item => item.episodeNumber === Number(changeMatch[1]));
+    const list = CHANGE_LISTS.find(name => CHANGE_KEYS[name] === changeMatch[2])!;
+    return episode?.changes?.[list][Number(changeMatch[3]) - 1] ?? null;
+  }
+  const endingMatch = key.match(/^ending-(character|question)-(\d+)$/);
+  if (endingMatch) {
+    const list = ENDING_LISTS.find(name => ENDING_KEYS[name] === endingMatch[1])!;
+    return story.ending?.[list][Number(endingMatch[2]) - 1] ?? null;
+  }
+  return undefined;
 }
 
 function formatSceneForVerification(event: RecapEvent): string {
