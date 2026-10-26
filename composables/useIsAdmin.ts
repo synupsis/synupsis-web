@@ -18,7 +18,7 @@ export function useIsAdmin() {
         .from('profile')
         .select('role')
         .eq('user_id', currentUser.sub)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Failed to fetch admin role:', error);
@@ -26,7 +26,7 @@ export function useIsAdmin() {
         return;
       }
 
-      isAdmin.value = data.role === 'admin';
+      isAdmin.value = data?.role === 'admin';
     },
     { immediate: true },
   );
