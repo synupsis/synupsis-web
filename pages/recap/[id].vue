@@ -137,50 +137,54 @@
               <ForwardIcon class="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
-          <nav
-            ref="railElement"
-            aria-label="Épisodes"
-            class="pointer-events-auto overflow-x-auto border-t border-white/10 bg-black/85 px-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md [scrollbar-width:none]"
-          >
-            <div ref="railTrack" class="relative flex w-max min-w-full items-center">
-              <!-- One season line under the episodes, filled up to the current one in a single stroke -->
-              <div
-                class="pointer-events-none absolute top-1/2 h-0.5 -translate-y-1/2 overflow-hidden rounded-full bg-white/10"
-                :style="railLineBox"
-                aria-hidden="true"
-              >
-                <div class="h-full origin-left bg-white/50 transition-transform" :style="railFillStyle" />
-              </div>
-              <template v-for="(chapter, railIndex) in railChapters" :key="chapter.key">
-                <span v-if="railIndex > 0" class="min-w-1 flex-1" aria-hidden="true" />
-                <button
-                  type="button"
-                  class="relative flex h-11 shrink-0 items-center justify-center"
-                  :aria-label="chapter.ariaLabel"
-                  :aria-current="chapter.state === 'current' ? 'step' : undefined"
-                  @click="jumpTo(chapter.firstIndex)"
+          <div class="pointer-events-auto border-t border-white/10 bg-black/85 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-md">
+            <nav
+              ref="railElement"
+              aria-label="Épisodes"
+              class="overflow-x-auto px-3 [scrollbar-width:none]"
+              :class="{ 'recap-rail-fade-start': railOverflows && railHasBefore, 'recap-rail-fade-end': railOverflows && railHasAfter }"
+              @scroll.passive="updateRailEdges"
+            >
+              <div ref="railTrack" class="relative flex w-max min-w-full items-center">
+                <!-- One season line under the episodes, filled up to the current one in a single stroke -->
+                <div
+                  class="pointer-events-none absolute top-1/2 h-0.5 -translate-y-1/2 overflow-hidden rounded-full bg-white/10"
+                  :style="railLineBox"
+                  aria-hidden="true"
                 >
-                  <!-- Fixed widths let the pill grow and shrink smoothly; the others keep their place. -->
-                  <span
-                    class="flex h-7 items-center justify-center overflow-hidden whitespace-nowrap rounded-full text-[12px] font-semibold tabular-nums transition-[width,background-color,color,box-shadow]"
-                    :style="railNodeStyle(chapter, railIndex)"
-                    :class="chapter.state === 'current'
-                      ? 'bg-white text-neutral-900 shadow-[0_0_0_4px_rgb(0_0_0/0.85),0_0_18px_rgb(255_255_255/0.25)]'
-                      : chapter.state === 'read'
-                        ? 'bg-neutral-800 text-white/55 shadow-[0_0_0_0_rgb(0_0_0/0),0_0_0_rgb(255_255_255/0)]'
-                        : 'bg-neutral-950 text-white ring-1 ring-inset ring-white/20 shadow-[0_0_0_0_rgb(0_0_0/0),0_0_0_rgb(255_255_255/0)]'"
+                  <div class="h-full origin-left bg-white/50 transition-transform" :style="railFillStyle" />
+                </div>
+                <template v-for="(chapter, railIndex) in railChapters" :key="chapter.key">
+                  <span v-if="railIndex > 0" class="min-w-2 flex-1" aria-hidden="true" />
+                  <button
+                    type="button"
+                    class="relative flex h-12 shrink-0 items-center justify-center"
+                    :aria-label="chapter.ariaLabel"
+                    :aria-current="chapter.state === 'current' ? 'step' : undefined"
+                    @click="jumpTo(chapter.firstIndex)"
                   >
+                    <!-- Fixed widths let the pill grow and shrink smoothly; the others keep their place. -->
                     <span
-                      v-if="chapter.key !== 'end'"
-                      class="inline-block overflow-hidden transition-[max-width,opacity]"
-                      :class="chapter.state === 'current' ? 'max-w-6 opacity-100' : 'max-w-0 opacity-0'"
-                      :style="railNodeTiming(railIndex)"
-                    >Ép.&nbsp;</span>{{ chapter.label }}
-                  </span>
-                </button>
-              </template>
-            </div>
-          </nav>
+                      class="flex h-10 items-center justify-center overflow-hidden whitespace-nowrap rounded-full text-[15px] font-semibold tabular-nums transition-[width,background-color,color,box-shadow]"
+                      :style="railNodeStyle(chapter, railIndex)"
+                      :class="chapter.state === 'current'
+                        ? 'bg-white text-neutral-900 shadow-[0_0_0_4px_rgb(0_0_0/0.85),0_0_18px_rgb(255_255_255/0.25)]'
+                        : chapter.state === 'read'
+                          ? 'bg-neutral-800 text-white/55 shadow-[0_0_0_0_rgb(0_0_0/0),0_0_0_rgb(255_255_255/0)]'
+                          : 'bg-neutral-950 text-white ring-1 ring-inset ring-white/20 shadow-[0_0_0_0_rgb(0_0_0/0),0_0_0_rgb(255_255_255/0)]'"
+                    >
+                      <span
+                        v-if="chapter.key !== 'end'"
+                        class="inline-block overflow-hidden transition-[max-width,opacity]"
+                        :class="chapter.state === 'current' ? 'max-w-8 opacity-100' : 'max-w-0 opacity-0'"
+                        :style="railNodeTiming(railIndex)"
+                      >Ép.&nbsp;</span>{{ chapter.label }}
+                    </span>
+                  </button>
+                </template>
+              </div>
+            </nav>
+          </div>
         </div>
       </div>
     </div>
@@ -439,11 +443,16 @@ watch(currentRailIndex, (_, previous) => {
 
 // Final widths in pixels, so the line can aim at where each episode will stand.
 const railNodePx = (chapter: { key: string; label: string; state: string }) => {
-  if (chapter.key === 'end') return chapter.state === 'current' ? 44 : 36;
-  if (chapter.state !== 'current') return 28;
-  return chapter.label.length > 1 ? 60 : 52;
+  if (chapter.key === 'end') return chapter.state === 'current' ? 60 : 52;
+  if (chapter.state !== 'current') return 40;
+  return chapter.label.length > 1 ? 80 : 72;
 };
 
+// Thumb-sized pills keep at least this much line between them; a season wider
+// than the screen scrolls instead.
+const RAIL_MIN_GAP_PX = 8;
+
+const railElement = ref<HTMLElement | null>(null);
 const railTrack = ref<HTMLElement | null>(null);
 const railWidth = ref(0);
 let railResizeObserver: ResizeObserver | null = null;
@@ -461,7 +470,7 @@ onUnmounted(() => railResizeObserver?.disconnect());
 const railCenters = computed(() => {
   const widths = railChapters.value.map(railNodePx);
   const total = widths.reduce((sum, width) => sum + width, 0);
-  const gap = widths.length > 1 ? Math.max(4, (railWidth.value - total) / (widths.length - 1)) : 0;
+  const gap = widths.length > 1 ? Math.max(RAIL_MIN_GAP_PX, (railWidth.value - total) / (widths.length - 1)) : 0;
   let left = 0;
   return widths.map((width) => {
     const center = left + width / 2;
@@ -469,6 +478,23 @@ const railCenters = computed(() => {
     return center;
   });
 });
+
+// The track is as wide as its content when the season does not fit: it scrolls.
+const railOverflows = computed(() => {
+  const widths = railChapters.value.map(railNodePx);
+  const content = widths.reduce((sum, width) => sum + width, 0) + RAIL_MIN_GAP_PX * Math.max(0, widths.length - 1);
+  return railWidth.value > 0 && railWidth.value <= content + 1;
+});
+
+const railHasBefore = ref(false);
+const railHasAfter = ref(true);
+const updateRailEdges = () => {
+  const rail = railElement.value;
+  if (!rail) return;
+  railHasBefore.value = rail.scrollLeft > 2;
+  railHasAfter.value = rail.scrollLeft + rail.clientWidth < rail.scrollWidth - 2;
+};
+watch(railOverflows, () => nextTick(updateRailEdges));
 
 const railLineBox = computed(() => {
   const centers = railCenters.value;
@@ -515,15 +541,16 @@ const railNodeStyle = (chapter: { key: string; label: string; state: string }, r
   ...railNodeTiming(railIndex),
 });
 
-// Long seasons scroll the rail: keep the current episode in view. Scrolling the
-// rail itself avoids scrollIntoView, which would also scroll the player.
-const railElement = ref<HTMLElement | null>(null);
+// Long seasons scroll the rail: center the current episode where its pill will
+// settle (it is still growing). Scrolling the rail itself avoids scrollIntoView,
+// which would also scroll the player.
 watch(() => currentChapter.value?.key, async () => {
   await nextTick();
   const rail = railElement.value;
-  const current = rail?.querySelector<HTMLElement>('[aria-current="step"]');
-  if (!rail || !current) return;
-  rail.scrollTo({ left: current.offsetLeft - (rail.clientWidth - current.offsetWidth) / 2, behavior: 'smooth' });
+  const center = railCenters.value[currentRailIndex.value];
+  if (!rail || center === undefined || !railOverflows.value) return;
+  const paddingLeft = Number.parseFloat(getComputedStyle(rail).paddingLeft) || 0;
+  rail.scrollTo({ left: paddingLeft + center - rail.clientWidth / 2, behavior: 'smooth' });
 });
 
 const jumpTo = (index: number) => {
@@ -670,6 +697,19 @@ watch(data, (newData) => {
 </script>
 
 <style scoped>
+/* A scrolling episode rail fades on the side where more episodes wait. */
+.recap-rail-fade-start {
+  mask-image: linear-gradient(to right, transparent, #000 28px);
+}
+
+.recap-rail-fade-end {
+  mask-image: linear-gradient(to left, transparent, #000 28px);
+}
+
+.recap-rail-fade-start.recap-rail-fade-end {
+  mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+}
+
 .animate-fade-in-up {
   animation: fadeInUp 0.5s ease-out forwards;
 }
