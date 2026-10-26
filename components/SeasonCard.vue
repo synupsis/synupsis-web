@@ -1,5 +1,12 @@
 <template>
-  <Card class="flex flex-col group overflow-hidden border-2" :class="{ 'border-primary shadow-lg shadow-primary/20': isLatest, 'border-transparent': !isLatest }">
+  <Card
+    class="group flex flex-col overflow-hidden border-2"
+    :class="{
+      'border-primary shadow-lg shadow-primary/20': isLatest && !spoilerLocked,
+      'border-transparent': !isLatest || spoilerLocked,
+      'opacity-75': spoilerLocked,
+    }"
+  >
     <div class="relative w-full aspect-[2/3]">
       <!-- Image -->
       <CachedImage v-if="season.image" :src="season.image" :alt="`Poster for Season ${season.number}`" class="w-full h-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105" />
@@ -11,6 +18,10 @@
       
       <!-- Latest Badge -->
       <Badge v-if="isLatest" class="absolute top-2 right-2">Latest</Badge>
+      <Badge v-if="spoilerLocked" variant="secondary" class="absolute left-2 top-2 gap-1 bg-black/70 text-white">
+        <LockClosedIcon class="h-3.5 w-3.5" />
+        Anti-spoiler
+      </Badge>
 
       <!-- Content Overlay -->
       <div class="absolute inset-0 flex flex-col justify-end p-4 text-white">
@@ -19,9 +30,14 @@
           <Badge v-if="isDraft" variant="secondary" class="text-xs">Draft</Badge>
         </div>
         
-        <div class="flex items-center gap-4 mt-4">
+        <div class="mt-4 flex items-center gap-4">
+          <Button v-if="spoilerLocked" variant="secondary" size="sm" class="flex-grow" disabled>
+            <LockClosedIcon class="mr-2 h-4 w-4" />
+            Récap verrouillé
+          </Button>
+
           <Button
-            v-if="isPublished"
+            v-else-if="isPublished"
             variant="secondary"
             size="sm"
             class="flex-grow"
@@ -31,7 +47,7 @@
             View
           </Button>
 
-          <ClientOnly>
+          <ClientOnly v-if="!spoilerLocked">
             <template v-if="user && isAdmin">
               <Button
                 v-if="isDraft || isPublished"
@@ -54,7 +70,7 @@
           </ClientOnly>
 
           <Button
-            v-if="!isPublished && !isDraft"
+            v-if="!spoilerLocked && !isPublished && !isDraft"
             variant="outline"
             size="sm"
             class="flex-grow"
@@ -77,7 +93,7 @@ import { computed } from 'vue';
 import { Button } from '~/components/shadcn/button';
 import { Card, CardTitle } from '~/components/shadcn/card';
 import { Badge } from '~/components/shadcn/badge';
-import { EyeIcon, PencilIcon, SparklesIcon, SquaresPlusIcon } from '@heroicons/vue/24/outline';
+import { EyeIcon, LockClosedIcon, PencilIcon, SparklesIcon, SquaresPlusIcon } from '@heroicons/vue/24/outline';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import CachedImage from '~/components/CachedImage.vue';
 
@@ -87,6 +103,7 @@ const props = defineProps<{
   isGenerating: boolean;
   generationProgress?: number;
   isLatest: boolean;
+  spoilerLocked?: boolean;
 }>();
 
 const emit = defineEmits(['view', 'edit', 'create', 'generate']);
