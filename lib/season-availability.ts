@@ -13,3 +13,13 @@ export function isSeasonReleased(
 
   return releaseTimestamp <= now;
 }
+
+export function isRegularSeasonReleased(
+  seasonNumber: number,
+  firstAired: string | null | undefined,
+  now = Date.now(),
+): boolean {
+  return Number.isInteger(seasonNumber)
+    && seasonNumber > 0
+    && isSeasonReleased(firstAired, now);
+}
