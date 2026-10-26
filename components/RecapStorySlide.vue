@@ -94,12 +94,6 @@
           <h2 class="recap-chapter-title mt-3 font-bold tracking-[-0.035em]">
             {{ content.headline }}
           </h2>
-          <p v-if="content.locations.length" class="mt-4 text-[15px] leading-snug text-white/75">
-            {{ content.locations.join(' · ') }}
-          </p>
-          <p class="mt-6 flex min-h-11 items-center border-t border-white/10 pt-4 text-sm text-white/60 tabular-nums">
-            {{ chapterSummary }}
-          </p>
         </div>
       </template>
 
@@ -376,16 +370,6 @@ function normalizeName(value: string): string {
 const imageLayout = computed<'full' | 'band'>(() => (
   props.imageUrl && CHAPTER_KINDS.has(props.content.kind) ? 'band' : 'full'
 ));
-
-const chapterSummary = computed(() => {
-  if (props.content.kind !== 'chapter') return '';
-  const { decisiveCount, otherCount } = props.content;
-  const parts = [
-    decisiveCount ? `${decisiveCount} moment${decisiveCount > 1 ? 's' : ''} décisif${decisiveCount > 1 ? 's' : ''}` : '',
-    otherCount ? `${otherCount} autre${otherCount > 1 ? 's' : ''}` : '',
-  ].filter(Boolean);
-  return parts.join(' · ');
-});
 
 const episodeCountLabel = computed(() => {
   if (props.content.kind !== 'cover') return '';
