@@ -138,37 +138,36 @@
             </button>
           </div>
           <nav
+            ref="railElement"
             aria-label="Épisodes"
-            class="pointer-events-auto flex justify-between overflow-x-auto border-t border-white/10 bg-black/85 px-2 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-md"
+            class="pointer-events-auto overflow-x-auto border-t border-white/10 bg-black/85 px-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md [scrollbar-width:none]"
           >
-            <button
-              v-for="chapter in railChapters"
-              :key="chapter.key"
-              type="button"
-              class="flex h-11 w-8 shrink-0 flex-col items-center justify-center gap-1"
-              :aria-label="chapter.ariaLabel"
-              :aria-current="chapter.state === 'current' ? 'step' : undefined"
-              @click="jumpTo(chapter.firstIndex)"
-            >
-              <span
-                class="flex h-[30px] w-[30px] items-center justify-center rounded-full border font-semibold tabular-nums transition-colors"
-                :class="[
-                  chapter.label.length > 2 ? 'text-[10px]' : 'text-[13px]',
-                  chapter.state === 'current'
-                    ? 'border-white bg-white text-neutral-900'
-                    : chapter.state === 'read'
-                      ? 'border-transparent text-white/60'
-                      : 'border-white/15 text-white',
-                ]"
+            <div class="relative flex w-max min-w-full items-center justify-between gap-1">
+              <!-- The season line fills up to the current episode -->
+              <div class="pointer-events-none absolute inset-x-4 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-white/10" aria-hidden="true">
+                <div class="h-full rounded-full bg-white/50 transition-[width] duration-500 ease-out" :style="{ width: railProgress }" />
+              </div>
+              <button
+                v-for="chapter in railChapters"
+                :key="chapter.key"
+                type="button"
+                class="relative flex h-11 shrink-0 items-center justify-center"
+                :aria-label="chapter.ariaLabel"
+                :aria-current="chapter.state === 'current' ? 'step' : undefined"
+                @click="jumpTo(chapter.firstIndex)"
               >
-                {{ chapter.label }}
-              </span>
-              <span
-                class="h-1 w-1 rounded-full"
-                :class="chapter.state === 'read' ? 'bg-white/60' : 'bg-transparent'"
-                aria-hidden="true"
-              />
-            </button>
+                <span
+                  class="flex h-7 min-w-7 items-center justify-center rounded-full text-[12px] font-semibold tabular-nums transition-all duration-300"
+                  :class="chapter.state === 'current'
+                    ? 'bg-white px-2.5 text-neutral-900 shadow-[0_0_0_4px_rgb(0_0_0/0.85),0_0_18px_rgb(255_255_255/0.25)]'
+                    : chapter.state === 'read'
+                      ? 'bg-neutral-800 text-white/55'
+                      : 'bg-neutral-950 text-white ring-1 ring-inset ring-white/20'"
+                >
+                  {{ chapter.state === 'current' && chapter.key !== 'end' ? `Ép. ${chapter.label}` : chapter.label }}
+                </span>
+              </button>
+            </div>
           </nav>
         </div>
       </div>
@@ -413,6 +412,24 @@ const railChapters = computed(() => chapters.value
       : lastIndex < currentSlideIndex.value ? 'read' : 'upcoming';
     return { ...chapter, firstIndex, state };
   }));
+
+// How far the season line is filled: up to the current episode node.
+const railProgress = computed(() => {
+  const current = railChapters.value.findIndex(chapter => chapter.state === 'current');
+  if (current < 0 || railChapters.value.length < 2) return '0%';
+  return `${(current / (railChapters.value.length - 1)) * 100}%`;
+});
+
+// Long seasons scroll the rail: keep the current episode in view. Scrolling the
+// rail itself avoids scrollIntoView, which would also scroll the player.
+const railElement = ref<HTMLElement | null>(null);
+watch(() => currentChapter.value?.key, async () => {
+  await nextTick();
+  const rail = railElement.value;
+  const current = rail?.querySelector<HTMLElement>('[aria-current="step"]');
+  if (!rail || !current) return;
+  rail.scrollTo({ left: current.offsetLeft - (rail.clientWidth - current.offsetWidth) / 2, behavior: 'smooth' });
+});
 
 const jumpTo = (index: number) => {
   if (!data.value || index < 0 || index >= data.value.slides.length) return;
