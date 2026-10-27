@@ -50,6 +50,27 @@ Run Edge Functions locally
   supabase functions serve
 ```
 
+## Validation
+
+Use Node.js 24.15 or newer within the 24.x release line and Yarn 1.22.22.
+
+```bash
+yarn install --frozen-lockfile
+yarn audit:dependencies
+yarn lint
+yarn typecheck
+yarn test:pipeline
+yarn build
+```
+
+CI audits both application and development dependencies and fails on any reported
+vulnerability or audit failure. The audit requires access to the npm registry.
+
+The targeted `minimatch` resolution in `package.json` updates the vulnerable
+`9.0.3` version pinned by TypeScript ESLint 6 to `9.0.9`, without changing its major
+version. Remove this resolution when upgrading to a TypeScript ESLint version
+that already uses a corrected dependency.
+
 ## Deployment
 
 The app runs as one long-lived Node server built from the `Dockerfile`: Dokploy (published through Pangolin) for development and Render for production. Recap generation does not work on serverless hosting. See [docs/deployment.md](docs/deployment.md).
