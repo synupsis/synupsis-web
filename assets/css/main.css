@@ -103,6 +103,60 @@
   opacity: 0;
 }
 
+/* Dialogs rise gently into place. `dialog-pop` is centred with a translate;
+   `dialog-pop-static` sits in the flow of a scrolling overlay. */
+.dialog-pop[data-state='open'] {
+  animation: dialog-pop-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dialog-pop[data-state='closed'] {
+  animation: dialog-pop-out 160ms ease-in forwards;
+}
+
+.dialog-pop-static[data-state='open'] {
+  animation: dialog-pop-static-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dialog-pop-static[data-state='closed'] {
+  animation: dialog-pop-static-out 160ms ease-in forwards;
+}
+
+@keyframes dialog-pop-in {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 16px)) scale(0.97); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes dialog-pop-out {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  to { opacity: 0; transform: translate(-50%, calc(-50% + 8px)) scale(0.98); }
+}
+
+@keyframes dialog-pop-static-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes dialog-pop-static-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(8px) scale(0.98); }
+}
+
+@keyframes dialog-fade {
+  from { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog-pop[data-state='open'],
+  .dialog-pop-static[data-state='open'] {
+    animation: dialog-fade 150ms ease-out;
+  }
+
+  .dialog-pop[data-state='closed'],
+  .dialog-pop-static[data-state='closed'] {
+    animation: dialog-fade 150ms ease-in reverse forwards;
+  }
+}
+
 @layer base {
   :root {
     --sidebar-background: 0 0% 98%;
