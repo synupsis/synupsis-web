@@ -6,6 +6,10 @@ export default {
   darkMode: ['selector', 'class'],
   safelist: ['dark'],
   prefix: '',
+  future: {
+    // Touch screens keep the last tapped element hovered: hover styles stay on real pointers.
+    hoverOnlyWhenSupported: true,
+  },
   content: [
     './components/**/*.{js,vue,ts}',
     './layouts/**/*.vue',

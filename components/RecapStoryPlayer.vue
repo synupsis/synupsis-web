@@ -894,10 +894,13 @@ const lockScroll = () => {
   };
 };
 
+// Keyboard users get their place back; after a click or a tap, the ring stays
+// as it was, without a focus outline or its brighter halo.
 let returnFocus: HTMLElement | null = null;
 
 onMounted(() => {
-  returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  const opener = document.activeElement;
+  returnFocus = opener instanceof HTMLElement && opener.matches(':focus-visible') ? opener : null;
   placeholderImage.value = findStoryOrigin(props.recapId)?.querySelector('img')?.currentSrc || null;
   lockScroll();
   window.addEventListener('keydown', handleKeydown);
