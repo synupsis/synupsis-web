@@ -8,49 +8,41 @@
 
     <main v-if="showData">
       <section
-        class="relative isolate min-h-[520px] overflow-hidden bg-cover bg-center"
+        class="relative isolate overflow-hidden bg-cover bg-center sm:min-h-[560px]"
         :style="{ backgroundImage: `url(${useImageUrl(showData.image)})` }"
       >
         <div class="absolute inset-0 -z-10 bg-gradient-to-t from-background via-background/70 to-background/20" />
-        <div class="mx-auto flex min-h-[520px] max-w-7xl items-end px-5 pb-14 pt-24 lg:px-8">
-          <div class="max-w-3xl">
-            <div class="mb-4 flex flex-wrap gap-2">
-              <Badge v-for="genre in showData.genres" :key="genre" variant="secondary">{{ genre }}</Badge>
-            </div>
+        <div class="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-8 px-5 pb-8 pt-40 sm:min-h-[560px] sm:gap-10 sm:pb-14 sm:pt-24 lg:px-8">
+          <div class="min-w-0 max-w-3xl flex-[999_1_480px]">
             <h1 class="text-5xl font-black tracking-tight sm:text-7xl">{{ showData.name }}</h1>
             <div v-if="firstAired" class="mt-4 flex items-center gap-2 text-sm text-white/60">
               <CalendarIcon class="h-4 w-4" />{{ new Date(firstAired).getFullYear() }}
             </div>
-            <p v-if="showSummary" class="mt-5 max-w-2xl whitespace-pre-line text-base leading-7 text-white/70">{{ showSummary }}</p>
+            <p v-if="showSummary" class="mt-5 line-clamp-4 max-w-2xl whitespace-pre-line text-base leading-7 text-white/70">{{ showSummary }}</p>
           </div>
+          <EpisodeTracker
+            v-if="seasonsChronological.length"
+            class="w-full flex-[1_1_340px] sm:max-w-[400px]"
+            :slug="String(route.params.slug)"
+            :seasons="seasonsChronological.map(season => season.number)"
+            :reached-season="reachedSeasonNumber"
+            :reached-episode="reachedEpisode"
+            :initial-catalog="progressEpisodeCatalog"
+            :mode="trackingMode"
+            :revealed="revealAll"
+            @toggle-reveal="revealAll = !revealAll"
+            :show-name="showData.name"
+            @start="startTracking"
+            @mark="markEpisodeSeen"
+            @discuss="openEpisodeDiscussion"
+            @reset="resetProgress"
+          />
         </div>
       </section>
 
-      <section id="spoiler-protection" class="border-b border-white/10 py-4">
+      <section id="recaps" class="border-b border-white/10 py-8 sm:py-10">
         <div class="mx-auto max-w-7xl px-5 lg:px-8">
-          <div class="flex items-center justify-between gap-4">
-            <div class="flex items-center gap-2 text-sm font-medium text-white/80">
-              <ShieldCheckIcon class="h-4 w-4" :class="reachedSeasonNumber ? 'text-emerald-400' : 'text-muted-foreground'" />
-              <span>Bouclier anti-spoiler</span>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              class="rounded-full"
-              :class="reachedSeasonNumber ? 'border-emerald-500/25 bg-emerald-500/5 text-emerald-200 hover:bg-emerald-500/10 hover:text-emerald-100' : 'border-white/10 text-muted-foreground'"
-              @click="spoilerDialogOpen = true"
-            >
-              {{ progressSummary }}
-              <ChevronDownIcon class="ml-2 h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      <section id="recaps" class="border-b border-white/10 py-9 sm:py-10">
-        <div class="mx-auto max-w-7xl px-5 lg:px-8">
-          <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div class="mb-4 flex flex-wrap items-end justify-between gap-4 sm:mb-6">
             <div>
               <h2 class="text-2xl font-bold">Recaps</h2>
             </div>
@@ -82,15 +74,120 @@
         </div>
       </section>
 
-      <section id="timeline" class="border-b border-white/10 py-16">
+      <section id="characters" class="border-b border-white/10 py-10 sm:py-16">
         <div class="mx-auto max-w-7xl px-5 lg:px-8">
-          <div class="mb-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 class="text-3xl font-bold sm:text-4xl">Timeline</h2>
-              <p v-if="timelineHasMoreEvents && !isTimelineExpanded" class="mt-2 text-sm text-muted-foreground">
-                Les {{ displayedTimelineEvents.length }} scènes les plus récentes
-              </p>
+          <div class="flex flex-wrap items-baseline justify-between gap-4">
+            <h2 class="text-2xl font-bold sm:text-3xl">Personnages</h2>
+            <button
+              v-if="knownCharacterProfiles.length > CHARACTER_PREVIEW_COUNT"
+              type="button"
+              class="text-sm font-medium text-white/80 transition-colors hover:text-white"
+              :aria-expanded="areCharactersExpanded"
+              @click="areCharactersExpanded = !areCharactersExpanded"
+            >
+              {{ areCharactersExpanded ? 'Réduire' : `Voir les ${knownCharacterProfiles.length} personnages` }}
+            </button>
+          </div>
+          <div v-if="hubsPending" class="grid min-h-28 place-items-center">
+            <SpinLoader class="h-6 w-6" />
+          </div>
+          <template v-else-if="knownCharacterProfiles.length">
+            <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <CharacterProfileCard
+                v-for="profile in displayedCharacterProfiles"
+                :key="normalizeCharacterName(profile.name)"
+                :profile="profile"
+                @select="focusCharacterTimeline(profile)"
+              />
             </div>
+            <p v-if="hasTvMazeDirectoryProfiles" class="mt-3 text-[9px] text-muted-foreground">
+              Portraits et casting enrichis par
+              <a href="https://www.tvmaze.com/api#licensing" target="_blank" rel="noopener noreferrer" class="hover:text-primary hover:underline">TVMaze (CC BY-SA)</a>.
+            </p>
+          </template>
+          <p v-else class="mt-4 text-sm text-muted-foreground">Aucun personnage connu pour le moment.</p>
+        </div>
+      </section>
+
+      <section id="universe" class="border-b border-white/10 py-10 sm:py-16">
+        <div class="mx-auto max-w-7xl px-5 lg:px-8">
+          <h2 class="text-2xl font-bold sm:text-3xl">Univers</h2>
+          <p class="mt-2 text-sm text-muted-foreground">{{ progressScopeLabel }}</p>
+          <div class="mt-6 grid gap-3 sm:gap-4 md:grid-cols-3">
+            <div
+              v-for="item in universeItems"
+              :key="item.title"
+              class="flex flex-col gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.02] p-4 sm:gap-3 sm:p-6"
+            >
+              <component :is="item.icon" class="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+              <h3 class="flex items-center justify-between gap-2 text-base font-semibold">
+                {{ item.title }}
+                <span class="text-xs font-medium text-muted-foreground">Bientôt</span>
+              </h3>
+              <p class="text-sm leading-6 text-muted-foreground">{{ item.description }}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="discussion" class="scroll-mt-16 border-b border-white/10 py-10 sm:py-16">
+        <div class="mx-auto max-w-7xl px-5 lg:px-8">
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 class="text-2xl font-bold sm:text-3xl">Discussion</h2>
+              <p class="mt-2 text-sm text-muted-foreground">Entre personnes qui en sont au même point que vous</p>
+            </div>
+            <div class="flex gap-1.5" role="group" aria-label="Type de discussion">
+              <button
+                v-for="tab in discussionTabs"
+                :key="tab.id"
+                type="button"
+                class="shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
+                :class="discussionTab === tab.id ? 'border-primary/50 bg-primary/15 text-primary' : 'border-white/10 bg-white/[0.025] text-muted-foreground hover:border-white/20 hover:text-white'"
+                :aria-pressed="discussionTab === tab.id"
+                @click="discussionTab = tab.id"
+              >
+                {{ tab.label }}
+              </button>
+            </div>
+          </div>
+          <div class="mt-6 rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-6 text-center sm:p-10">
+            <ChatBubbleLeftRightIcon class="mx-auto h-7 w-7 text-muted-foreground" aria-hidden="true" />
+            <template v-if="discussionTab === 'theories'">
+              <h3 class="mt-4 font-semibold">Aucune théorie pour le moment</h3>
+              <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">Chaque théorie indiquera les épisodes sur lesquels elle s’appuie. Vous ne verrez que celles fondées sur des épisodes déjà vus.</p>
+            </template>
+            <template v-else>
+              <h3 class="mt-4 font-semibold">Aucun commentaire sur l’épisode {{ activeDiscussionEpisode?.episode }}</h3>
+              <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">Seules les personnes qui ont vu cet épisode peuvent lire et écrire ici. Ne parlez que de ce qui s’est passé jusqu’à S{{ activeDiscussionEpisode?.season }}E{{ activeDiscussionEpisode?.episode }}.</p>
+            </template>
+            <Button type="button" class="mt-5 rounded-full" disabled>Bientôt disponible</Button>
+          </div>
+        </div>
+      </section>
+
+      <section id="timeline" class="scroll-mt-16 border-b border-white/10 py-6 sm:py-10">
+        <div class="mx-auto max-w-7xl px-5 lg:px-8">
+          <div class="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/10 px-6 py-5">
+            <div>
+              <h2 class="text-base font-semibold">Timeline</h2>
+              <p class="mt-1 text-[13px] text-muted-foreground">{{ timelineSummary }}</p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              class="rounded-full"
+              :aria-expanded="isTimelineOpen"
+              aria-controls="timeline-content"
+              @click="isTimelineOpen = !isTimelineOpen"
+            >
+              {{ isTimelineOpen ? 'Fermer la timeline' : 'Ouvrir la timeline' }}
+              <ChevronDownIcon class="ml-2 h-4 w-4 transition-transform" :class="isTimelineOpen ? 'rotate-180' : ''" />
+            </Button>
+          </div>
+          <div v-if="isTimelineOpen" id="timeline-content" class="mt-10">
+            <div class="mb-8 flex justify-end">
             <div
               v-if="timelineFilterSeasons.length > 1 || timelineCharacterFilter"
               class="-mx-1 flex max-w-full gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -131,8 +228,7 @@
                 <XMarkIcon class="h-3.5 w-3.5" aria-hidden="true" />
               </button>
             </div>
-          </div>
-
+            </div>
           <div v-if="hubsPending" class="grid min-h-48 place-items-center"><SpinLoader class="h-7 w-7" /></div>
           <div v-else-if="filteredTimelineEvents.length" class="mx-auto max-w-5xl">
             <div id="timeline-event-list">
@@ -245,104 +341,13 @@
             <h3 class="mt-4 font-semibold">La timeline est protégée</h3>
             <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">Indiquez où vous en êtes pour afficher tous les événements déjà vus, sans révéler la suite.</p>
           </div>
-        </div>
-      </section>
-
-      <section id="characters" class="border-b border-white/10 bg-white/[0.015] py-9">
-        <div class="mx-auto max-w-7xl px-5 lg:px-8">
-          <h2 class="text-2xl font-bold">Personnages</h2>
-
-          <div v-if="hubsPending" class="grid min-h-28 place-items-center">
-            <SpinLoader class="h-6 w-6" />
-          </div>
-
-          <template v-else-if="knownCharacterProfiles.length">
-            <div class="-mx-5 mt-5 flex snap-x gap-3 overflow-x-auto px-5 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:px-0">
-              <CharacterDirectoryCard
-                v-for="profile in knownCharacterProfiles"
-                :key="normalizeCharacterName(profile.name)"
-                class="snap-start"
-                :profile="profile"
-                @select="focusCharacterTimeline(profile)"
-              />
-            </div>
-            <p v-if="hasTvMazeDirectoryProfiles" class="mt-2 text-[9px] text-muted-foreground">
-              Portraits et casting enrichis par
-              <a href="https://www.tvmaze.com/api#licensing" target="_blank" rel="noopener noreferrer" class="hover:text-primary hover:underline">TVMaze (CC BY-SA)</a>.
-            </p>
-          </template>
-
-          <p v-else class="mt-4 text-sm text-muted-foreground">Aucun personnage connu pour le moment.</p>
-        </div>
-      </section>
-
-      <section v-if="visibleArcs.length" id="arcs" class="border-b border-white/10 py-16">
-        <div class="mx-auto max-w-7xl px-5 lg:px-8">
-          <h2 class="text-3xl font-bold">Intrigues à retenir</h2>
-          <p v-if="arcsHaveMoreItems && !isArcsExpanded" class="mt-2 text-sm text-muted-foreground">
-            <span class="lg:hidden">Les 2 intrigues les plus récentes</span>
-            <span class="hidden lg:inline">Les {{ displayedArcs.length }} intrigues les plus récentes</span>
-          </p>
-          <div id="arc-list" class="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            <Card
-              v-for="(arc, index) in displayedArcs"
-              :key="`${arc.seasonNumber}-${arc.id}`"
-              class="border-white/10"
-              :class="!isArcsExpanded && arcsHaveMoreItems && index === 0 ? 'hidden lg:block' : ''"
-            >
-              <CardHeader>
-                <div class="flex items-start justify-between gap-3">
-                  <div><Badge variant="outline">Saison {{ arc.seasonNumber }}</Badge><CardTitle class="mt-3 text-lg">{{ arc.name }}</CardTitle></div>
-                  <Button variant="ghost" size="icon" title="Proposer une correction" @click="openCorrection(arc.seasonNumber, 'arc', arc.id, 'name', arc.name, arc.lastEpisode, arc.throughEpisode)"><PencilSquareIcon class="h-4 w-4" /></Button>
-                </div>
-                <CardDescription>{{ arc.eventCount }} développement{{ arc.eventCount > 1 ? 's' : '' }} jusqu’à l’épisode {{ arc.lastEpisode }}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p
-                  class="text-sm leading-6 text-muted-foreground"
-                  :class="arcsHaveMoreItems && !isArcsExpanded ? 'line-clamp-3' : ''"
-                >
-                  {{ arc.latestDevelopment }}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div
-            v-if="arcsHaveMoreItems"
-            class="relative flex justify-center"
-            :class="isArcsExpanded ? 'mt-8' : '-mt-8 pt-14'"
-          >
-            <div
-              v-if="!isArcsExpanded"
-              class="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-transparent via-background/85 to-background"
-              aria-hidden="true"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              class="relative z-10 rounded-full border-white/15 bg-background/95 px-5 shadow-xl shadow-black/20 hover:border-primary/40 hover:bg-background"
-              :aria-expanded="isArcsExpanded"
-              aria-controls="arc-list"
-              @click="isArcsExpanded = !isArcsExpanded"
-            >
-              {{ isArcsExpanded ? 'Réduire' : `Voir toutes les intrigues · ${visibleArcs.length}` }}
-              <ChevronDownIcon class="ml-2 h-4 w-4 transition-transform" :class="isArcsExpanded ? 'rotate-180' : ''" />
-            </Button>
           </div>
         </div>
       </section>
 
-      <section id="universe" class="border-b border-white/10 py-16">
-        <div class="mx-auto grid max-w-7xl gap-6 px-5 lg:grid-cols-2 lg:px-8">
-          <Card class="border-white/10"><CardHeader><CardTitle>Contexte de la série</CardTitle></CardHeader><CardContent><p class="whitespace-pre-line leading-7 text-white/70">{{ showSummary || 'Le contexte général n’est pas encore documenté.' }}</p></CardContent></Card>
-          <Card class="border-dashed border-white/15 bg-white/[0.02]"><CardHeader><CardTitle>Cartes et relations</CardTitle></CardHeader><CardContent><div class="flex gap-4 text-muted-foreground"><MapIcon class="h-8 w-8 shrink-0 text-primary" /><p class="text-sm leading-6">Les cartes, arbres généalogiques et réseaux apparaîtront ici quand les sources permettront de les construire sans invention.</p></div></CardContent></Card>
-        </div>
-      </section>
-
-      <section id="community" class="py-16">
+      <section id="community" class="py-10 sm:py-16">
         <div class="mx-auto max-w-7xl px-5 lg:px-8">
-          <div class="mb-8"><h2 class="text-3xl font-bold">Corrections de la communauté</h2><p class="mt-2 text-sm text-muted-foreground">Les propositions visibles respectent elles aussi votre limite anti-spoiler.</p></div>
+          <div class="mb-8"><h2 class="text-2xl font-bold sm:text-3xl">Corrections de la communauté</h2><p class="mt-2 text-sm text-muted-foreground">Les propositions visibles respectent elles aussi votre limite anti-spoiler.</p></div>
           <div v-if="visibleCorrections.length" class="grid gap-5 md:grid-cols-2">
             <Card v-for="correction in visibleCorrections" :key="correction.id" class="border-white/10">
               <CardHeader><div class="flex justify-between gap-3"><Badge variant="outline">Saison {{ correction.seasonNumber }} · {{ correction.field }}</Badge><span class="text-xs text-muted-foreground">Score {{ correction.score }}</span></div></CardHeader>
@@ -360,70 +365,6 @@
 
     <div v-else-if="showPending" class="grid min-h-[70vh] place-items-center"><SpinLoader class="h-8 w-8" /></div>
     <div v-else class="grid min-h-[70vh] place-items-center px-5 text-center"><div><h1 class="text-2xl font-bold">Impossible de charger cette série</h1><p class="mt-2 text-muted-foreground">{{ showError?.statusMessage || 'Réessayez dans quelques instants.' }}</p><Button class="mt-5" @click="refreshShow">Réessayer</Button></div></div>
-
-    <Dialog v-model:open="spoilerDialogOpen">
-      <DialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle class="flex items-center gap-2">
-            <ShieldCheckIcon class="h-5 w-5 text-emerald-400" />
-            Bouclier anti-spoiler
-          </DialogTitle>
-          <DialogDescription class="sr-only">Choisissez le dernier épisode que vous avez terminé.</DialogDescription>
-        </DialogHeader>
-
-        <div class="space-y-7 py-2">
-          <div>
-            <p class="mb-3 text-sm font-medium">Saison</p>
-            <div class="flex flex-wrap gap-2">
-              <Button
-                v-for="season in seasonsChronological"
-                :key="season.id"
-                type="button"
-                size="sm"
-                :variant="reachedSeasonNumber === season.number ? 'default' : 'outline'"
-                :class="reachedSeasonNumber === season.number ? 'bg-emerald-600 hover:bg-emerald-600' : ''"
-                :aria-pressed="reachedSeasonNumber === season.number"
-                @click="selectReachedSeason(season.number)"
-              >
-                Saison {{ season.number }}
-              </Button>
-            </div>
-          </div>
-
-          <div v-if="reachedSeasonNumber">
-            <div class="mb-3 flex items-center justify-between gap-3">
-              <p class="text-sm font-medium">Épisode</p>
-              <span v-if="progressEpisodeTotal" class="text-xs tabular-nums text-muted-foreground">{{ reachedEpisode }} / {{ progressEpisodeTotal }}</span>
-            </div>
-
-            <div v-if="progressEpisodesPending" class="grid min-h-24 place-items-center rounded-xl border border-dashed border-white/10">
-              <SpinLoader class="h-5 w-5" />
-            </div>
-            <p v-else-if="progressEpisodesError && !progressEpisodeTotal" class="rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-muted-foreground">
-              Les épisodes de cette saison sont indisponibles.
-            </p>
-            <div v-else class="grid grid-cols-5 gap-2 sm:grid-cols-8">
-              <button
-                v-for="episode in progressEpisodeOptions"
-                :key="episode.number"
-                type="button"
-                class="aspect-square rounded-lg border text-sm font-semibold tabular-nums transition-all"
-                :class="reachedEpisode === episode.number ? 'border-emerald-400 bg-emerald-500/15 text-emerald-200 shadow-[0_0_0_1px_rgba(52,211,153,0.2)]' : 'border-white/10 bg-white/[0.025] text-muted-foreground hover:border-white/25 hover:bg-white/[0.05] hover:text-white'"
-                :aria-label="`Épisode ${episode.number}`"
-                :aria-pressed="reachedEpisode === episode.number"
-                @click="selectReachedEpisode(episode.number)"
-              >
-                {{ episode.number }}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button type="button" @click="spoilerDialogOpen = false">Terminé</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
 
     <Dialog v-model:open="correctionOpen">
       <DialogContent class="sm:max-w-xl">
@@ -443,23 +384,24 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import {
-  CalendarIcon, ChevronDownIcon, HandThumbDownIcon, HandThumbUpIcon, LockClosedIcon, MapIcon,
-  MapPinIcon, PencilSquareIcon, ShieldCheckIcon, XMarkIcon,
+  CalendarIcon, ChatBubbleLeftRightIcon, ChevronDownIcon, HandThumbDownIcon, HandThumbUpIcon, LockClosedIcon, MapIcon,
+  MapPinIcon, PencilSquareIcon, ShareIcon, UserGroupIcon, XMarkIcon,
 } from '@heroicons/vue/24/outline';
 import { toast } from 'vue-sonner';
 import type { ShowWithSeasons } from '~/types/database.types';
-import type { SeasonHubArc, SeasonHubCorrection, SeasonHubCorrectionTarget, SeasonHubEvent, SeasonHubResponse } from '~/types/season-hub.types';
+import type { SeasonHubCorrection, SeasonHubCorrectionTarget, SeasonHubEvent, SeasonHubResponse } from '~/types/season-hub.types';
 import type {
   ShowCharacterProfile,
   TimelineCharacterProfile,
 } from '~/types/show-character.types';
 import { Badge } from '~/components/shadcn/badge';
 import { Button } from '~/components/shadcn/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/shadcn/card';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/shadcn/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '~/components/shadcn/dialog';
 import { Input } from '~/components/shadcn/input';
 import { Textarea } from '~/components/shadcn/textarea';
-import CharacterDirectoryCard from '~/components/CharacterDirectoryCard.vue';
+import CharacterProfileCard from '~/components/CharacterProfileCard.vue';
+import EpisodeTracker from '~/components/EpisodeTracker.vue';
 import SeasonStory from '~/components/SeasonStory.vue';
 import TimelineCharacterChip from '~/components/TimelineCharacterChip.vue';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
@@ -477,7 +419,6 @@ type TimelineEpisodeGroup = {
   title: string | null;
   events: TimelineEvent[];
 };
-type VisibleArc = SeasonHubArc & { seasonNumber: number; throughEpisode: number };
 type VisibleCorrection = SeasonHubCorrection & { seasonNumber: number; throughEpisode: number };
 type ProgressEpisode = { number: number; title: string; firstAired: string | null };
 type TimelineCharacterKnowledge = Pick<
@@ -491,7 +432,7 @@ type TimelineCharacterKnowledgeBuilder = TimelineCharacterKnowledge & {
 };
 
 const TIMELINE_PREVIEW_EVENT_COUNT = 3;
-const ARC_PREVIEW_COUNT = 3;
+const CHARACTER_PREVIEW_COUNT = 6;
 
 const route = useRoute();
 const router = useRouter();
@@ -542,12 +483,23 @@ const mediaCharacterProfiles = computed(() => {
   return profiles;
 });
 
-const requestedSeason = Number(route.query.season ?? 0);
-const requestedEpisode = Number(route.query.episode ?? 0);
+// A cookie, so the server renders the page at the right progress instead of jumping once the browser reads it.
+const progressCookie = useCookie<{ season?: number; episode?: number } | null>(
+  `synupsis-progress-${route.params.slug}`,
+  { maxAge: 60 * 60 * 24 * 365, sameSite: 'lax', default: () => null },
+);
+const progressStorageKey = `synupsis:series-progress:${route.params.slug}`;
+const savedProgress = route.query.season != null
+  ? { season: route.query.season, episode: route.query.episode }
+  : progressCookie.value;
+const requestedSeason = Number(savedProgress?.season ?? 0);
+const requestedEpisode = Number(savedProgress?.episode ?? 0);
 const reachedSeasonNumber = ref(sortedSeasons.value.some(season => season.number === requestedSeason) ? requestedSeason : 0);
 const reachedEpisode = ref(Number.isInteger(requestedEpisode) && requestedEpisode > 0 ? requestedEpisode : 0);
-const spoilerDialogOpen = ref(false);
-const progressStorageKey = `synupsis:series-progress:${route.params.slug}`;
+// Until someone tracks the series, all of it is visible.
+const trackingMode = computed<'undecided' | 'tracking'>(() => reachedSeasonNumber.value ? 'tracking' : 'undecided');
+// Lifts the spoiler block for a quick check without losing progress; a reload hides the rest again.
+const revealAll = ref(false);
 
 const { data: seasonHubs, pending: hubsPending, refresh: refreshHubs } = await useAsyncData(
   `series-knowledge-${route.params.slug}`,
@@ -555,11 +507,11 @@ const { data: seasonHubs, pending: hubsPending, refresh: refreshHubs } = await u
     `/api/shows/${route.params.slug}/seasons/${season.number}`,
     { query: { throughEpisode: cursorForSeason(season.number) } },
   ))),
-  { watch: [reachedSeasonNumber, reachedEpisode] },
+  { watch: [reachedSeasonNumber, reachedEpisode, revealAll] },
 );
 
 function cursorForSeason(seasonNumber: number) {
-  if (!reachedSeasonNumber.value) return 999;
+  if (revealAll.value || !reachedSeasonNumber.value) return 999;
   if (seasonNumber < reachedSeasonNumber.value) return 999;
   if (seasonNumber === reachedSeasonNumber.value) return reachedEpisode.value;
   return 0;
@@ -568,14 +520,14 @@ function cursorForSeason(seasonNumber: number) {
 const currentSeasonHub = computed(() => seasonHubs.value?.find(hub => hub.season.number === reachedSeasonNumber.value) ?? null);
 const {
   data: progressEpisodeCatalog,
-  pending: progressEpisodesPending,
-  error: progressEpisodesError,
 } = await useAsyncData(
   `series-progress-episodes-${route.params.slug}`,
   async () => {
-    if (!reachedSeasonNumber.value) return { seasonNumber: 0, episodes: [] as ProgressEpisode[], totalEpisodes: 0 };
+    // Without progress, the first season: the episode tracker starts there.
+    const seasonNumber = reachedSeasonNumber.value || seasonsChronological.value[0]?.number;
+    if (!seasonNumber) return { seasonNumber: 0, episodes: [] as ProgressEpisode[], totalEpisodes: 0 };
     return $fetch<{ seasonNumber: number; episodes: ProgressEpisode[]; totalEpisodes: number }>(
-      `/api/shows/${route.params.slug}/seasons/${reachedSeasonNumber.value}/episodes`,
+      `/api/shows/${route.params.slug}/seasons/${seasonNumber}/episodes`,
     );
   },
   { watch: [reachedSeasonNumber] },
@@ -595,11 +547,6 @@ const progressEpisodeTotal = computed(() => progressEpisodeOptions.value.reduce(
   (maximum, episode) => Math.max(maximum, episode.number),
   0,
 ));
-const progressSummary = computed(() => {
-  if (!reachedSeasonNumber.value) return 'Désactivé';
-  if (!reachedEpisode.value) return `Saison ${reachedSeasonNumber.value}`;
-  return `S${reachedSeasonNumber.value} · E${reachedEpisode.value}`;
-});
 const timelineEvents = computed<TimelineEvent[]>(() => (seasonHubs.value ?? [])
   .flatMap(hub => hub.events.map(event => ({ ...event, seasonNumber: hub.season.number, throughEpisode: hub.progress.throughEpisode })))
   .sort((a, b) => a.seasonNumber - b.seasonNumber
@@ -671,7 +618,7 @@ const timelineCharacterKnowledge = computed(() => {
 const timelineSeasonFilter = ref<number | 'all'>('all');
 const timelineCharacterFilter = ref<string | null>(null);
 const isTimelineExpanded = ref(false);
-const isArcsExpanded = ref(false);
+const isTimelineOpen = ref(false);
 const timelineFilterSeasons = computed(() => [...new Set(timelineEvents.value.map(event => event.seasonNumber))]
   .sort((a, b) => a - b));
 const seasonFilteredTimelineEvents = computed(() => timelineSeasonFilter.value === 'all'
@@ -735,13 +682,46 @@ watch(knownCharacterProfiles, (profiles) => {
     timelineCharacterFilter.value = null;
   }
 });
-const visibleArcs = computed<VisibleArc[]>(() => (seasonHubs.value ?? [])
-  .flatMap(hub => hub.arcs.map(arc => ({ ...arc, seasonNumber: hub.season.number, throughEpisode: hub.progress.throughEpisode })))
-  .sort((a, b) => a.seasonNumber - b.seasonNumber || a.lastEpisode - b.lastEpisode));
-const arcsHaveMoreItems = computed(() => visibleArcs.value.length > ARC_PREVIEW_COUNT);
-const displayedArcs = computed(() => isArcsExpanded.value || !arcsHaveMoreItems.value
-  ? visibleArcs.value
-  : visibleArcs.value.slice(-ARC_PREVIEW_COUNT));
+const areCharactersExpanded = ref(false);
+const displayedCharacterProfiles = computed(() => areCharactersExpanded.value
+  ? knownCharacterProfiles.value
+  : knownCharacterProfiles.value.slice(0, CHARACTER_PREVIEW_COUNT));
+const progressScopeLabel = computed(() => {
+  if (revealAll.value) return 'Blocage levé : toute la série est visible, spoilers compris.';
+  if (!reachedSeasonNumber.value) return 'Toute la série est visible. Indiquez où vous en êtes pour masquer la suite.';
+  if (!reachedEpisode.value) return `À jour jusqu’au début de la saison ${reachedSeasonNumber.value} : rien de ce qui suit n’apparaît.`;
+  return `À jour jusqu’à S${reachedSeasonNumber.value}E${reachedEpisode.value} : rien de ce qui suit n’apparaît.`;
+});
+const timelineSummary = computed(() => {
+  if (hubsPending.value) return 'Chargement des scènes…';
+  const count = timelineEvents.value.length;
+  const scope = reachedSeasonNumber.value && reachedEpisode.value && !revealAll.value
+    ? `jusqu’à S${reachedSeasonNumber.value}E${reachedEpisode.value}`
+    : revealAll.value ? 'sur toute la série' : 'déjà vues';
+  return `${count} scène${count > 1 ? 's' : ''} ${scope}, avec leurs sources`;
+});
+// Placeholders until these views can be built from sources without invention.
+const universeItems = [
+  { title: 'Arbre généalogique', description: 'Les familles et leurs liens, à mesure qu’ils sont révélés.', icon: UserGroupIcon },
+  { title: 'Carte des lieux', description: 'Les lieux de la série et les scènes qui s’y déroulent.', icon: MapIcon },
+  { title: 'Relations', description: 'Qui sait quoi, qui ment à qui, épisode après épisode.', icon: ShareIcon },
+];
+type DiscussionTab = 'theories' | 'episode';
+const discussionTab = ref<DiscussionTab>('theories');
+const discussionEpisode = ref<{ season: number; episode: number } | null>(null);
+const lastSeenEpisode = computed(() => reachedSeasonNumber.value && reachedEpisode.value
+  ? { season: reachedSeasonNumber.value, episode: reachedEpisode.value }
+  : null);
+const activeDiscussionEpisode = computed(() => discussionEpisode.value ?? lastSeenEpisode.value);
+const discussionTabs = computed(() => [
+  { id: 'theories' as const, label: 'Théories' },
+  ...(activeDiscussionEpisode.value
+    ? [{ id: 'episode' as const, label: `Épisode ${activeDiscussionEpisode.value.episode}` }]
+    : []),
+]);
+watch(lastSeenEpisode, (episode) => {
+  if (!episode && discussionTab.value === 'episode' && !discussionEpisode.value) discussionTab.value = 'theories';
+});
 const visibleCorrections = computed<VisibleCorrection[]>(() => (seasonHubs.value ?? [])
   .flatMap(hub => hub.corrections.map(correction => ({ ...correction, seasonNumber: hub.season.number, throughEpisode: hub.progress.throughEpisode }))));
 
@@ -791,6 +771,7 @@ function characterNamesMatch(firstName: string, secondName: string) {
 function focusCharacterTimeline(profile: TimelineCharacterProfile) {
   timelineCharacterFilter.value = profile.name;
   timelineSeasonFilter.value = 'all';
+  isTimelineOpen.value = true;
   isTimelineExpanded.value = true;
   nextTick(() => {
     document.getElementById('timeline')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -835,53 +816,60 @@ watch(progressEpisodeTotal, (totalEpisodes) => {
   persistProgress();
 });
 
+// Progress saved before the cookie existed moves over once.
 onMounted(() => {
-  if (route.query.season != null) return;
+  if (route.query.season != null || progressCookie.value) return;
   try {
     const saved = JSON.parse(localStorage.getItem(progressStorageKey) || '{}');
     const hasSavedSeason = sortedSeasons.value.some(season => season.number === Number(saved.season));
     if (hasSavedSeason && saved.enabled !== false) {
       reachedSeasonNumber.value = Number(saved.season);
       reachedEpisode.value = Number.isInteger(Number(saved.episode)) ? Math.max(0, Number(saved.episode)) : 0;
+      persistProgress();
     }
   } catch {
     // A malformed local preference simply falls back to the spoiler-safe state.
   }
 });
 
-function changeReachedSeason() {
+function resetProgress() {
+  revealAll.value = false;
+  reachedSeasonNumber.value = 0;
   reachedEpisode.value = 0;
+  discussionEpisode.value = null;
   persistProgress();
 }
 
-function selectReachedSeason(seasonNumber: number) {
-  if (reachedSeasonNumber.value === seasonNumber) {
-    reachedSeasonNumber.value = 0;
-    reachedEpisode.value = 0;
-    persistProgress();
-    return;
-  }
-  reachedSeasonNumber.value = seasonNumber;
-  changeReachedSeason();
+function startTracking() {
+  markEpisodeSeen({ season: seasonsChronological.value[0]?.number ?? 1, episode: 0 });
 }
 
-function selectReachedEpisode(episodeNumber: number) {
-  reachedEpisode.value = episodeNumber;
+function markEpisodeSeen(position: { season: number; episode: number }) {
+  reachedSeasonNumber.value = position.season;
+  reachedEpisode.value = Math.max(0, position.episode);
+  discussionEpisode.value = null;
   persistProgress();
+}
+
+function openEpisodeDiscussion(position: { season: number; episode: number }) {
+  discussionEpisode.value = position;
+  discussionTab.value = 'episode';
+  nextTick(() => {
+    document.getElementById('discussion')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 }
 
 function isRecapUnlocked(seasonNumber: number) {
-  if (!reachedSeasonNumber.value) return true;
+  if (revealAll.value || !reachedSeasonNumber.value) return true;
   if (seasonNumber < reachedSeasonNumber.value) return true;
   if (seasonNumber > reachedSeasonNumber.value) return false;
   return progressEpisodeTotal.value > 0 && reachedEpisode.value >= progressEpisodeTotal.value;
 }
 
 function persistProgress() {
-  if (import.meta.client) localStorage.setItem(progressStorageKey, JSON.stringify({
-    season: reachedSeasonNumber.value,
-    episode: reachedEpisode.value,
-  }));
+  progressCookie.value = reachedSeasonNumber.value
+    ? { season: reachedSeasonNumber.value, episode: reachedEpisode.value }
+    : null;
   router.replace({ query: {
     ...route.query,
     season: reachedSeasonNumber.value || undefined,
