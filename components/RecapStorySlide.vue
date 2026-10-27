@@ -25,6 +25,7 @@
     />
 
     <div
+      ref="columnElement"
       class="relative flex h-full min-h-0 flex-col px-6 sm:px-7"
       :class="[
         hasRail ? 'pb-28' : 'pb-[max(2rem,env(safe-area-inset-bottom))]',
@@ -36,7 +37,7 @@
            blends into whatever lies behind (the slide ground and its accent halo) without a seam. -->
       <div
         v-if="imageLayout === 'band'"
-        class="recap-still-fade relative -mx-6 -mb-10 min-h-[32cqw] flex-1 overflow-hidden sm:-mx-7"
+        class="recap-still-fade recap-band relative -mx-6 -mb-10 flex-1 overflow-hidden sm:-mx-7"
         aria-hidden="true"
       >
         <Transition name="story-image" mode="out-in">
@@ -85,7 +86,7 @@
 
       <template v-else-if="content.kind === 'chapter'">
         <div class="relative mt-auto">
-          <p class="text-[104px] font-extrabold leading-[0.8] tracking-[-0.06em] text-white/[0.14] tabular-nums" aria-hidden="true">
+          <p class="recap-chapter-number font-extrabold leading-[0.8] tracking-[-0.06em] text-white/[0.14] tabular-nums" aria-hidden="true">
             {{ String(content.episodeNumber).padStart(2, '0') }}
           </p>
           <p class="mt-5 text-sm font-semibold" :style="{ color: accentColor }">
@@ -152,18 +153,18 @@
           <p class="text-sm font-semibold" :style="{ color: accentColor }">
             Épisode {{ content.episodeNumber }} · Bilan
           </p>
-          <h2 class="mt-3 text-[34px] font-bold leading-[1.05] tracking-[-0.03em]">Ce qui a changé</h2>
+          <h2 class="recap-heading mt-3 font-bold leading-[1.05] tracking-[-0.03em]">Ce qui a changé</h2>
           <div class="flex flex-col gap-5" :class="imageLayout === 'band' ? 'mt-5' : 'mt-auto'">
             <ul v-if="content.deaths.length || content.situations.length" class="flex flex-col divide-y divide-white/10">
-              <li v-for="(death, index) in content.deaths" :key="`death-${index}`" class="flex items-start gap-3.5 py-3 first:pt-0">
-                <RecapCharacterAvatar :character="death.character" muted class="mt-0.5 h-10 w-10 border border-dashed border-white/20 bg-zinc-700/60 text-xs text-zinc-300" />
+              <li v-for="(death, index) in content.deaths" :key="`death-${index}`" class="recap-row flex items-start gap-3.5">
+                <RecapCharacterAvatar :character="death.character" muted class="recap-avatar mt-0.5 border border-dashed border-white/20 bg-zinc-700/60 text-xs text-zinc-300" />
                 <span class="min-w-0">
                   <span class="block text-sm font-semibold text-white/55">Mort</span>
                   <span class="recap-line mt-0.5 block text-white/90"><span v-if="needsName(death)" class="font-semibold text-white">{{ death.character?.name }} · </span>{{ death.text }}</span>
                 </span>
               </li>
-              <li v-for="(situation, index) in content.situations" :key="`situation-${index}`" class="flex items-start gap-3.5 py-3 first:pt-0">
-                <RecapCharacterAvatar :character="situation.character" class="mt-0.5 h-10 w-10 bg-white/15 text-xs" />
+              <li v-for="(situation, index) in content.situations" :key="`situation-${index}`" class="recap-row flex items-start gap-3.5">
+                <RecapCharacterAvatar :character="situation.character" class="recap-avatar mt-0.5 bg-white/15 text-xs" />
                 <span class="recap-line min-w-0 text-white/90"><span v-if="needsName(situation)" class="font-semibold text-white">{{ situation.character?.name }} · </span>{{ situation.text }}</span>
               </li>
             </ul>
@@ -178,10 +179,10 @@
       <template v-else-if="content.kind === 'ending-status'">
         <div class="relative flex min-h-0 flex-col" :class="{ 'flex-1': imageLayout !== 'band' }">
           <p class="text-sm font-semibold" :style="{ color: accentColor }">Fin de la saison {{ seasonNumber }}</p>
-          <h2 class="mt-3 text-[34px] font-bold leading-[1.05] tracking-[-0.03em]">Où en est-on</h2>
+          <h2 class="recap-heading mt-3 font-bold leading-[1.05] tracking-[-0.03em]">Où en est-on</h2>
           <ul class="flex flex-col divide-y divide-white/10" :class="imageLayout === 'band' ? 'mt-5' : 'mt-auto'">
-            <li v-for="(line, index) in content.characters" :key="index" class="flex items-start gap-3.5 py-3.5 first:pt-0 last:pb-0">
-              <RecapCharacterAvatar :character="line.character" class="mt-0.5 h-11 w-11 bg-white/15 text-xs" />
+            <li v-for="(line, index) in content.characters" :key="index" class="recap-row recap-row-loose flex items-start gap-3.5">
+              <RecapCharacterAvatar :character="line.character" class="recap-avatar recap-avatar-lg mt-0.5 bg-white/15 text-xs" />
               <span class="min-w-0">
                 <span v-if="line.character" class="block text-[15px] font-semibold text-white">{{ line.character.name }}</span>
                 <span class="recap-line block text-white/85">{{ line.text }}</span>
@@ -194,13 +195,13 @@
       <template v-else-if="content.kind === 'ending-deaths'">
         <div class="relative flex min-h-0 flex-col" :class="{ 'flex-1': imageLayout !== 'band' }">
           <p class="text-sm font-semibold" :style="{ color: accentColor }">Fin de la saison {{ seasonNumber }}</p>
-          <h2 class="mt-3 text-[34px] font-bold leading-[1.05] tracking-[-0.03em]">Morts cette saison</h2>
-          <ul class="grid grid-cols-2 gap-x-4 gap-y-4" :class="imageLayout === 'band' ? 'mt-5' : 'mt-auto'">
+          <h2 class="recap-heading mt-3 font-bold leading-[1.05] tracking-[-0.03em]">Morts cette saison</h2>
+          <ul class="recap-deaths grid grid-cols-2 gap-x-4" :class="imageLayout === 'band' ? 'mt-5' : 'mt-auto'">
             <li v-for="death in content.deaths" :key="death.character.name" class="flex min-w-0 items-center gap-3">
-              <RecapCharacterAvatar :character="death.character" muted class="h-11 w-11 border border-dashed border-white/20 bg-zinc-700/60 text-xs text-zinc-300" />
-              <span class="min-w-0 text-[15px] font-medium leading-tight text-white/90">
+              <RecapCharacterAvatar :character="death.character" muted class="recap-avatar recap-avatar-lg border border-dashed border-white/20 bg-zinc-700/60 text-xs text-zinc-300" />
+              <span class="recap-death-name min-w-0 font-medium leading-tight text-white/90">
                 {{ death.character.name }}
-                <span class="mt-0.5 block text-[13px] font-normal text-white/60 tabular-nums">Épisode {{ death.episodeNumber }}</span>
+                <span class="recap-death-episode mt-0.5 block font-normal text-white/60 tabular-nums">Épisode {{ death.episodeNumber }}</span>
               </span>
             </li>
           </ul>
@@ -210,7 +211,7 @@
       <template v-else-if="content.kind === 'ending-questions'">
         <div class="relative flex min-h-0 flex-col" :class="{ 'flex-1': imageLayout !== 'band' }">
           <p class="text-sm font-semibold" :style="{ color: accentColor }">Fin de la saison {{ seasonNumber }}</p>
-          <h2 class="mt-3 text-[34px] font-bold leading-[1.05] tracking-[-0.03em]">Questions ouvertes</h2>
+          <h2 class="recap-heading mt-3 font-bold leading-[1.05] tracking-[-0.03em]">Questions ouvertes</h2>
           <ul class="flex flex-col divide-y divide-white/10" :class="imageLayout === 'band' ? 'mt-5' : 'mt-auto'">
             <li v-for="(question, index) in content.questions" :key="index" class="py-4 first:pt-0 last:pb-0">
               <p class="recap-question font-semibold">{{ question.text }}</p>
@@ -242,7 +243,7 @@
             </p>
           </div>
 
-          <h2 class="recap-beat-title max-w-[14ch] text-[30px] font-bold leading-[1.04] tracking-[-0.03em] sm:text-[34px]">
+          <h2 class="recap-beat-title recap-episode-title max-w-[14ch] font-bold leading-[1.04] tracking-[-0.03em]">
             {{ content.headline }}
           </h2>
 
@@ -262,7 +263,7 @@
             </p>
           </div>
 
-          <h2 class="recap-beat-title max-w-[11ch] text-[34px] font-bold leading-[1.02] tracking-[-0.03em] sm:text-[38px]">
+          <h2 class="recap-beat-title max-w-[11ch] font-bold leading-[1.02] tracking-[-0.03em]">
             {{ content.headline }}
           </h2>
 
@@ -278,7 +279,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import RecapCharacterAvatar from '~/components/RecapCharacterAvatar.vue';
 import type { RecapChangeItem, RecapStorySlideContent } from '~/types/recap-story.types';
 
@@ -412,51 +413,135 @@ const paddedTotalSlides = computed(() => String(props.totalSlides).padStart(2, '
 function looksArtificiallyTruncated(value: string): boolean {
   return /(?:\.{3}|…)\s*$/.test(value.trim());
 }
+
+// The text scale above follows the text's length; the screen's height decides
+// the rest. A slide whose text runs under the episode rail, or pushes the still
+// under the header, shrinks its type and its still step by step until it fits.
+const FIT_STEP = 0.05;
+const MIN_FIT = 0.7;
+
+const columnElement = ref<HTMLElement | null>(null);
+let resizeObserver: ResizeObserver | null = null;
+
+// Layout boxes, not screen boxes: the player may be scaling the slide in.
+function bottomWithin(column: HTMLElement, element: HTMLElement): number {
+  let top = 0;
+  let node: HTMLElement | null = element;
+  while (node && node !== column) {
+    top += node.offsetTop;
+    node = node.offsetParent as HTMLElement | null;
+  }
+  return top + element.offsetHeight;
+}
+
+function overflows(column: HTMLElement): boolean {
+  const content = column.lastElementChild as HTMLElement | null;
+  if (!content) return false;
+  // A block that flexes down to the space left lets its children overflow it, so
+  // they count too (scrollHeight would also count tall glyphs over tight lines).
+  const limit = column.clientHeight - Number.parseFloat(getComputedStyle(column).paddingBottom);
+  const bottom = Math.max(bottomWithin(column, content), ...[...content.children].map(child => bottomWithin(column, child as HTMLElement)));
+  return bottom > limit + 1;
+}
+
+function fitContent() {
+  const column = columnElement.value;
+  if (!column) return;
+  let fit = 1;
+  column.style.setProperty('--fit', '1');
+  while (fit > MIN_FIT && overflows(column)) {
+    fit = Math.max(MIN_FIT, Math.round((fit - FIT_STEP) * 100) / 100);
+    column.style.setProperty('--fit', String(fit));
+  }
+}
+
+onMounted(() => {
+  fitContent();
+  // The phone's browser bars come and go, and the fonts arrive late.
+  if (typeof ResizeObserver !== 'undefined' && columnElement.value) {
+    let lastHeight = columnElement.value.clientHeight;
+    resizeObserver = new ResizeObserver(([entry]) => {
+      const height = entry?.contentRect.height ?? 0;
+      if (Math.abs(height - lastHeight) < 1) return;
+      lastHeight = height;
+      fitContent();
+    });
+    resizeObserver.observe(columnElement.value);
+  }
+  void document.fonts?.ready.then(fitContent);
+});
+
+onBeforeUnmount(() => resizeObserver?.disconnect());
 </script>
 
 <style scoped>
+/* --fit (1 down to 0.7) is set by fitContent when the slide runs out of height. */
+.recap-heading { font-size: calc(34px * var(--fit, 1)); }
+
+/* Lists of characters tighten with their text. */
+.recap-row { padding-block: calc(0.75rem * var(--fit, 1)); }
+.recap-row-loose { padding-block: calc(0.875rem * var(--fit, 1)); }
+.recap-row:first-child { padding-top: 0; }
+.recap-row-loose:last-child { padding-bottom: 0; }
+.recap-avatar { width: calc(2.5rem * var(--fit, 1)); height: calc(2.5rem * var(--fit, 1)); }
+.recap-avatar-lg { width: calc(2.75rem * var(--fit, 1)); height: calc(2.75rem * var(--fit, 1)); }
+.recap-deaths { row-gap: calc(1rem * var(--fit, 1)); }
+.recap-death-name { font-size: calc(15px * var(--fit, 1)); }
+.recap-death-episode { font-size: calc(13px * var(--fit, 1)); }
+.recap-chapter-number { font-size: calc(104px * var(--fit, 1)); }
+/* The still shrinks with the text, never so far that the text reaches the header. */
+.recap-band { min-height: max(calc(32cqw * var(--fit, 1)), calc(7.25rem + env(safe-area-inset-top))); }
+
+.recap-beat-title { font-size: calc(34px * var(--fit, 1)); }
+.recap-episode-title { font-size: calc(30px * var(--fit, 1)); }
+
+@media (min-width: 640px) {
+  .recap-beat-title { font-size: calc(38px * var(--fit, 1)); }
+  .recap-episode-title { font-size: calc(34px * var(--fit, 1)); }
+}
+
 .recap-narration {
-  font-size: 18px;
+  font-size: calc(18px * var(--fit, 1));
   line-height: 1.55;
 }
 
 .density-medium .recap-narration {
-  font-size: 16px;
+  font-size: calc(16px * var(--fit, 1));
   line-height: 1.52;
 }
 
 .density-high .recap-narration {
-  font-size: 14px;
+  font-size: calc(14px * var(--fit, 1));
   line-height: 1.48;
 }
 
 .recap-moment {
-  font-size: 16px;
+  font-size: calc(16px * var(--fit, 1));
   line-height: 1.45;
 }
 
-.recap-chapter-title { font-size: 40px; line-height: 1.04; }
-.text-scale-md .recap-chapter-title { font-size: 36px; }
-.text-scale-sm .recap-chapter-title { font-size: 31px; line-height: 1.08; }
+.recap-chapter-title { font-size: calc(40px * var(--fit, 1)); line-height: 1.04; }
+.text-scale-md .recap-chapter-title { font-size: calc(36px * var(--fit, 1)); }
+.text-scale-sm .recap-chapter-title { font-size: calc(31px * var(--fit, 1)); line-height: 1.08; }
 
-.recap-moment-title { font-size: 36px; line-height: 1.1; }
-.text-scale-md .recap-moment-title { font-size: 31px; line-height: 1.12; }
-.text-scale-sm .recap-moment-title { font-size: 27px; line-height: 1.15; }
+.recap-moment-title { font-size: calc(36px * var(--fit, 1)); line-height: 1.1; }
+.text-scale-md .recap-moment-title { font-size: calc(31px * var(--fit, 1)); line-height: 1.12; }
+.text-scale-sm .recap-moment-title { font-size: calc(27px * var(--fit, 1)); line-height: 1.15; }
 
-.recap-detail { font-size: 17px; line-height: 1.45; }
-.text-scale-sm .recap-detail { font-size: 15px; }
+.recap-detail { font-size: calc(17px * var(--fit, 1)); line-height: 1.45; }
+.text-scale-sm .recap-detail { font-size: calc(15px * var(--fit, 1)); }
 
-.recap-group-text { font-size: 21px; line-height: 1.36; }
-.text-scale-md .recap-group-text { font-size: 19px; line-height: 1.38; }
-.text-scale-sm .recap-group-text { font-size: 17px; line-height: 1.4; }
+.recap-group-text { font-size: calc(21px * var(--fit, 1)); line-height: 1.36; }
+.text-scale-md .recap-group-text { font-size: calc(19px * var(--fit, 1)); line-height: 1.38; }
+.text-scale-sm .recap-group-text { font-size: calc(17px * var(--fit, 1)); line-height: 1.4; }
 
-.recap-line { font-size: 18px; line-height: 1.4; }
-.text-scale-md .recap-line { font-size: 16.5px; }
-.text-scale-sm .recap-line { font-size: 15px; line-height: 1.38; }
+.recap-line { font-size: calc(18px * var(--fit, 1)); line-height: 1.4; }
+.text-scale-md .recap-line { font-size: calc(16.5px * var(--fit, 1)); }
+.text-scale-sm .recap-line { font-size: calc(15px * var(--fit, 1)); line-height: 1.38; }
 
-.recap-question { font-size: 22px; line-height: 1.28; }
-.text-scale-md .recap-question { font-size: 20px; }
-.text-scale-sm .recap-question { font-size: 18px; line-height: 1.32; }
+.recap-question { font-size: calc(22px * var(--fit, 1)); line-height: 1.28; }
+.text-scale-md .recap-question { font-size: calc(20px * var(--fit, 1)); }
+.text-scale-sm .recap-question { font-size: calc(18px * var(--fit, 1)); line-height: 1.32; }
 
 .recap-still-fade {
   -webkit-mask-image: linear-gradient(to bottom, #000 45%, rgb(0 0 0 / 0.55) 72%, transparent 100%);
@@ -464,16 +549,16 @@ function looksArtificiallyTruncated(value: string): boolean {
 }
 
 .density-medium .recap-moment {
-  font-size: 15px;
+  font-size: calc(15px * var(--fit, 1));
 }
 
 .density-high .recap-moment {
-  font-size: 13.5px;
+  font-size: calc(13.5px * var(--fit, 1));
   line-height: 1.42;
 }
 
 .density-high .recap-beat-title {
-  font-size: 30px;
+  font-size: calc(30px * var(--fit, 1));
 }
 
 .recap-cover-logo {
@@ -482,15 +567,15 @@ function looksArtificiallyTruncated(value: string): boolean {
 }
 
 .recap-cover-title {
-  font-size: 44px;
+  font-size: calc(44px * var(--fit, 1));
 }
 
 .recap-cover-subtitle {
-  font-size: 21px;
+  font-size: calc(21px * var(--fit, 1));
 }
 
 .recap-cover-logline {
-  font-size: 15px;
+  font-size: calc(15px * var(--fit, 1));
 }
 
 .density-cover-high .recap-cover-logo {
@@ -498,15 +583,15 @@ function looksArtificiallyTruncated(value: string): boolean {
 }
 
 .density-cover-high .recap-cover-title {
-  font-size: 34px;
+  font-size: calc(34px * var(--fit, 1));
 }
 
 .density-cover-high .recap-cover-subtitle {
-  font-size: 17px;
+  font-size: calc(17px * var(--fit, 1));
 }
 
 .density-cover-high .recap-cover-logline {
-  font-size: 13px;
+  font-size: calc(13px * var(--fit, 1));
   line-height: 1.55;
 }
 
