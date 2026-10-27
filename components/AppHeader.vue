@@ -7,17 +7,7 @@
         contained ? 'mx-auto max-w-7xl px-5 lg:px-8' : '',
       ]"
     >
-      <NuxtLink
-        to="/"
-        aria-label="Accueil"
-        class="relative z-10 shrink-0 transition-opacity hover:opacity-80"
-      >
-        <img
-          src="/svg/logo_white.svg"
-          alt=""
-          :class="compact ? 'size-8' : 'size-10 sm:size-12'"
-        />
-      </NuxtLink>
+      <Logo :size="compact ? 'sm' : 'base'" class="relative z-10" />
 
       <NuxtLink
         to="/"
