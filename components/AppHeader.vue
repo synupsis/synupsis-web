@@ -2,27 +2,22 @@
   <header>
     <div
       :class="[
-        'relative flex w-full items-center justify-between',
-        compact ? 'h-16' : 'px-4 py-6 sm:px-8',
-        contained ? 'mx-auto max-w-7xl px-5 lg:px-8' : '',
+        'flex w-full items-center justify-between gap-2 px-5 sm:gap-3 sm:px-8',
+        compact ? 'h-16' : 'h-20',
+        contained ? 'mx-auto max-w-7xl' : '',
       ]"
     >
-      <Logo :size="compact ? 'sm' : 'base'" class="relative z-10" />
+      <Logo
+        display-text
+        size="md"
+        aria-label="Synupsis home"
+      />
 
-      <NuxtLink
-        to="/"
-        class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-opacity hover:opacity-80"
-      >
-        <img
-          src="/svg/logo_text.svg"
-          alt="Synupsis"
-          :class="compact ? 'h-5 w-auto sm:h-6' : 'h-7 w-auto sm:h-9'"
-        />
-      </NuxtLink>
-
-      <div class="relative z-10 ml-auto">
-        <UserAuthStatus />
-      </div>
+      <nav aria-label="Account" class="flex shrink-0 items-center">
+        <slot name="account">
+          <UserAuthStatus />
+        </slot>
+      </nav>
     </div>
   </header>
 </template>
@@ -33,6 +28,6 @@ withDefaults(defineProps<{
   contained?: boolean;
 }>(), {
   compact: false,
-  contained: false,
+  contained: true,
 });
 </script>

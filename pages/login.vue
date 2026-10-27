@@ -1,88 +1,82 @@
 <template>
-  <div class="w-full h-screen bg-background text-white">
-    <div class="flex h-full">
-      <div class="hidden lg:flex w-1/2 h-full">
-        <video class="h-full w-full object-cover" autoplay loop muted>
-          <source src="~/assets/mp4/wednesday.mp4" type="video/mp4" />
-        </video>
+  <AuthPageShell title="Welcome back" alternate-label="Sign up" alternate-to="/signup">
+    <form class="space-y-5" :aria-busy="isLoading" @submit.prevent="login">
+      <div class="space-y-2">
+        <label class="text-sm font-medium" for="email">Email</label>
+        <Input
+          id="email"
+          v-model="email"
+          name="email"
+          placeholder="you@example.com"
+          type="email"
+          autocomplete="email"
+          autocapitalize="off"
+          :spellcheck="false"
+          required
+          :disabled="isLoading"
+          class="h-12 rounded-xl border-border bg-muted/20 px-4 text-base shadow-none focus-visible:border-violet-400/70 focus-visible:ring-4 focus-visible:ring-violet-400/10"
+        />
       </div>
-      <div class="flex flex-col justify-center items-center w-full lg:w-1/2 p-8">
-        <div class="max-w-md w-full">
-          <div class="flex justify-center mb-8">
-            <Logo size="xl" />
-          </div>
-          <h2 class="text-3xl font-bold text-center mb-6">Welcome back!</h2>
-
-          <form class="space-y-6" @submit.prevent="login">
-            <div>
-              <label class="font-semibold" for="email">Email</label>
-              <Input
-                id="email"
-                v-model="email"
-                name="email"
-                placeholder="Enter your email"
-                type="email"
-              />
-            </div>
-            <div>
-              <label class="font-semibold" for="password">Password</label>
-              <Input
-                id="password"
-                v-model="password"
-                name="password"
-                placeholder="Enter your password"
-                type="password"
-              />
-            </div>
-
-            <div class="flex items-center justify-between text-sm">
-              <div class="flex items-center gap-2">
-                <Checkbox id="remember-me" name="remember-me" />
-                <label for="remember-me">Remember me</label>
-              </div>
-              <router-link class="underline" to="/pwdforgot">Forgot password?</router-link>
-            </div>
-
-            <Button :disabled="!email || !password || isLoading" class="w-full" type="submit">
-              <span v-if="isLoading" class="loading loading-spinner h-4 w-4" />
-              <span v-else>Login</span>
-            </Button>
-
-            <p class="text-center text-sm">
-              No account yet?
-              <router-link class="underline" to="/signup">Register</router-link>
-            </p>
-          </form>
+      <div class="space-y-2">
+        <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <label class="text-sm font-medium" for="password">Password</label>
+          <NuxtLink to="/pwdforgot" class="rounded text-xs text-muted-foreground transition hover:text-violet-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background">Forgot password?</NuxtLink>
         </div>
+        <AuthPasswordInput id="password" v-model="password" autocomplete="current-password" :disabled="isLoading" />
       </div>
-    </div>
-  </div>
+
+      <p v-if="errorMessage" role="alert" class="rounded-xl border border-red-400/20 bg-red-400/5 px-4 py-3 text-sm leading-relaxed text-red-400">{{ errorMessage }}</p>
+
+      <Button
+        :disabled="!email.trim() || !password || isLoading"
+        class="h-12 w-full rounded-xl bg-violet-500 text-sm font-semibold text-white shadow-sm shadow-violet-950/20 hover:bg-violet-400 focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        type="submit"
+      >
+        <LoaderCircle v-if="isLoading" class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+        <span>{{ isLoading ? 'Logging in…' : 'Log in' }}</span>
+        <ArrowRight v-if="!isLoading" class="size-4" aria-hidden="true" />
+      </Button>
+      <p class="border-t border-border pt-5 text-center text-sm text-muted-foreground">
+        No account yet?
+        <NuxtLink class="ml-1 inline-block rounded font-medium text-violet-400 transition hover:text-violet-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background" to="/signup">Sign up</NuxtLink>
+      </p>
+    </form>
+  </AuthPageShell>
 </template>
 
 <script lang="ts" setup>
-import Checkbox from '~/components/ui/Checkbox.vue';
-import { toast } from 'vue-sonner'
+import { ArrowRight, LoaderCircle } from 'lucide-vue-next';
+import AuthPageShell from '~/components/AuthPageShell.vue';
+import AuthPasswordInput from '~/components/ui/AuthPasswordInput.vue';
+import { Input } from '~/components/shadcn/input';
+import { Button } from '~/components/shadcn/button';
+
+useHead({ title: 'Log in — Synupsis' });
 
 const supabase = useSupabaseClient();
-
 const email = ref('');
 const password = ref('');
 const isLoading = ref(false);
+const errorMessage = ref('');
 
-
-const login = async () => {
+async function login() {
+  if (isLoading.value || !email.value.trim() || !password.value) return;
   isLoading.value = true;
-  const { error: loginError } = await supabase.auth.signInWithPassword({
-    email: email.value,
-    password: password.value
-  });
-  if (loginError) {
-    toast.error('Error', {
-      description: loginError.message
-    })
+  errorMessage.value = '';
+  try {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.value.trim(),
+      password: password.value,
+    });
+    if (error) {
+      errorMessage.value = error.message;
+      return;
+    }
+    await navigateTo('/');
+  } catch {
+    errorMessage.value = 'Unable to log in right now. Please try again.';
+  } finally {
     isLoading.value = false;
-    return;
   }
-  navigateTo('/');
-};
+}
 </script>

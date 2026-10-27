@@ -1,15 +1,17 @@
 <template>
-  <footer class="border-t border-border mt-16">
-    <div class="container mx-auto py-8 px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-8">
-      <Logo size="sm" />
-      <p class="text-sm text-muted-foreground order-3 sm:order-2">&copy; {{ new Date().getFullYear() }} Synupsis. All rights reserved.</p>
-      <div class="flex items-center gap-6 text-sm order-2 sm:order-3">
-        <router-link to="/about" class="text-muted-foreground hover:text-foreground transition-colors">
-          About
-        </router-link>
-        <a href="#" class="text-muted-foreground hover:text-foreground transition-colors">Terms of Service</a>
-        <a href="#" class="text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</a>
+  <footer class="border-t border-border/60 bg-background">
+    <div class="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-8 sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:px-8">
+      <div class="space-y-3">
+        <Logo display-text size="md" />
+        <p class="text-xs leading-relaxed text-muted-foreground">&copy; {{ new Date().getFullYear() }} Synupsis. All rights reserved.</p>
       </div>
+      <nav aria-label="Footer" class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm sm:gap-x-6">
+        <NuxtLink to="/about" class="inline-flex min-h-11 items-center rounded-md text-muted-foreground transition-colors hover:text-violet-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-4 focus-visible:ring-offset-background">
+          About
+        </NuxtLink>
+        <a href="#" class="inline-flex min-h-11 items-center rounded-md text-muted-foreground transition-colors hover:text-violet-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-4 focus-visible:ring-offset-background">Terms of Service</a>
+        <a href="#" class="inline-flex min-h-11 items-center rounded-md text-muted-foreground transition-colors hover:text-violet-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-4 focus-visible:ring-offset-background">Privacy Policy</a>
+      </nav>
     </div>
   </footer>
 </template>

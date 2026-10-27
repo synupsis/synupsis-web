@@ -1,12 +1,12 @@
 <template>
   <ClientOnly>
     <div class="h-screen w-full flex flex-col bg-background text-foreground">
-      <!-- Header -->
-      <header class="flex items-center justify-between p-4 border-b border-border">
-        <div class="flex items-center gap-4">
-          <Logo size="sm" />
+      <AppHeader compact :contained="false" class="shrink-0 border-b border-border" />
+      <!-- Editing controls stay together beneath the shared navigation. -->
+      <div class="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border px-5 py-4 sm:px-8">
+        <div class="min-w-0">
           <div>
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
               <h1 class="text-lg font-semibold">Recap Editor</h1>
               <Badge v-if="recapStatus" :variant="recapStatus === 'published' ? 'default' : 'secondary'">
                 {{ recapStatus }}
@@ -14,13 +14,13 @@
               <Badge v-if="isCanonical" variant="outline">Canonical</Badge>
               <Badge v-if="isVerificationStale" variant="destructive">Verification outdated</Badge>
             </div>
-            <p v-if="!loading" class="text-sm text-muted-foreground">
+            <p v-if="!loading" class="break-words text-sm text-muted-foreground">
               {{ showName }} - Season {{ seasonNumber }}
             </p>
             <div v-else class="h-4 bg-muted-foreground/20 rounded-md w-48 animate-pulse" />
           </div>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
           <Button variant="ghost" class="min-w-[90px]" @click="goBack">Cancel</Button>
           <Button variant="outline" class="min-w-[130px]" :disabled="loading || isSaving || !isDirty" @click="saveDraft">
             <span v-if="isSaving" class="loading loading-spinner h-4 w-4" />
@@ -48,7 +48,7 @@
             Copy JSON
           </Button>
         </div>
-      </header>
+      </div>
 
       <!-- Wrapper to prevent hydration mismatch -->
       <div v-if="!loading" class="flex flex-1 overflow-hidden">
@@ -207,20 +207,20 @@
     <template #fallback>
       <!-- Full page skeleton -->
       <div class="h-screen w-full flex flex-col bg-background text-foreground">
-        <header class="flex items-center justify-between p-4 border-b border-border">
-          <div class="flex items-center gap-4">
-            <div class="h-8 w-8 bg-muted/40 rounded-full animate-pulse" />
+        <AppHeader compact :contained="false" class="shrink-0 border-b border-border" />
+        <div class="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border px-5 py-4 sm:px-8">
+          <div class="min-w-0">
             <div>
               <div class="h-6 w-32 bg-muted/40 rounded-md animate-pulse" />
               <div class="h-4 mt-1 w-48 bg-muted/40 rounded-md animate-pulse" />
             </div>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
             <div class="h-9 w-24 bg-muted/40 rounded-md animate-pulse" />
             <div class="h-9 w-32 bg-muted/40 rounded-md animate-pulse" />
             <div class="h-9 w-32 bg-muted/40 rounded-md animate-pulse" />
           </div>
-        </header>
+        </div>
         <div class="flex flex-1 overflow-hidden">
           <aside class="w-64 p-4 border-r border-border flex flex-col gap-4">
             <div class="h-8 w-24 bg-muted/40 rounded-md animate-pulse" />

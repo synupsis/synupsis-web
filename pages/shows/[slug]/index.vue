@@ -443,7 +443,7 @@ const { data: showData, pending: showPending, error: showError, refresh: refresh
   async () => {
     const traktId = String(route.params.slug).split('-').pop();
     if (!traktId) throw new Error('Invalid show slug.');
-    const response = await $fetch(`/api/shows/${traktId}`);
+    const response = await $fetch<{ show: ShowWithSeasons | null }>(`/api/shows/${traktId}`);
     return response.show as ShowWithSeasons | null;
   },
 );

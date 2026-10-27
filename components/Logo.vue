@@ -1,8 +1,9 @@
 <template>
   <router-link
     to="/"
+    aria-label="Synupsis home"
     :class="[
-      'logo inline-flex shrink-0 items-center transition-opacity hover:opacity-80',
+      'logo inline-flex shrink-0 items-center rounded-lg outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-4 focus-visible:ring-offset-background',
       logoClasses.container,
     ]"
     @mouseenter="playArrows"
@@ -78,6 +79,10 @@
         alt="Synupsis"
         :class="logoClasses.wordmark"
       />
+      <template #fallback>
+        <img src="/svg/logo_white.svg" :alt="displayText ? '' : 'Synupsis'" :class="logoClasses.icon" />
+        <img v-if="displayText" :src="logoTextUrl" alt="Synupsis" :class="logoClasses.wordmark" />
+      </template>
     </ClientOnly>
   </router-link>
 </template>
@@ -157,7 +162,7 @@ onBeforeUnmount(() => {
 
 const props = withDefaults(defineProps<{
   displayText?: boolean;
-  size?: 'sm' | 'base' | 'xl';
+  size?: 'sm' | 'md' | 'base' | 'xl';
 }>(), {
   displayText: false,
   size: 'base',
@@ -170,6 +175,11 @@ const sizeClasses = {
     container: 'gap-2',
     icon: 'size-8',
     wordmark: 'h-4 w-auto',
+  },
+  md: {
+    container: 'gap-2.5 sm:gap-3',
+    icon: 'size-9 sm:size-10',
+    wordmark: 'h-6 w-auto min-[360px]:h-7 sm:h-8',
   },
   base: {
     container: 'gap-3',

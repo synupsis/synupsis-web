@@ -1,8 +1,10 @@
 <template>
   <SidebarProvider>
     <Sidebar>
+      <SidebarHeader class="h-20 shrink-0 justify-center border-b border-sidebar-border px-5 py-0">
+        <Logo display-text size="md" aria-label="Synupsis home" />
+      </SidebarHeader>
       <SidebarContent>
-        <SidebarHeader><NuxtLink to="/"><img src="/svg/logo_text.svg" alt="Synupsis" class="h-8" /></NuxtLink></SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem to="/admin">Dashboard</SidebarMenuItem>
           <SidebarMenuItem to="/admin/prompts">Prompts</SidebarMenuItem>
@@ -10,12 +12,18 @@
         </SidebarMenu>
       </SidebarContent>
     </Sidebar>
-    <div class="flex flex-1 flex-col">
-      <header class="flex w-full items-center justify-between border-b px-8 py-6">
-        <div><h1 class="text-2xl font-bold">Corrections communautaires</h1><p class="mt-1 text-sm text-muted-foreground">Les votes priorisent la file, mais seule votre validation publie un changement.</p></div>
-        <UserAuthStatus />
+    <div class="flex min-w-0 flex-1 flex-col">
+      <header class="flex h-20 w-full shrink-0 items-center justify-between gap-3 border-b border-border px-5 sm:px-8">
+        <SidebarTrigger class="size-10 rounded-xl text-muted-foreground hover:text-foreground focus-visible:ring-violet-400" />
+        <nav aria-label="Account" class="ml-auto flex shrink-0 items-center">
+          <UserAuthStatus />
+        </nav>
       </header>
-      <main class="p-4 sm:p-8">
+      <main class="px-5 py-8 sm:px-8">
+        <div class="mb-8">
+          <h1 class="text-2xl font-bold">Corrections communautaires</h1>
+          <p class="mt-2 text-sm text-muted-foreground">Les votes priorisent la file, mais seule votre validation publie un changement.</p>
+        </div>
         <div v-if="pending" class="grid min-h-64 place-items-center"><SpinLoader class="h-7 w-7" /></div>
         <div v-else-if="corrections?.length" class="space-y-5">
           <Card v-for="correction in corrections" :key="correction.id">
@@ -54,7 +62,7 @@ import { Badge } from '~/components/shadcn/badge';
 import { Button } from '~/components/shadcn/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/shadcn/card';
 import {
-  Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarProvider,
+  Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarProvider, SidebarTrigger,
 } from '~/components/shadcn/sidebar';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import UserAuthStatus from '~/components/UserAuthStatus.vue';

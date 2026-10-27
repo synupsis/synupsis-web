@@ -1,127 +1,217 @@
 <template>
-  <div class="w-full min-h-screen flex flex-col">
-    <!-- Background -->
-    <div class="absolute inset-0 z-0 opacity-20">
-      <CachedImage v-if="featuredShow" :src="featuredShow.image.replace('thumb', 'full')" class="w-full h-full object-cover" alt="Featured show background" />
-      <div class="absolute inset-0 bg-gradient-to-t from-background via-background to-transparent" />
-    </div>
+  <div class="relative min-h-screen overflow-hidden">
+    <div aria-hidden="true" class="pointer-events-none absolute inset-x-0 top-0 h-[620px] bg-[radial-gradient(ellipse_at_top,_rgba(139,92,246,0.12),_transparent_65%)]" />
+    <AppHeader contained class="relative z-10 border-b border-white/5" />
 
-    <!-- Header -->
-    <AppHeader class="relative z-10" />
+    <main class="relative mx-auto max-w-7xl px-5 pb-20 sm:px-8">
+      <div class="mx-auto max-w-3xl pb-10 pt-10 text-center sm:pb-14 sm:pt-16">
+        <h1 class="text-4xl font-extrabold tracking-tight sm:text-6xl">Never lose track again.</h1>
+        <p class="mx-auto mt-4 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+          Find your show. Refresh your memory.<br class="sm:hidden" /> Get back to the story.
+        </p>
 
-    <!-- Main Content -->
-    <main class="relative z-10 flex flex-1 flex-col items-center justify-center text-center p-4">
-      <h1 class="text-5xl md:text-7xl font-extrabold tracking-tighter">Never lose track again.</h1>
-      <p class="mt-4 max-w-2xl text-lg text-muted-foreground">
-        All the recaps for your favorite shows, right at your fingertips.
-      </p>
+        <div class="mx-auto mt-8 max-w-2xl sm:mt-10">
+          <SearchInput
+            ref="searchInput"
+            v-model="searchQuery"
+            :loading="isSearching"
+            :placeholders="['Search a show, e.g. Breaking Bad']"
+            controls="show-results"
+            @submit="submitSearch"
+            @browse="focusResults"
+          />
 
-      <!-- Search Bar -->
-      <div class="relative w-full max-w-xl mt-12">
-        <SearchInput
-          v-model="searchQuery"
-          :placeholders="['Breaking Bad', 'Game of Thrones', 'Stranger Things', 'Squid Game', 'The Office', 'The Witcher', 'The Mandalorian', 'The Boys', 'The Crown', 'The Queen\'s Gambit']"
-          :loading="isSearching"
-          class="w-full h-14 text-lg"
-        />
+          <div v-if="!hasQuery" class="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs sm:text-sm">
+            <span class="mr-1 text-muted-foreground">Try</span>
+            <button v-for="title in suggestions" :key="title" type="button" class="rounded-full border border-border px-3 py-1.5 text-muted-foreground transition hover:border-violet-400/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400" @click="chooseQuery(title)">
+              {{ title }}
+            </button>
+          </div>
+          <div v-if="recentSearches.length && !hasQuery" class="mt-5 text-left">
+            <div class="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+              <span class="flex items-center gap-1.5"><History class="size-3.5" aria-hidden="true" /> Recent searches</span>
+              <button type="button" class="rounded px-2 py-1 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400" @click="clearHistory">Clear history</button>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button v-for="query in recentSearches" :key="query" type="button" class="max-w-full truncate rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400" @click="chooseQuery(query)">{{ query }}</button>
+            </div>
+          </div>
+        </div>
       </div>
+
+      <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">{{ searchAnnouncement }}</p>
+      <section id="show-results" ref="resultsSection" :aria-busy="isSearching" aria-labelledby="results-heading" @keydown="onResultsKeydown">
+        <template v-if="hasQuery">
+          <div class="mb-6 flex flex-wrap items-end justify-between gap-3 border-t border-border pt-8">
+            <div class="min-w-0">
+              <p v-if="isSearching" class="mb-1 text-xs text-muted-foreground">Searching the catalogue…</p>
+              <h2 id="results-heading" class="break-words text-xl font-semibold tracking-tight sm:text-2xl">Results for “{{ normalizedQuery }}”</h2>
+            </div>
+            <span v-if="!isSearching && !searchError" class="text-sm text-muted-foreground">{{ searchResults.length }} {{ searchResults.length === 1 ? 'show' : 'shows' }}</span>
+          </div>
+
+          <div v-if="isSearching" aria-hidden="true" class="space-y-8 motion-safe:animate-pulse">
+            <div class="flex gap-5 rounded-2xl border border-border bg-muted/20 p-4 sm:p-6">
+              <div class="aspect-[2/3] w-24 shrink-0 rounded-xl bg-muted sm:w-32" />
+              <div class="flex flex-1 flex-col justify-center gap-4"><div class="h-3 w-20 rounded bg-muted" /><div class="h-7 w-2/3 rounded bg-muted" /><div class="h-3 w-1/3 rounded bg-muted" /></div>
+            </div>
+            <div class="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-6">
+              <div v-for="i in 6" :key="i"><div class="aspect-[2/3] rounded-xl bg-muted" /><div class="mt-3 h-4 w-3/4 rounded bg-muted" /></div>
+            </div>
+          </div>
+          <div v-else-if="searchError" class="rounded-2xl border border-border bg-muted/20 px-6 py-14 text-center">
+            <WifiOff class="mx-auto mb-4 size-8 text-muted-foreground" aria-hidden="true" />
+            <h3 class="text-lg font-semibold">Search is taking a break</h3>
+            <p class="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">{{ searchError }}</p>
+            <button type="button" class="mt-6 inline-flex items-center gap-2 rounded-xl bg-foreground px-5 py-3 text-sm font-medium text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400" @click="searchNow"><RefreshCw class="size-4" aria-hidden="true" /> Try again</button>
+          </div>
+          <div v-else-if="searchResults.length" class="space-y-8">
+            <ShowSearchCard :show="searchResults[0]!" featured data-show-result @click="rememberSearch" />
+            <div v-if="searchResults.length > 1">
+              <h3 class="mb-5 text-sm font-medium text-muted-foreground">More matches</h3>
+              <div class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-6">
+                <ShowSearchCard v-for="show in searchResults.slice(1)" :key="show.traktId" :show="show" data-show-result @click="rememberSearch" />
+              </div>
+            </div>
+          </div>
+          <div v-else class="rounded-2xl border border-dashed border-border bg-muted/10 px-6 py-14 text-center">
+            <SearchX class="mx-auto mb-4 size-9 text-muted-foreground" aria-hidden="true" />
+            <h3 class="text-lg font-semibold">No shows found yet</h3>
+            <p class="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">Try a shorter title, check the spelling, or search with the show's original title.</p>
+            <button type="button" class="mt-6 rounded-xl border border-border px-5 py-3 text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400" @click="clearSearch">Clear search</button>
+          </div>
+        </template>
+
+        <template v-else>
+          <div class="mb-6 flex items-center justify-between gap-4 border-t border-border pt-8">
+            <div>
+              <h2 id="results-heading" class="flex items-center gap-2 text-xl font-semibold tracking-tight sm:text-2xl"><TrendingUp class="size-5 text-violet-500 dark:text-violet-300" aria-hidden="true" /> Trending now</h2>
+            </div>
+          </div>
+          <div v-if="trendingStatus === 'pending'" aria-label="Loading trending shows" class="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-5">
+            <div v-for="i in 5" :key="i" class="aspect-[2/3] rounded-xl bg-muted motion-safe:animate-pulse" />
+          </div>
+          <div v-else-if="featuredShows?.length" class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-5">
+            <ShowSearchCard v-for="show in featuredShows" :key="show.traktId" :show="show" data-show-result />
+          </div>
+          <div v-else class="rounded-2xl border border-border px-6 py-10 text-center text-sm text-muted-foreground">
+            <p>Trending shows are unavailable right now. You can still search for your favorites above.</p>
+            <button type="button" class="mt-4 rounded-lg border border-border px-4 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400" @click="refreshTrending()">Retry trending shows</button>
+          </div>
+        </template>
+      </section>
     </main>
-
-    <!-- Results/Featured Section -->
-    <section class="relative z-10 w-full py-16">
-      <div class="mx-auto max-w-7xl px-6 lg:px-8">
-        <Transition name="fade" mode="out-in">
-          <!-- Search Results -->
-          <div v-if="searchQuery.length > 1" class="animate-fade-in">
-            <h2 class="text-3xl font-bold tracking-tight text-white sm:text-4xl mb-10">Search Results</h2>
-            <div v-if="isSearching" class="flex justify-center">
-              <SpinLoader class="h-12 w-12" />
-            </div>
-            <Carousel v-else-if="searchResults.length > 0" class="w-full">
-              <CarouselContent class="-ml-4">
-                <CarouselItem v-for="show in searchResults" :key="show.traktId" class="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5">
-                  <BlurReveal>
-                    <router-link :to="`/shows/${show.slug}-${show.traktId}`" class="group">
-                      <div class="aspect-[2/3] w-full overflow-hidden rounded-lg">
-                        <CachedImage :src="show.image" :alt="show.name" class="w-full h-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105" />
-                      </div>
-                    </router-link>
-                  </BlurReveal>
-                </CarouselItem>
-              </CarouselContent>
-              <CarouselPrevious />
-              <CarouselNext />
-            </Carousel>
-            <p v-else class="text-muted-foreground text-center">No results found for "{{ searchQuery }}".</p>
-          </div>
-
-          <!-- Featured Shows -->
-          <div v-else class="animate-fade-in">
-            <h2 class="text-3xl font-bold tracking-tight text-white sm:text-4xl mb-10">Trending Now</h2>
-            <Carousel v-if="featuredShows" class="w-full">
-               <CarouselContent class="-ml-4">
-                <CarouselItem v-for="show in featuredShows" :key="show.traktId" class="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5 ">
-                  <BlurReveal>
-                    <router-link :to="`/shows/${show.slug}-${show.traktId}`" class="group">
-                      <div class="aspect-[2/3] w-full overflow-hidden rounded-lg">
-                        <CachedImage :src="show.image" :alt="show.name" class="w-full h-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105" />
-                      </div>
-                    </router-link>
-                  </BlurReveal>
-                </CarouselItem>
-              </CarouselContent>
-              <CarouselPrevious />
-              <CarouselNext />
-            </Carousel>
-            <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              <div v-for="i in 5" :key="i" class="aspect-[2/3] w-full bg-muted rounded-lg animate-pulse" />
-            </div>
-          </div>
-        </Transition>
-      </div>
-    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
-import { useDebounceFn } from '@vueuse/core';
+import { History, RefreshCw, SearchX, TrendingUp, WifiOff } from 'lucide-vue-next';
+import { useEventListener } from '@vueuse/core';
 import SearchInput from '~/components/ui/SearchInput.vue';
-import SpinLoader from '~/components/ui/SpinLoader.vue';
-import BlurReveal from '~/components/ui/BlurReveal.vue';
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from '~/components/shadcn/carousel';
+import ShowSearchCard from '~/components/ShowSearchCard.vue';
 import type { TraktShowCard } from '~/types/trakt.types';
-import CachedImage from '~/components/CachedImage.vue';
 
-const searchQuery = ref('');
-const searchResults = ref<TraktShowCard[]>([]);
-const isSearching = ref(false);
+const route = useRoute();
+const router = useRouter();
+const readRouteQuery = () => typeof route.query.q === 'string' ? route.query.q.slice(0, 100) : '';
+const searchQuery = ref(readRouteQuery());
+const searchInput = ref<InstanceType<typeof SearchInput> | null>(null);
+const resultsSection = ref<HTMLElement | null>(null);
+const recentSearches = ref<string[]>([]);
+const suggestions = ['Breaking Bad', 'Severance', 'The Last of Us'];
+const historyKey = 'synupsis:recent-show-searches';
+const { results: searchResults, isSearching, error: searchError, searchNow, normalizedQuery, hasQuery } = useShowSearch(searchQuery);
+const { data: featuredShows, status: trendingStatus, refresh: refreshTrending } = useFetch<TraktShowCard[]>('/api/shows/trending');
 
-const { data: featuredShows } = useFetch<TraktShowCard[]>('/api/shows/trending');
-const featuredShow = computed(() => featuredShows.value?.[0] ?? null);
+const searchAnnouncement = computed(() => {
+  if (!hasQuery.value) return '';
+  if (isSearching.value) return `Searching for ${normalizedQuery.value}.`;
+  if (searchError.value) return searchError.value;
+  return `${searchResults.value.length} ${searchResults.value.length === 1 ? 'show' : 'shows'} found for ${normalizedQuery.value}.`;
+});
 
-const searchShows = useDebounceFn(async () => {
-  if (searchQuery.value.length < 2) {
-    searchResults.value = [];
-    return;
-  }
-  isSearching.value = true;
+// Keep the search shareable and restore it when returning from a show page.
+let pendingUrlQuery: string | null = null;
+watch(normalizedQuery, async query => {
+  if (route.path !== '/' || readRouteQuery() === query) return;
+  pendingUrlQuery = query;
   try {
-    const results = await $fetch<TraktShowCard[]>(`/api/shows/search?q=${searchQuery.value}`);
-    searchResults.value = results;
-  } catch (error) {
-    console.error('Search error:', error);
-    searchResults.value = [];
+    await router.replace({ path: '/', query: { ...route.query, q: query || undefined }, hash: route.hash });
   } finally {
-    isSearching.value = false;
+    if (pendingUrlQuery === query) pendingUrlQuery = null;
   }
-}, 300);
+});
+watch(() => route.query.q, () => {
+  if (route.path === '/' && pendingUrlQuery === null) searchQuery.value = readRouteQuery();
+});
 
-watch(searchQuery, searchShows);
+onMounted(() => {
+  try {
+    const stored: unknown = JSON.parse(localStorage.getItem(historyKey) || '[]');
+    if (Array.isArray(stored)) {
+      recentSearches.value = [...new Set(stored.filter((value): value is string => typeof value === 'string' && value.trim().length >= 2 && value.length <= 100))].slice(0, 5);
+    }
+  } catch { /* Search also works when browser storage is unavailable. */ }
+});
+
+function persistHistory() {
+  try { localStorage.setItem(historyKey, JSON.stringify(recentSearches.value)); } catch { /* Storage is optional. */ }
+}
+
+function rememberSearch() {
+  const query = normalizedQuery.value;
+  if (!hasQuery.value || !searchResults.value.length) return;
+  recentSearches.value = [query, ...recentSearches.value.filter(value => value.toLocaleLowerCase() !== query.toLocaleLowerCase())].slice(0, 5);
+  persistHistory();
+}
+
+function clearHistory() {
+  recentSearches.value = [];
+  persistHistory();
+}
+
+function clearSearch() {
+  searchQuery.value = '';
+  searchInput.value?.focus();
+}
+
+function chooseQuery(query: string) {
+  searchQuery.value = query;
+  searchInput.value?.focus();
+  void searchNow();
+}
+
+function focusResults() {
+  resultsSection.value?.querySelector<HTMLAnchorElement>('[data-show-result]')?.focus();
+}
+
+async function submitSearch() {
+  const submittedQuery = normalizedQuery.value;
+  await searchNow();
+  if (normalizedQuery.value !== submittedQuery || isSearching.value) return;
+  rememberSearch();
+  await nextTick();
+  focusResults();
+}
+
+function onResultsKeydown(event: KeyboardEvent) {
+  if (!(event.target instanceof HTMLAnchorElement) || !event.target.hasAttribute('data-show-result')) return;
+  const links = [...(resultsSection.value?.querySelectorAll<HTMLAnchorElement>('[data-show-result]') ?? [])];
+  const index = links.indexOf(event.target);
+  const offset = ['ArrowRight', 'ArrowDown'].includes(event.key) ? 1 : ['ArrowLeft', 'ArrowUp'].includes(event.key) ? -1 : 0;
+  if (event.key === 'Escape' || (event.key === 'ArrowUp' && index === 0)) {
+    event.preventDefault();
+    searchInput.value?.focus();
+  } else if (offset) {
+    event.preventDefault();
+    links[Math.max(0, Math.min(links.length - 1, index + offset))]?.focus();
+  }
+}
+
+useEventListener('keydown', event => {
+  const target = event.target as HTMLElement | null;
+  if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey || target?.closest('input, textarea, select, [contenteditable="true"], [role="dialog"]')) return;
+  event.preventDefault();
+  searchInput.value?.focus();
+});
 </script>

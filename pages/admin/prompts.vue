@@ -11,6 +11,7 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarProvider,
+  SidebarTrigger,
 } from '~/components/shadcn/sidebar';
 import UserAuthStatus from '~/components/UserAuthStatus.vue';
 import { Textarea } from '~/components/shadcn/textarea';
@@ -173,12 +174,10 @@ onMounted(async () => {
 <template>
   <SidebarProvider>
     <Sidebar>
+      <SidebarHeader class="h-20 shrink-0 justify-center border-b border-sidebar-border px-5 py-0">
+        <Logo display-text size="md" aria-label="Synupsis home" />
+      </SidebarHeader>
       <SidebarContent>
-        <SidebarHeader>
-          <router-link to="/">
-            <img src="/svg/logo_text.svg" alt="Synupsis Logo" class="h-8" />
-          </router-link>
-        </SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem to="/admin">
             Dashboard
@@ -192,13 +191,14 @@ onMounted(async () => {
         </SidebarMenu>
       </SidebarContent>
     </Sidebar>
-    <div class="flex-1 flex flex-col">
-      <header class="flex w-full justify-between items-center py-6 px-8 border-b">
-        <div class="ml-auto">
+    <div class="flex min-w-0 flex-1 flex-col">
+      <header class="flex h-20 w-full shrink-0 items-center justify-between gap-3 border-b border-border px-5 sm:px-8">
+        <SidebarTrigger class="size-10 rounded-xl text-muted-foreground hover:text-foreground focus-visible:ring-violet-400" />
+        <nav aria-label="Account" class="ml-auto flex shrink-0 items-center">
           <UserAuthStatus />
-        </div>
+        </nav>
       </header>
-      <main class="p-4 sm:p-8">
+      <main class="px-5 py-8 sm:px-8">
         <h1 class="text-2xl font-bold mb-4">Prompts Management</h1>
 
         <div v-if="!isLoadingPromptSettings" class="mb-8">

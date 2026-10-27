@@ -1,82 +1,97 @@
 <template>
   <form
-    class="relative mx-auto h-12 w-full max-w-xl overflow-hidden rounded-full bg-white shadow-[0px_2px_3px_-1px_rgba(0,0,0,0.1),_0px_1px_0px_0px_rgba(25,28,33,0.02),_0px_0px_0px_1px_rgba(25,28,33,0.08)] transition duration-200 dark:bg-zinc-800"
+    class="group flex min-h-16 w-full items-center gap-3 rounded-2xl border border-border bg-background/90 p-2 pl-5 shadow-lg shadow-black/5 transition focus-within:border-violet-400/70 focus-within:ring-4 focus-within:ring-violet-400/10"
     role="search"
-    @submit.prevent="emit('submit', query)"
+    aria-label="Find a TV show"
+    @submit.prevent="submit"
   >
+    <Search class="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
     <input
+      :id="inputId"
       ref="inputRef"
       v-model="query"
-      :aria-label="placeholders[currentPlaceholder] ?? 'Search'"
-      class="relative z-10 size-full rounded-full border-none bg-transparent pl-4 pr-20 text-sm text-black focus:outline-none focus:ring-0 sm:pl-10 sm:text-base dark:text-white"
-      type="text"
+      aria-label="Search TV shows"
+      :aria-describedby="describedBy"
+      :aria-controls="controls"
+      :placeholder="placeholders[0] || 'Search for a TV show…'"
+      class="min-w-0 flex-1 border-0 bg-transparent p-0 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-0 sm:text-lg"
+      type="search"
+      name="q"
+      autocomplete="off"
+      autocapitalize="off"
+      :spellcheck="false"
+      maxlength="100"
+      enterkeyhint="search"
+      @keydown.esc.prevent="clear"
+      @keydown.down="browse"
     />
-
     <button
-      :disabled="loading || !query"
-      aria-label="Search"
-      class="absolute right-2 top-1/2 z-10 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-black transition duration-200 disabled:bg-gray-100 dark:bg-zinc-900 dark:disabled:bg-zinc-700"
+      v-if="query"
+      type="button"
+      aria-label="Clear search"
+      class="flex size-10 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
+      @click="clear"
+    >
+      <X class="size-4" aria-hidden="true" />
+    </button>
+    <button
+      :disabled="query.trim().length < 2"
+      aria-label="Search shows"
+      class="flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-violet-500 px-4 font-medium text-white transition hover:bg-violet-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 sm:px-5"
       type="submit"
     >
-      <SpinLoader v-if="loading" class="h-5 w-5" />
-      <MagnifyingGlassIcon v-else class="h-5 w-5 text-gray-300" />
+      <LoaderCircle v-if="loading" class="size-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+      <ArrowRight v-else class="size-5" aria-hidden="true" />
+      <span class="hidden sm:inline">Search</span>
     </button>
-
-    <!-- Rotating placeholder, shown while the field is empty -->
-    <div v-show="!query" class="pointer-events-none absolute inset-0 flex items-center rounded-full">
-      <Transition
-        enter-active-class="transition duration-300 ease-out"
-        enter-from-class="opacity-0 translate-y-4"
-        enter-to-class="opacity-100 translate-y-0"
-        leave-active-class="transition duration-300 ease-in"
-        leave-from-class="opacity-100 translate-y-0"
-        leave-to-class="opacity-0 -translate-y-4"
-        mode="out-in"
-      >
-        <p
-          :key="currentPlaceholder"
-          class="w-[calc(100%-2rem)] truncate pl-4 text-left text-sm font-normal text-neutral-500 sm:pl-10 sm:text-base dark:text-zinc-500"
-        >
-          {{ placeholders[currentPlaceholder] }}
-        </p>
-      </Transition>
-    </div>
   </form>
 </template>
 
 <script lang="ts" setup>
-import { useDocumentVisibility, useIntervalFn } from '@vueuse/core';
-import { MagnifyingGlassIcon } from '@heroicons/vue/16/solid';
-import SpinLoader from '~/components/ui/SpinLoader.vue';
+import { ArrowRight, LoaderCircle, Search, X } from 'lucide-vue-next';
 
-const props = withDefaults(
-  defineProps<{
-    placeholders?: string[];
-    loading?: boolean;
-  }>(),
-  {
-    placeholders: () => [],
-    loading: false
-  }
-);
+withDefaults(defineProps<{
+  placeholders?: string[];
+  loading?: boolean;
+  describedBy?: string;
+  controls?: string;
+}>(), {
+  placeholders: () => [],
+  loading: false,
+  describedBy: undefined,
+  controls: undefined,
+});
 
 const query = defineModel<string>({ default: '' });
-const emit = defineEmits<{ submit: [value: string] }>();
-
+const emit = defineEmits<{ submit: [value: string]; browse: [] }>();
+const inputId = useId();
 const inputRef = ref<HTMLInputElement | null>(null);
-const currentPlaceholder = ref(0);
 
-// Cycle placeholders every 3s, paused while the tab is hidden.
-const { pause, resume } = useIntervalFn(() => {
-  if (props.placeholders.length > 0) {
-    currentPlaceholder.value = (currentPlaceholder.value + 1) % props.placeholders.length;
-  }
-}, 3000);
-
-const visibility = useDocumentVisibility();
-watch(visibility, state => (state === 'visible' ? resume() : pause()));
-
-onMounted(() => {
+function focus() {
   inputRef.value?.focus();
-});
+}
+
+function clear() {
+  query.value = '';
+  focus();
+}
+
+function submit() {
+  if (query.value.trim().length >= 2) emit('submit', query.value);
+}
+
+function browse(event: KeyboardEvent) {
+  if (event.isComposing) return;
+  event.preventDefault();
+  emit('browse');
+}
+
+defineExpose({ focus });
 </script>
+
+<style scoped>
+input::-webkit-search-cancel-button,
+input::-webkit-search-decoration {
+  -webkit-appearance: none;
+}
+</style>
