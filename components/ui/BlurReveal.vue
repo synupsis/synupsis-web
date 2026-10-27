@@ -1,65 +1,67 @@
 <template>
-  <div :class="props.class">
-    <Motion
-      v-for="(child, index) in children"
-      :key="index"
-      :in-view="getAnimate()"
-      :initial="getInitial()"
-      :transition="{
-        duration: props.duration,
-        easing: 'easeInOut',
-        delay: props.delay * Number(index)
-      }"
-      as="div"
-    >
-      <component :is="child" />
-    </Motion>
+  <div
+    ref="root"
+    :class="['blur-reveal', { 'is-visible': visible }]"
+    :style="{
+      '--blur-reveal-duration': `${duration}s`,
+      '--blur-reveal-blur': blur,
+      '--blur-reveal-offset': `${yOffset}px`
+    }"
+  >
+    <slot />
   </div>
 </template>
 
 <script lang="ts" setup>
-import { Motion } from 'motion-v';
+import { useIntersectionObserver } from '@vueuse/core';
 
-interface Props {
-  duration?: number;
-  delay?: number;
-  blur?: string;
-  yOffset?: number;
-  class?: string;
-}
+withDefaults(
+  defineProps<{
+    duration?: number;
+    blur?: string;
+    yOffset?: number;
+  }>(),
+  {
+    duration: 1,
+    blur: '20px',
+    yOffset: 20
+  }
+);
 
-const props = withDefaults(defineProps<Props>(), {
-  duration: 1,
-  delay: 2,
-  blur: '20px',
-  yOffset: 20
+const root = ref<HTMLElement | null>(null);
+const visible = ref(false);
+
+// Reveal once, the first time the element scrolls into view.
+const { stop } = useIntersectionObserver(root, ([entry]) => {
+  if (entry?.isIntersecting) {
+    visible.value = true;
+    stop();
+  }
 });
-
-const slots = useSlots();
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const children = ref<any>([]);
-
-onMounted(() => {
-  // This will reactively capture all content provided in the default slot
-  watchEffect(() => {
-    children.value = slots.default ? slots.default() : [];
-  });
-});
-
-function getInitial() {
-  return {
-    opacity: 0,
-    filter: `blur(${props.blur})`,
-    y: props.yOffset
-  };
-}
-
-function getAnimate() {
-  return {
-    opacity: 1,
-    filter: `blur(0px)`,
-    y: 0
-  };
-}
 </script>
+
+<style scoped>
+.blur-reveal {
+  opacity: 0;
+  filter: blur(var(--blur-reveal-blur));
+  transform: translateY(var(--blur-reveal-offset));
+  transition:
+    opacity var(--blur-reveal-duration) ease-in-out,
+    filter var(--blur-reveal-duration) ease-in-out,
+    transform var(--blur-reveal-duration) ease-in-out;
+}
+
+.blur-reveal.is-visible {
+  opacity: 1;
+  filter: blur(0);
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blur-reveal {
+    filter: none;
+    transform: none;
+    transition: opacity 0.2s linear;
+  }
+}
+</style>

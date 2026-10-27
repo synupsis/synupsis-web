@@ -18,7 +18,7 @@
 
       <!-- Search Bar -->
       <div class="relative w-full max-w-xl mt-12">
-        <VanishingInput
+        <SearchInput
           v-model="searchQuery"
           :placeholders="['Breaking Bad', 'Game of Thrones', 'Stranger Things', 'Squid Game', 'The Office', 'The Witcher', 'The Mandalorian', 'The Boys', 'The Crown', 'The Queen\'s Gambit']"
           :loading="isSearching"
@@ -86,7 +86,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { useDebounceFn } from '@vueuse/core';
-import VanishingInput from '~/components/ui/VanishingInput.vue';
+import SearchInput from '~/components/ui/SearchInput.vue';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import BlurReveal from '~/components/ui/BlurReveal.vue';
 import {
