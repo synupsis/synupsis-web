@@ -6,6 +6,7 @@ import {
   getRecapGenerationStage,
   getRecapGenerationStageKey,
 } from '~/lib/recap-generation-progress';
+import { useStoryViewer } from '~/composables/useStoryViewer';
 
 type PublicRecapGenerationJob = {
   id: string;
@@ -55,6 +56,7 @@ export function useRecapGenerations(options: {
   onFailed: (seasonId: string, message: string) => void;
 }) {
   const user = useSupabaseUser();
+  const { openStory } = useStoryViewer();
   const generations = ref<Record<string, RecapGeneration>>({});
   const clocks = new Map<string, StageClock>();
   const followedJobs = new Set<string>();
@@ -90,7 +92,7 @@ export function useRecapGenerations(options: {
       });
       if (generation.state === 'ready' && generation.recapId) {
         forget(seasonId);
-        await navigateTo(`/recap/${generation.recapId}`);
+        await openStory(generation.recapId);
         return;
       }
       if (!generation.jobId) throw new Error('La génération n’a pas retourné de tâche.');

@@ -464,6 +464,7 @@ import TimelineCharacterChip from '~/components/TimelineCharacterChip.vue';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import { useImageUrl } from '~/composables/useUtils';
 import { useRecapGenerations } from '~/composables/useRecapGenerations';
+import { useStoryViewer } from '~/composables/useStoryViewer';
 import { isRegularSeasonReleased } from '~/lib/season-availability';
 import { toPlainText } from '~/lib/plain-text';
 
@@ -913,7 +914,8 @@ async function generateRecap(seasonId: string) {
 function goToRecapEditor(show?: string, season?: string, recap?: string) {
   navigateTo({ path: '/recap-editor', query: { show, season, ...(recap ? { recap } : {}) } });
 }
-function goToRecap(recapId: string) { navigateTo(`/recap/${recapId}`); }
+const { openStory } = useStoryViewer();
+function goToRecap(recapId: string) { openStory(recapId); }
 
 const correctionOpen = ref(false);
 const correctionSubmitting = ref(false);

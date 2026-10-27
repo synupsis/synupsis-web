@@ -7,6 +7,10 @@
         :class="{ 'active:scale-95': !primaryDisabled }"
         :disabled="primaryDisabled"
         :aria-label="actionLabel"
+        :data-story-origin="publishedRecap?.id"
+        @pointerenter="prefetchStory"
+        @pointerdown="prefetchStory"
+        @focus="prefetchStory"
         @click="handlePrimaryAction"
       >
         <span
@@ -117,6 +121,7 @@ import { LockClosedIcon, PencilIcon, SparklesIcon } from '@heroicons/vue/24/outl
 import { PlayIcon } from '@heroicons/vue/24/solid';
 import CachedImage from '~/components/CachedImage.vue';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
+import { prefetchRecapStory } from '~/composables/useStoryViewer';
 
 const props = withDefaults(defineProps<{
   season: any;
@@ -204,6 +209,11 @@ const adminActionLabel = computed(() => (
     ? `Modifier le récap de la saison ${props.season.number}`
     : `Créer manuellement le récap de la saison ${props.season.number}`
 ));
+
+// Hovering or pressing the ring loads the story, so it opens ready.
+function prefetchStory() {
+  if (!props.spoilerLocked) prefetchRecapStory(publishedRecap.value?.id);
+}
 
 function handlePrimaryAction() {
   if (primaryDisabled.value) return;

@@ -145,6 +145,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/shadcn/ta
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import { PencilIcon, EyeIcon } from '@heroicons/vue/24/outline';
 import AvatarUploadModal from '~/components/AvatarUploadModal.vue';
+import { useStoryViewer } from '~/composables/useStoryViewer';
 
 const user = useSupabaseUser();
 const supabase = useSupabaseClient();
@@ -177,8 +178,10 @@ function goToRecapEditor(showId: string, seasonId: string, recapId: string) {
   router.push({ path: '/recap-editor', query: { show: showId, season: seasonId, recap: recapId } });
 }
 
+const { openStory } = useStoryViewer();
+
 function goToRecap(recapId: string) {
-  router.push(`/recap/${recapId}`);
+  openStory(recapId);
 }
 
 async function logout() {
