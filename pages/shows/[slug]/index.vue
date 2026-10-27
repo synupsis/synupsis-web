@@ -21,7 +21,7 @@
             <div v-if="firstAired" class="mt-4 flex items-center gap-2 text-sm text-white/60">
               <CalendarIcon class="h-4 w-4" />{{ new Date(firstAired).getFullYear() }}
             </div>
-            <p v-if="showData.summary" class="mt-5 max-w-2xl text-base leading-7 text-white/70" v-html="showData.summary" />
+            <p v-if="showSummary" class="mt-5 max-w-2xl whitespace-pre-line text-base leading-7 text-white/70">{{ showSummary }}</p>
           </div>
         </div>
       </section>
@@ -334,7 +334,7 @@
 
       <section id="universe" class="border-b border-white/10 py-16">
         <div class="mx-auto grid max-w-7xl gap-6 px-5 lg:grid-cols-2 lg:px-8">
-          <Card class="border-white/10"><CardHeader><CardTitle>Contexte de la série</CardTitle></CardHeader><CardContent><p class="leading-7 text-white/70" v-html="showData.summary || 'Le contexte général n’est pas encore documenté.'" /></CardContent></Card>
+          <Card class="border-white/10"><CardHeader><CardTitle>Contexte de la série</CardTitle></CardHeader><CardContent><p class="whitespace-pre-line leading-7 text-white/70">{{ showSummary || 'Le contexte général n’est pas encore documenté.' }}</p></CardContent></Card>
           <Card class="border-dashed border-white/15 bg-white/[0.02]"><CardHeader><CardTitle>Cartes et relations</CardTitle></CardHeader><CardContent><div class="flex gap-4 text-muted-foreground"><MapIcon class="h-8 w-8 shrink-0 text-primary" /><p class="text-sm leading-6">Les cartes, arbres généalogiques et réseaux apparaîtront ici quand les sources permettront de les construire sans invention.</p></div></CardContent></Card>
         </div>
       </section>
@@ -465,6 +465,7 @@ import SpinLoader from '~/components/ui/SpinLoader.vue';
 import { useImageUrl } from '~/composables/useUtils';
 import { useRecapGenerations } from '~/composables/useRecapGenerations';
 import { isRegularSeasonReleased } from '~/lib/season-availability';
+import { toPlainText } from '~/lib/plain-text';
 
 type TimelineEvent = SeasonHubEvent & { seasonNumber: number; throughEpisode: number };
 type TimelineEpisodeGroup = {
@@ -507,6 +508,8 @@ const { data: showData, pending: showPending, error: showError, refresh: refresh
 const sortedSeasons = computed(() => (showData.value?.seasons ?? [])
   .filter(season => isRegularSeasonReleased(season.number, season.first_aired))
   .sort((a, b) => b.number - a.number));
+// Provider summaries may carry HTML: always shown as text.
+const showSummary = computed(() => toPlainText(showData.value?.summary));
 const seasonsChronological = computed(() => [...sortedSeasons.value].reverse());
 const firstAired = computed(() => seasonsChronological.value[0]?.first_aired ?? null);
 const cast = computed<any[]>(() => (showData.value?._embedded?.cast as any[] | undefined) ?? []);
@@ -968,7 +971,7 @@ async function vote(correctionId: string, value: -1 | 1, throughEpisode: number)
 }
 
 useHead(() => {
-  const description = showData.value?.summary?.replace(/<[^>]*>?/gm, '').slice(0, 155) || 'Récaps et informations de série sans spoilers.';
+  const description = showSummary.value.slice(0, 155) || 'Récaps et informations de série sans spoilers.';
   return {
     title: showData.value ? `${showData.value.name} — Synupsis` : 'Série — Synupsis',
     meta: [

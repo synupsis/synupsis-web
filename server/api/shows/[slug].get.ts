@@ -1,4 +1,4 @@
-import { serverSupabaseClient } from '#supabase/server';
+import { serverSupabaseClient, serverSupabaseServiceRole } from '#supabase/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '~/types/database.types';
 import type { ShowCharacterProfile } from '~/types/show-character.types';
@@ -63,7 +63,8 @@ async function getShowFromDb(supabase: SupabaseClient<Database>, traktId: number
   return data as ShowWithSeasons | null;
 }
 
-// Creates the show and all its seasons in our database
+// Creates the show and all its seasons from Trakt. Clients may only read
+// these tables: the server writes them with the service role.
 async function createShowInDb(supabase: SupabaseClient<Database>, traktShow: any) {
   const { ids, title, genres, overview, images } = traktShow;
 
@@ -134,7 +135,7 @@ export default defineEventHandler(async (event) => {
       const { data: traktShow } = await axios.get(traktUrl, { headers });
       traktShowDetails = traktShow;
 
-      await createShowInDb(supabase, traktShow);
+      await createShowInDb(serverSupabaseServiceRole<Database>(event), traktShow);
       show = await getShowFromDb(supabase, traktId); // Re-fetch to get full object with seasons and recaps
     }
 
