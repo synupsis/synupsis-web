@@ -694,6 +694,11 @@ const CLOSE_DURATION_MS = 380;
 const OPEN_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
 const CLOSE_EASING = 'cubic-bezier(0.32, 0.72, 0, 1)';
 
+// The ring's poster and the first slide differ: they cross-fade while the story
+// is near ring size.
+const RING_OPEN_FADE: Keyframe[] = [{ opacity: 0, easing: 'ease-out' }, { opacity: 1, offset: 0.3 }];
+const RING_CLOSE_FADE: Keyframe[] = [{ opacity: 1 }, { opacity: 1, offset: 0.15, easing: 'ease-in-out' }, { opacity: 0, offset: 0.55 }, { opacity: 0 }];
+
 const phase = ref<'entering' | 'open' | 'leaving'>('entering');
 const frameElement = ref<HTMLElement | null>(null);
 const backdropElement = ref<HTMLElement | null>(null);
@@ -744,6 +749,7 @@ function playOpening() {
   const duration = reduced ? 150 : OPEN_DURATION_MS;
 
   backdrop.animate([{ opacity: 0 }, { opacity: 1 }], { duration: duration * 0.7, easing: 'ease-out' });
+  if (fromRing) frame.animate(RING_OPEN_FADE, { duration });
   frame.animate(keyframes, { duration, easing: OPEN_EASING }).finished.then(() => {
     if (phase.value !== 'entering') return;
     phase.value = 'open';
@@ -785,8 +791,9 @@ function leave(): Promise<void> {
       animation = frame.animate([{ opacity: 1 }, { opacity: 0 }], options);
     } else if (toRing) {
       animation = frame.animate([from, toRing], options);
-      // The ring is right underneath: fade over the last stretch to land on it.
-      frame.animate([{ opacity: 1 }, { opacity: 1, offset: 0.7 }, { opacity: 0 }], { duration, fill: 'forwards' });
+      // The story covers most of the way in the first half: it fades while it
+      // shrinks, so it melts into the ring underneath instead of landing on it.
+      frame.animate(RING_CLOSE_FADE, { duration, fill: 'forwards' });
     } else {
       const lowered = `${transform === 'none' ? '' : transform} translateY(40px) scale(0.92)`;
       animation = frame.animate([{ ...from, opacity: 1 }, { opacity: 0, transform: lowered }], options);
