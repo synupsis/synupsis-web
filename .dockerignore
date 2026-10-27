@@ -1,0 +1,20 @@
+# Keep secrets, local state and build outputs out of the image build context.
+.env
+.env.*
+!.env.example
+.git
+.github
+.claude
+.idea
+.orchestrator-scaffold
+node_modules
+.nuxt
+.output
+.data
+.nitro
+.cache
+dist
+supabase/.temp
+supabase/.branches
+evals
+*.log

@@ -52,6 +52,8 @@ Run Edge Functions locally
 
 ## Deployment
 
+The app runs as one long-lived Node server built from the `Dockerfile`: Dokploy (published through Pangolin) for development and Render for production. Recap generation does not work on serverless hosting. See [docs/deployment.md](docs/deployment.md).
+
 The `develop` branch is automatically deployed to the shared development environment on Netlify. Pull requests get an isolated Netlify Deploy Preview. The `main` branch is reserved for the separate Netlify and Supabase production projects.
 
 After testing a generated Pull Request's Deploy Preview, an authorized repository member can approve it with `/approve-preview`. The pipeline then squash-merges it into `develop` only.
