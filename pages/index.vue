@@ -1,7 +1,7 @@
 <template>
   <div class="relative min-h-screen overflow-hidden">
     <div aria-hidden="true" class="pointer-events-none absolute inset-x-0 top-0 h-[620px] bg-[radial-gradient(ellipse_at_top,_rgba(139,92,246,0.12),_transparent_65%)]" />
-    <AppHeader contained class="relative z-10 border-b border-white/5" />
+    <AppHeader contained animate-logo-on-arrival class="relative z-10 border-b border-white/5" />
 
     <main class="relative mx-auto max-w-7xl px-5 pb-20 sm:px-8">
       <div class="mx-auto max-w-3xl pb-10 pt-10 text-center sm:pb-14 sm:pt-16">

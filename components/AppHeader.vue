@@ -10,6 +10,7 @@
       <Logo
         display-text
         size="md"
+        :play-on-home-arrival="animateLogoOnArrival"
         aria-label="Synupsis home"
       />
 
@@ -26,8 +27,10 @@
 withDefaults(defineProps<{
   compact?: boolean;
   contained?: boolean;
+  animateLogoOnArrival?: boolean;
 }>(), {
   compact: false,
   contained: true,
+  animateLogoOnArrival: false,
 });
 </script>
