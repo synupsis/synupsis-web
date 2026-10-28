@@ -17,6 +17,74 @@ export default defineNuxtConfig({
   },
   devtools: { enabled: false },
   css: ['~/assets/css/main.css'],
+  app: {
+    head: {
+      meta: [
+        { name: 'theme-color', content: '#0a0a0a' },
+        { name: 'apple-mobile-web-app-capable', content: 'yes' },
+        { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
+        { name: 'apple-mobile-web-app-title', content: 'Synupsis' },
+      ],
+      link: [
+        { rel: 'icon', href: '/favicon.ico', sizes: 'any' },
+        { rel: 'apple-touch-icon', href: '/pwa/apple-touch-icon.png', sizes: '180x180' },
+      ],
+    },
+  },
+
+  pwa: {
+    registerType: 'prompt',
+    manifest: {
+      id: '/',
+      name: 'Synupsis',
+      short_name: 'Synupsis',
+      description: 'Find your show. Refresh your memory.',
+      start_url: '/',
+      scope: '/',
+      display: 'standalone',
+      theme_color: '#0a0a0a',
+      background_color: '#0a0a0a',
+      icons: [
+        { src: '/pwa/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+        { src: '/pwa/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+        { src: '/pwa/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      ],
+    },
+    client: {
+      installPrompt: true,
+      periodicSyncForUpdates: 60 * 60,
+    },
+    workbox: {
+      cacheId: 'synupsis',
+      cleanupOutdatedCaches: true,
+      // Server-rendered pages contain session-specific data. Only static build
+      // assets are precached; API, auth, payloads and external media stay online.
+      // Read public files from the final Nitro output: Nuxt disables Vite's
+      // publicDir, so the plugin's includeAssets cannot discover these files.
+      globPatterns: ['_nuxt/**/*.{js,css,woff,woff2,svg,png,webp,ico}', 'pwa/*.png', 'offline.html', 'favicon.ico'],
+      // Immutable Nuxt build metadata is safe; its moving latest pointer must
+      // reach the server so Nuxt can still detect subsequent deployments.
+      globIgnores: ['**/_payload.json', '**/builds/latest.json'],
+      // Nuxt's default transform rewrites .html URLs as page routes. The offline
+      // document is a public file, so preserve its exact URL in the precache.
+      manifestTransforms: [async entries => ({ manifest: entries, warnings: [] })],
+      navigateFallback: null,
+      runtimeCaching: [{
+        urlPattern: ({ request, url }) => request.mode === 'navigate'
+          && url.origin === self.location.origin
+          && url.pathname !== '/api'
+          && !url.pathname.startsWith('/api/')
+          && !url.pathname.startsWith('/_nuxt/'),
+        handler: 'NetworkOnly',
+        options: { precacheFallback: { fallbackURL: '/offline.html' } },
+      }],
+    },
+  },
+
+  routeRules: {
+    '/sw.js': { headers: { 'cache-control': 'no-cache' } },
+    '/manifest.webmanifest': { headers: { 'cache-control': 'no-cache' } },
+  },
 
   postcss: {
     plugins: {
@@ -40,7 +108,8 @@ export default defineNuxtConfig({
   modules: [
     '@nuxtjs/supabase',
     'shadcn-nuxt',
-    '@nuxtjs/color-mode'
+    '@nuxtjs/color-mode',
+    '@vite-pwa/nuxt'
   ],
   shadcn: {
     prefix: '',

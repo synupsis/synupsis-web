@@ -1,11 +1,13 @@
 <template>
   <div class="flex flex-col min-h-screen">
+    <NuxtPwaManifest />
     <NuxtRouteAnnouncer />
     <NuxtLoadingIndicator />
     <NuxtPage class="flex-grow" />
     <Footer v-if="showFooter" :compact="compactFooter" />
     <ClientOnly>
       <RecapStoryOverlay />
+      <PwaStatus />
     </ClientOnly>
     <Toaster position="top-center" />
   </div>

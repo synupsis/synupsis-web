@@ -10,11 +10,15 @@
       <Logo
         display-text
         size="md"
+        :class="{ 'max-[420px]:[&>img:last-child]:hidden': installAvailable }"
         :play-on-home-arrival="animateLogoOnArrival"
         :aria-label="t('Synupsis home')"
       />
 
-      <nav :aria-label="t('Account')" class="flex shrink-0 items-center">
+      <nav :aria-label="t('Account')" class="flex shrink-0 items-center gap-1 sm:gap-2">
+        <ClientOnly>
+          <PwaInstallButton @availability="installAvailable = $event" />
+        </ClientOnly>
         <slot name="account">
           <UserAuthStatus />
         </slot>
@@ -25,6 +29,7 @@
 
 <script setup lang="ts">
 const { t } = useI18n();
+const installAvailable = ref(false);
 withDefaults(defineProps<{
   compact?: boolean;
   contained?: boolean;

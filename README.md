@@ -7,6 +7,7 @@ Generate a quick summary for all seasons of all TV series of the world.
 - Search a show
 - Display show informations and seasons
 - French and English display languages, detected from the browser with an account preference
+- Installable PWA on desktop and mobile, with an offline fallback
 - [WIP] Authentication
 - [WIP] Create recap canvas
 
@@ -70,6 +71,43 @@ register the matching French entry in a domain catalog under `lib/i18n/`.
 Translate in a template or computed value to keep language changes reactive.
 Translation coverage, interpolation parameters, language negotiation and account
 preference persistence are checked by `yarn test:pipeline`.
+
+## Progressive web app
+
+Production builds generate a web app manifest and a versioned service worker with
+`@vite-pwa/nuxt`. Serve the app over HTTPS (or `localhost` for local testing).
+Chrome and Edge offer **Install Synupsis** in the header when installation is
+available. On iPhone and iPad, the button explains Safari's **Share → Add to Home
+Screen** flow. Installed apps open in their own window with the Synupsis icon.
+
+The service worker precaches application scripts, styles, icons and a standalone
+French/English offline page. It never caches server-rendered pages, API responses,
+Supabase sessions, user data, videos or external images. Searching, reading recaps,
+using the library and generating content still require a connection. If the app
+is already open, a banner indicates loss of connectivity; opening or refreshing a
+page offline displays the fallback with a retry button.
+
+New builds show an update prompt. Users can postpone it, save any work, then
+reload explicitly. The app checks for updates when it opens and hourly while open.
+PWA registration is disabled in `yarn dev`, so test a production build:
+
+```bash
+yarn build
+RECAP_GENERATION_WORKER=false yarn preview
+```
+
+In browser developer tools, check **Application → Manifest** and **Service
+Workers**. After the worker activates, switch the browser offline and refresh
+both `/` and a nested route; each should show the translated fallback. API calls
+must fail normally rather than receiving cached data or fallback HTML. Restore
+the connection and retry. To test an update, keep an old build open, rebuild and
+restart the preview, then use **Update** in the Service Workers panel. Verify the
+update notice appears and only reloads after clicking **Update**. Real-device
+installation, including the iOS home screen, should also be checked after deploying.
+
+The reverse proxy must serve `/sw.js` and `/manifest.webmanifest` with revalidation
+(`Cache-Control: no-cache`, configured in Nuxt), and must not cache personalized
+HTML. Keep these headers intact when configuring a CDN.
 
 ## Validation
 
