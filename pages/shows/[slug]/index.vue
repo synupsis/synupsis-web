@@ -78,11 +78,11 @@
           </div>
           <!-- A scroller clips both axes: its top padding, taken back by a negative margin, leaves room for the ring halo, wider on hover. -->
           <div
-            v-if="sortedSeasons.length"
+            v-if="seasonsChronological.length"
             class="-mx-5 -mt-6 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-2 pt-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:mt-0 sm:flex-wrap sm:gap-x-4 sm:gap-y-5 sm:overflow-visible sm:px-0 sm:pb-0 sm:pt-0"
           >
             <SeasonStory
-              v-for="(season, index) in sortedSeasons"
+              v-for="season in seasonsChronological"
               :key="season.id"
               class="snap-start"
               :season="withRecapsInLocale(season)"
@@ -91,7 +91,7 @@
               :generation-progress="recapGenerationOf(season.id)?.progress ?? 0"
               :generation-label="recapGenerationOf(season.id)?.label"
               :generation-error="recapGenerationOf(season.id)?.error ?? null"
-              :is-latest="index === 0"
+              :is-latest="season.number === sortedSeasons[0]?.number"
               :spoiler-locked="!isRecapUnlocked(season.number)"
               @view="goToRecap"
               @edit="goToRecapEditor(showData.id, season.id, $event)"
