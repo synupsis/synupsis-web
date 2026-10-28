@@ -45,6 +45,18 @@ export async function resolveWatchedEpisode(event: H3Event) {
   return { client, user, showId: show.id, season, episode };
 }
 
+/** The signed-in viewer, with the session's row security, and the series of the address. */
+export async function resolveShowForComments(event: H3Event) {
+  const user = await requireAuthenticatedUser(event);
+  const traktId = Number(event.context.params?.slug?.split('-').pop());
+  if (!Number.isInteger(traktId) || traktId <= 0) throw createError({ statusCode: 400, statusMessage: 'Invalid show.' });
+  const client = await serverSupabaseClient<Database>(event);
+  const { data: show, error } = await client.from('show').select('id').eq('trakt_id', traktId).maybeSingle();
+  if (error) throw createError({ statusCode: 500, statusMessage: 'Could not load this show.' });
+  if (!show) throw createError({ statusCode: 404, statusMessage: 'Show not found.' });
+  return { client, user, showId: show.id };
+}
+
 export function toEpisodeComment(row: EpisodeCommentRow, viewerId: string): EpisodeComment {
   const likes = row.likes ?? [];
   const reportedAsSpoiler = (row.spoiler_report_count ?? 0) >= SPOILER_REPORT_THRESHOLD;

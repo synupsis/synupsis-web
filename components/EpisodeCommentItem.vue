@@ -107,6 +107,7 @@ import { EllipsisIcon, EyeIcon, EyeOffIcon, FlagIcon, HeartIcon, ShieldXIcon, Tr
 import { computed, ref } from 'vue';
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/shadcn/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '~/components/shadcn/dropdown-menu';
+import { formatAbsoluteDate, formatRelativeDate } from '~/lib/relative-date';
 import type { EpisodeComment } from '~/types/episode-comment.types';
 
 const props = defineProps<{
@@ -181,21 +182,8 @@ function preventDoubleClickSelection(event: MouseEvent) {
   if (event.detail > 1 && !(event.target as HTMLElement).closest('button, a')) event.preventDefault();
 }
 
-const RELATIVE_UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
-  ['year', 31_536_000], ['month', 2_592_000], ['week', 604_800], ['day', 86_400], ['hour', 3_600], ['minute', 60],
-];
-
-const relativeDate = computed(() => {
-  const seconds = (new Date(props.comment.createdAt).getTime() - Date.now()) / 1000;
-  const format = new Intl.RelativeTimeFormat(locale.value, { numeric: 'auto', style: 'short' });
-  for (const [unit, size] of RELATIVE_UNITS) {
-    if (Math.abs(seconds) >= size) return format.format(Math.round(seconds / size), unit);
-  }
-  return t('just now');
-});
-
-const absoluteDate = computed(() => new Date(props.comment.createdAt)
-  .toLocaleString(locale.value, { dateStyle: 'long', timeStyle: 'short' }));
+const relativeDate = computed(() => formatRelativeDate(props.comment.createdAt, locale.value, t('just now')));
+const absoluteDate = computed(() => formatAbsoluteDate(props.comment.createdAt, locale.value));
 </script>
 
 <style>

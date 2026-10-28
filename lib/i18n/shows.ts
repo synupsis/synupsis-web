@@ -245,5 +245,14 @@ export const showMessages: Record<string, string> = {
   "Watched up to S{season}E{episode}": "Vu jusqu’à S{season}E{episode}",
   "Starting season {number}": "Début de la saison {number}",
   "Not tracked": "Sans suivi",
-  "Resume": "Reprendre"
+  "Resume": "Reprendre",
+  "Comments from the episodes you have watched show up here. Open an episode from the tracker to write the first one.": "Les commentaires des épisodes que vous avez vus s’affichent ici. Ouvrez un épisode depuis le suivi pour écrire le premier.",
+  "Join the discussion": "Rejoignez la discussion",
+  "Loading…": "Chargement…",
+  "No comments yet": "Pas encore de commentaires",
+  "Open the comments of season {season}, episode {episode}": "Ouvrir les commentaires de la saison {season}, épisode {episode}",
+  "Show more comments": "Voir plus de commentaires",
+  "Sign in": "Se connecter",
+  "Mark the last episode you watched: the comments about it, and the ones before, will show up here.": "Indiquez le dernier épisode que vous avez vu : ses commentaires et ceux des épisodes précédents s’afficheront ici.",
+  "Sign in and track your progress: you will see the comments about the episodes you have watched, and nothing after.": "Connectez-vous et suivez votre avancement : vous verrez les commentaires des épisodes que vous avez vus, et rien après."
 };

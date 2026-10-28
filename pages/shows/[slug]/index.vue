@@ -147,38 +147,27 @@
 
       <section id="discussion" class="scroll-mt-16 py-10 sm:py-16">
         <div class="mx-auto max-w-7xl px-5 lg:px-8">
-          <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h2 class="text-2xl font-bold sm:text-3xl">{{ t('Discussion') }}</h2>
-              <p class="mt-2 text-sm text-muted-foreground">{{ t('With people who are at the same point as you') }}</p>
-            </div>
-            <div class="flex gap-1.5" role="group" :aria-label="t('Discussion type')">
-              <button
-                v-for="tab in discussionTabs"
-                :key="tab.id"
-                type="button"
-                class="shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
-                :class="discussionTab === tab.id ? 'border-primary/50 bg-primary/15 text-primary' : 'border-white/10 bg-white/[0.025] text-muted-foreground hover:border-white/20 hover:text-white'"
-                :aria-pressed="discussionTab === tab.id"
-                @click="discussionTab = tab.id"
-              >
-                {{ tab.label }}
-              </button>
-            </div>
-          </div>
-          <div class="mt-6 rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-6 text-center sm:p-10">
+          <h2 class="text-2xl font-bold sm:text-3xl">{{ t('Comments') }}</h2>
+          <!-- Discussions are read with the viewer's progress: nothing beyond it shows up. -->
+          <div v-if="!user" class="mt-6 rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-6 text-center sm:p-10">
             <MessagesSquareIcon class="mx-auto h-7 w-7 text-muted-foreground" aria-hidden="true" />
-            <template v-if="discussionTab === 'theories'">
-              <h3 class="mt-4 font-semibold">{{ t('No theories yet') }}</h3>
-              <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">{{ t('Each theory will list the episodes it is based on. You will only see theories based on episodes you have already watched.') }}</p>
-            </template>
-            <template v-else>
-              <h3 class="mt-4 font-semibold">{{ t('Comments on episode {number}', { number: activeDiscussionEpisode?.episode ?? '' }) }}</h3>
-              <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">{{ t('Only people who have watched this episode can read and write here. Discuss only what happened up to S{season}E{episode}.', { season: activeDiscussionEpisode?.season ?? '', episode: activeDiscussionEpisode?.episode ?? '' }) }}</p>
-            </template>
-            <Button v-if="discussionTab === 'episode' && activeDiscussionEpisode" type="button" class="mt-5 rounded-full" @click="openEpisodeDiscussion(activeDiscussionEpisode)">{{ t('Open the comments') }}</Button>
-            <Button v-else type="button" class="mt-5 rounded-full" disabled>{{ t('Coming soon') }}</Button>
+            <h3 class="mt-4 font-semibold">{{ t('Join the discussion') }}</h3>
+            <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">{{ t('Sign in and track your progress: you will see the comments about the episodes you have watched, and nothing after.') }}</p>
+            <Button type="button" class="mt-5 rounded-full" @click="requireAccount">{{ t('Sign in') }}</Button>
           </div>
+          <div v-else-if="!reachedEpisode" class="mt-6 rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-6 text-center sm:p-10">
+            <MessagesSquareIcon class="mx-auto h-7 w-7 text-muted-foreground" aria-hidden="true" />
+            <h3 class="mt-4 font-semibold">{{ t('Where are you up to?') }}</h3>
+            <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">{{ t('Mark the last episode you watched: the comments about it, and the ones before, will show up here.') }}</p>
+          </div>
+          <ShowCommentsFeed
+            v-else
+            ref="commentsFeed"
+            class="mt-6"
+            :slug="String(route.params.slug)"
+            :progress-key="progressKey"
+            @open-episode="openEpisodeDiscussion"
+          />
         </div>
       </section>
 
@@ -196,6 +185,7 @@
       :episode="commentsEpisode.episode"
       :episode-title="commentsEpisode.title"
     />
+
   </div>
 </template>
 
@@ -212,6 +202,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import CharacterProfileCard from '~/components/CharacterProfileCard.vue';
 import EpisodeComments from '~/components/EpisodeComments.vue';
 import EpisodeTracker from '~/components/EpisodeTracker.vue';
+import ShowCommentsFeed from '~/components/ShowCommentsFeed.vue';
 import SeasonStory from '~/components/SeasonStory.vue';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import { proxiedImageUrl } from '~/lib/image-url';
@@ -425,22 +416,9 @@ const areCharactersExpanded = ref(false);
 const displayedCharacterProfiles = computed(() => areCharactersExpanded.value
   ? knownCharacterProfiles.value
   : knownCharacterProfiles.value.slice(0, CHARACTER_PREVIEW_COUNT));
-type DiscussionTab = 'theories' | 'episode';
-const discussionTab = ref<DiscussionTab>('theories');
-const discussionEpisode = ref<{ season: number; episode: number } | null>(null);
-const lastSeenEpisode = computed(() => reachedSeasonNumber.value && reachedEpisode.value
-  ? { season: reachedSeasonNumber.value, episode: reachedEpisode.value }
-  : null);
-const activeDiscussionEpisode = computed(() => discussionEpisode.value ?? lastSeenEpisode.value);
-const discussionTabs = computed(() => [
-  { id: 'theories' as const, label: t('Theories') },
-  ...(activeDiscussionEpisode.value
-    ? [{ id: 'episode' as const, label: t('Episode {number}', { number: activeDiscussionEpisode.value.episode }) }]
-    : []),
-]);
-watch(lastSeenEpisode, (episode) => {
-  if (!episode && discussionTab.value === 'episode' && !discussionEpisode.value) discussionTab.value = 'theories';
-});
+// The feed reloads when the progress moves: other episodes come into reach.
+const progressKey = computed(() => `${reachedSeasonNumber.value}-${reachedEpisode.value}`);
+const commentsFeed = ref<{ reload: () => void } | null>(null);
 function castMemberCharacterNames(member: any): string[] {
   const values = [
     ...(Array.isArray(member?.characters) ? member.characters : []),
@@ -528,7 +506,6 @@ function resetProgress() {
   }
   reachedSeasonNumber.value = 0;
   reachedEpisode.value = 0;
-  discussionEpisode.value = null;
   persistProgress();
 }
 
@@ -540,7 +517,6 @@ function markEpisodeSeen(position: { season: number; episode: number }) {
   if (!requireAccount()) return;
   reachedSeasonNumber.value = position.season;
   reachedEpisode.value = Math.max(0, position.episode);
-  discussionEpisode.value = null;
   persistProgress();
 }
 
@@ -559,11 +535,9 @@ async function removeFromLibrary() {
   const previousShield = spoilerShieldEnabled.value;
   const previousSeason = reachedSeasonNumber.value;
   const previousEpisode = reachedEpisode.value;
-  const previousDiscussion = discussionEpisode.value;
   spoilerShieldEnabled.value = true;
   reachedSeasonNumber.value = 0;
   reachedEpisode.value = 0;
-  discussionEpisode.value = null;
   const previous = libraryEntry.value;
   libraryEntry.value = null;
   syncProgressQuery();
@@ -576,7 +550,6 @@ async function removeFromLibrary() {
         spoilerShieldEnabled.value = previousShield;
         reachedSeasonNumber.value = previousSeason;
         reachedEpisode.value = previousEpisode;
-        discussionEpisode.value = previousDiscussion;
         syncProgressQuery();
       }
       toast.error(t('Could not update your library.'));
@@ -613,8 +586,6 @@ watch(requestedComments, (position) => {
       ? progressEpisodeCatalog.value.episodes.find(episode => episode.number === position.episode)?.title || null
       : null);
   commentsEpisode.value = { ...position, title };
-  discussionEpisode.value = position;
-  discussionTab.value = 'episode';
 }, { immediate: true });
 
 const commentsOpen = computed({
@@ -622,6 +593,10 @@ const commentsOpen = computed({
   set: (open) => {
     if (!open) closeEpisodeDiscussion();
   },
+});
+// Back from an episode's comments, the feed shows what was just written.
+watch(commentsOpen, (open) => {
+  if (!open) commentsFeed.value?.reload();
 });
 
 function openEpisodeDiscussion(position: { season: number; episode: number; title?: string | null }) {

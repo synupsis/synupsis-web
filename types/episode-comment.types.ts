@@ -35,3 +35,10 @@ export type ReportedEpisodeComment = {
   season: number;
   episode: number;
 };
+
+/** A comment of the series' feed, with the episode it was written on. */
+export type ShowFeedComment = {
+  season: number;
+  episode: number;
+  comment: EpisodeComment;
+};

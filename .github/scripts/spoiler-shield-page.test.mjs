@@ -285,13 +285,12 @@ test('resetting and resuming progress preserve the saved disabled shield', async
   assert.equal(page.cursorForSeason(3), 999);
 });
 
-test('failed removal restores the saved shield, progress, discussion and progress URL', async t => {
+test('failed removal restores the saved shield, progress and progress URL', async t => {
   for (const spoilerShieldEnabled of [true, false]) {
     const savedEntry = { ...entry, spoilerShieldEnabled };
     const { page, mutations, replacements, notifications } = await createPage(t, {
       savedEntry, query: { season: '2', episode: '2', locale: 'fr' },
     });
-    page.discussionEpisode.value = { season: 2, episode: 1 };
     const removing = page.removeFromLibrary();
     assert.equal(page.libraryEntry.value, null);
     assert.equal(page.reachedSeasonNumber.value, 0);
@@ -304,7 +303,6 @@ test('failed removal restores the saved shield, progress, discussion and progres
     assert.equal(page.spoilerShieldEnabled.value, spoilerShieldEnabled);
     assert.equal(page.reachedSeasonNumber.value, 2);
     assert.equal(page.reachedEpisode.value, 2);
-    assert.deepEqual(plain(page.discussionEpisode.value), { season: 2, episode: 1 });
     assert.deepEqual(replacements.at(-1), { query: { season: 2, episode: 2, locale: 'fr' } });
     assert.equal(page.isRecapUnlocked(3), !spoilerShieldEnabled);
     assert.deepEqual(notifications, ['Could not update your library.']);
