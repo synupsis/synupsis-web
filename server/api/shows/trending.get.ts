@@ -1,4 +1,4 @@
-import axios from 'axios';
+import type { TraktShowCard } from '~/types/trakt.types';
 import { createTraktHeaders } from '~/server/utils/trakt';
 
 type TraktShowImageSet = {
@@ -43,15 +43,16 @@ function mapTraktShow(entry: TraktShowEntry) {
   };
 }
 
-export default defineEventHandler(async () => {
+// The explicit return type keeps Nitro's typed $fetch from referencing this handler.
+export default defineEventHandler(async (): Promise<TraktShowCard[]> => {
   try {
     const clientId = process.env.TRAKT_CLIENT_ID;
     const url = 'https://api.trakt.tv/shows/trending?extended=images';
 
     const headers = createTraktHeaders(clientId);
 
-    const response = await axios.get(url, { headers });
-    const shows = Array.isArray(response.data) ? response.data : [];
+    const response = await $fetch<unknown>(url, { headers });
+    const shows = Array.isArray(response) ? response : [];
 
     const trendingShows = shows
       .slice(0, 10)
@@ -68,8 +69,8 @@ export default defineEventHandler(async () => {
 
       const headers = createTraktHeaders(clientId);
 
-      const fallbackResponse = await axios.get(fallbackUrl, { headers });
-      const fallbackShows = Array.isArray(fallbackResponse.data) ? fallbackResponse.data : [];
+      const fallbackResponse = await $fetch<unknown>(fallbackUrl, { headers });
+      const fallbackShows = Array.isArray(fallbackResponse) ? fallbackResponse : [];
 
       const popularShows = fallbackShows
         .slice(0, 10)

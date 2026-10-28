@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { createTraktHeaders } from '~/server/utils/trakt';
 
 type TraktEpisode = {
@@ -22,7 +21,7 @@ export default defineCachedEventHandler(async (event) => {
   }
 
   try {
-    const { data } = await axios.get<TraktEpisode[]>(
+    const data = await $fetch<TraktEpisode[]>(
       `https://api.trakt.tv/shows/${traktId}/seasons/${seasonNumber}?extended=full`,
       {
         headers: createTraktHeaders(clientId),
@@ -57,7 +56,7 @@ export default defineCachedEventHandler(async (event) => {
       totalEpisodes: episodes.reduce((maximum, episode) => Math.max(maximum, episode.number), 0),
     };
   } catch (cause: any) {
-    const statusCode = Number(cause.response?.status);
+    const statusCode = Number(cause.statusCode);
     throw createError({
       statusCode: Number.isInteger(statusCode) && statusCode >= 400 ? statusCode : 502,
       statusMessage: 'Could not load the episodes for this season.',

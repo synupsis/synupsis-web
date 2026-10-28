@@ -1,6 +1,5 @@
 import { serverSupabaseClient } from '#supabase/server';
 import type { H3Event } from 'h3';
-import axios from 'axios';
 import type { Database } from '~/types/database.types';
 import { createTraktHeaders } from '~/server/utils/trakt';
 
@@ -60,7 +59,7 @@ export default defineEventHandler(async (event: H3Event) => {
     const traktUrl = `https://api.trakt.tv/shows/${showData.trakt_id}/seasons/${seasonData.number}?extended=full`;
     const headers = createTraktHeaders(clientId);
 
-    const { data: traktEpisodes } = await axios.get(traktUrl, { headers, timeout: 15_000 });
+    const traktEpisodes = await $fetch<any[]>(traktUrl, { headers, timeout: 15_000 });
 
     const images = traktEpisodes.flatMap((episode: any) => {
       const screenshotUrls = episode?.images?.screenshot;

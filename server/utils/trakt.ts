@@ -3,11 +3,11 @@
 // See https://developer.trakt.tv/docs/required-headers
 export const TRAKT_USER_AGENT = 'Synupsis/1.0.0';
 
-export function createTraktHeaders(clientId: string | undefined) {
+export function createTraktHeaders(clientId: string | undefined): Record<string, string> {
   return {
     'Content-Type': 'application/json',
     'User-Agent': TRAKT_USER_AGENT,
     'trakt-api-version': '2',
-    'trakt-api-key': clientId,
+    ...(clientId ? { 'trakt-api-key': clientId } : {}),
   };
 }

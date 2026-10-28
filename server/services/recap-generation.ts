@@ -1,4 +1,3 @@
-import axios from 'axios';
 import OpenAI from 'openai';
 import { proxiedImageUrl } from '~/lib/image-url';
 import { defaultRecapPromptTemplate } from '~/lib/prompts/defaultPrompt';
@@ -546,11 +545,11 @@ export async function fetchRecapSourceSnapshot(input: {
   const seasonUrl = `https://api.trakt.tv/shows/${input.showTraktId}/seasons/${input.seasonNumber}?extended=full`;
   const showUrl = `https://api.trakt.tv/shows/${input.showTraktId}?extended=full`;
   const [seasonResponse, showResponse] = await Promise.all([
-    axios.get(seasonUrl, { headers, timeout: 15_000 }),
-    axios.get(showUrl, { headers, timeout: 15_000 }),
+    $fetch<any>(seasonUrl, { headers, timeout: 15_000 }),
+    $fetch<any>(showUrl, { headers, timeout: 15_000 }),
   ]);
-  const traktEpisodes = Array.isArray(seasonResponse.data) ? seasonResponse.data : [];
-  const traktShow = showResponse.data || {};
+  const traktEpisodes = Array.isArray(seasonResponse) ? seasonResponse : [];
+  const traktShow = showResponse || {};
 
   if (traktEpisodes.length === 0) {
     throw new Error('Trakt returned no episodes for this season.');
@@ -695,7 +694,7 @@ function createTmdbRequestConfig() {
   return {
     timeout: 15_000,
     headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-    params: apiKey ? { api_key: apiKey } : undefined,
+    query: apiKey ? { api_key: apiKey } : undefined,
   };
 }
 
@@ -713,24 +712,24 @@ export async function fetchTmdbCoverArt(input: { tmdbId: number | null; seasonNu
   if (!input.tmdbId || !requestConfig) return null;
   const imageConfig = {
     ...requestConfig,
-    params: { ...requestConfig.params, include_image_language: 'fr,en,null' },
+    query: { ...requestConfig.query, include_image_language: 'fr,en,null' },
   };
   const byVotes = (first: any, second: any) => (Number(second.vote_average) || 0) - (Number(first.vote_average) || 0);
   const withPath = (images: unknown) => (Array.isArray(images) ? images : []).filter((image: any) => typeof image?.file_path === 'string');
 
   try {
     const [showImages, seasonImages] = await Promise.all([
-      axios.get(`https://api.themoviedb.org/3/tv/${input.tmdbId}/images`, imageConfig),
-      axios.get(`https://api.themoviedb.org/3/tv/${input.tmdbId}/season/${input.seasonNumber}/images`, imageConfig).catch(() => null),
+      $fetch<any>(`https://api.themoviedb.org/3/tv/${input.tmdbId}/images`, imageConfig),
+      $fetch<any>(`https://api.themoviedb.org/3/tv/${input.tmdbId}/season/${input.seasonNumber}/images`, imageConfig).catch(() => null),
     ]);
-    const seasonPosters = withPath(seasonImages?.data?.posters).sort(byVotes);
-    const showPosters = withPath(showImages.data?.posters).sort(byVotes);
+    const seasonPosters = withPath(seasonImages?.posters).sort(byVotes);
+    const showPosters = withPath(showImages?.posters).sort(byVotes);
     const poster = seasonPosters.find((image: any) => !image.iso_639_1)
       ?? showPosters.find((image: any) => !image.iso_639_1)
       ?? seasonPosters[0]
       ?? showPosters[0];
     const languageRank = (image: any) => (image.iso_639_1 === 'fr' ? 0 : image.iso_639_1 === 'en' ? 1 : 2);
-    const logo = withPath(showImages.data?.logos)
+    const logo = withPath(showImages?.logos)
       .sort((first: any, second: any) => languageRank(first) - languageRank(second) || byVotes(first, second))[0];
     return {
       posterUrl: poster ? `https://image.tmdb.org/t/p/w780${poster.file_path}` : null,
@@ -766,20 +765,19 @@ async function fetchTmdbImages(input: {
 
   try {
     const [showImages, ...episodeImages] = await Promise.all([
-      axios.get(`https://api.themoviedb.org/3/tv/${input.tmdbId}/images`, {
+      $fetch<any>(`https://api.themoviedb.org/3/tv/${input.tmdbId}/images`, {
         ...requestConfig,
-        params: { ...requestConfig.params, include_image_language: 'null,en' },
+        query: { ...requestConfig.query, include_image_language: 'null,en' },
       }),
-      ...input.episodeNumbers.map(episodeNumber => axios
-        .get(`https://api.themoviedb.org/3/tv/${input.tmdbId}/season/${input.seasonNumber}/episode/${episodeNumber}/images`, requestConfig)
+      ...input.episodeNumbers.map(episodeNumber => $fetch<any>(`https://api.themoviedb.org/3/tv/${input.tmdbId}/season/${input.seasonNumber}/episode/${episodeNumber}/images`, requestConfig)
         .catch(() => null)),
     ]);
     const stills = new Map<number, string[]>();
     input.episodeNumbers.forEach((episodeNumber, index) => {
-      const urls = toUrls(episodeImages[index]?.data?.stills, MAX_STILLS_PER_EPISODE);
+      const urls = toUrls(episodeImages[index]?.stills, MAX_STILLS_PER_EPISODE);
       if (urls.length) stills.set(episodeNumber, urls);
     });
-    return { stills, backdrops: toUrls(showImages.data?.backdrops, MAX_BACKDROPS) };
+    return { stills, backdrops: toUrls(showImages?.backdrops, MAX_BACKDROPS) };
   } catch (error) {
     console.warn('TMDB images are unavailable; slides keep the episode images.', toErrorMessage(error));
     return null;
@@ -798,8 +796,8 @@ async function fetchTmdbEvidence(input: {
 
   try {
     const [frenchResponse, englishResponse] = await Promise.all([
-      axios.get(url, { ...requestConfig, params: { ...requestConfig.params, language: 'fr-FR' } }),
-      axios.get(url, { ...requestConfig, params: { ...requestConfig.params, language: 'en-US' } }),
+      $fetch<any>(url, { ...requestConfig, query: { ...requestConfig.query, language: 'fr-FR' } }),
+      $fetch<any>(url, { ...requestConfig, query: { ...requestConfig.query, language: 'en-US' } }),
     ]);
     const episodeEvidence = new Map<number, RecapEvidence[]>();
     const seasonEvidence: RecapEvidence[] = [];
@@ -844,8 +842,8 @@ async function fetchTmdbEvidence(input: {
       });
     };
 
-    appendResponseEvidence(frenchResponse.data, 'fr');
-    appendResponseEvidence(englishResponse.data, 'en');
+    appendResponseEvidence(frenchResponse, 'fr');
+    appendResponseEvidence(englishResponse, 'en');
 
     return {
       providers: [createRecapSourceProvider(
@@ -857,7 +855,7 @@ async function fetchTmdbEvidence(input: {
       episodeEvidence,
     };
   } catch (error) {
-    const message = axios.isAxiosError(error) && error.response?.status === 401
+    const message = (error as { statusCode?: number } | undefined)?.statusCode === 401
       ? 'TMDB rejected the configured credential. Use TMDB_API_READ_ACCESS_TOKEN for a long v4 Read Access Token, or TMDB_API_KEY for a short v3 API key.'
       : toErrorMessage(error);
     console.warn('TMDB recap enrichment is unavailable; continuing with other sources.', message);
@@ -875,15 +873,15 @@ async function fetchTvMazeEvidence(input: {
 
   try {
     const lookupParams = input.tvdbId ? { thetvdb: input.tvdbId } : { imdb: input.imdbId };
-    const { data: show } = await axios.get('https://api.tvmaze.com/lookup/shows', {
-      params: lookupParams,
+    const show = await $fetch<any>('https://api.tvmaze.com/lookup/shows', {
+      query: lookupParams,
       timeout: 15_000,
     });
     const showId = toPositiveInteger(show?.id);
     if (!showId) return null;
 
-    const { data } = await axios.get(`https://api.tvmaze.com/shows/${showId}/episodes`, {
-      params: { specials: 1 },
+    const data = await $fetch<any>(`https://api.tvmaze.com/shows/${showId}/episodes`, {
+      query: { specials: 1 },
       timeout: 15_000,
     });
     const seasonEpisodeIds = (Array.isArray(data) ? data : [])
@@ -1017,13 +1015,12 @@ async function fetchTvMazePortraits(showId: number, episodeIds: number[]): Promi
   });
   try {
     const [cast, ...guestCasts] = await Promise.all([
-      axios.get(`https://api.tvmaze.com/shows/${showId}/cast`, { timeout: 15_000 }),
-      ...episodeIds.map(episodeId => axios
-        .get(`https://api.tvmaze.com/episodes/${episodeId}/guestcast`, { timeout: 15_000 })
+      $fetch<any>(`https://api.tvmaze.com/shows/${showId}/cast`, { timeout: 15_000 }),
+      ...episodeIds.map(episodeId => $fetch<any>(`https://api.tvmaze.com/episodes/${episodeId}/guestcast`, { timeout: 15_000 })
         .catch(() => null)),
     ]);
     const portraits = new Map<string, RecapCharacterPortrait>();
-    [cast, ...guestCasts].flatMap(response => toPortraits(response?.data)).forEach((portrait) => {
+    [cast, ...guestCasts].flatMap(response => toPortraits(response)).forEach((portrait) => {
       const key = normalizeCharacterKey(portrait.name);
       if (!portraits.has(key)) portraits.set(key, portrait);
     });

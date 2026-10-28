@@ -1,4 +1,3 @@
-import axios from 'axios';
 import type { RecapEvidence, RecapSourceProvider } from '~/server/services/recap-generation';
 import { createRecapSourceProvider, getRecapSourcePolicy } from '~/server/services/recap-source-registry';
 
@@ -563,16 +562,18 @@ async function fetchWikidataEntities(ids: string[], props: string): Promise<any[
 async function getWikimediaJson(url: string, params: Record<string, string | number>): Promise<any> {
   for (let attempt = 0; ; attempt += 1) {
     try {
-      const { data } = await axios.get(url, {
+      return await $fetch<any>(url, {
         headers: REQUEST_HEADERS,
         timeout: 15_000,
-        params: { format: 'json', formatversion: 2, ...params },
+        query: { format: 'json', formatversion: 2, ...params },
+        // This loop handles retries and honours Retry-After.
+        retry: 0,
       });
-      return data;
     } catch (error) {
-      const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+      const response = (error as { response?: Response } | undefined)?.response;
+      const status = response?.status;
       if ((status !== 429 && status !== 503) || attempt >= MAX_RETRIES) throw error;
-      const retryAfterSeconds = Number(axios.isAxiosError(error) ? error.response?.headers?.['retry-after'] : Number.NaN);
+      const retryAfterSeconds = Number(response?.headers.get('retry-after') ?? Number.NaN);
       const delayMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
         ? Math.min(retryAfterSeconds, 5) * 1_000
         : 1_000 * (attempt + 1);

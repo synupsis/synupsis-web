@@ -7,7 +7,6 @@ import {
   selectTvMazeLookup,
   toTvMazeCharacterProfiles,
 } from '~/server/services/tvmaze-character-cast';
-import axios from 'axios';
 import { createTraktHeaders } from '~/server/utils/trakt';
 
 const getTvMazeCharacterProfiles = defineCachedFunction(
@@ -21,10 +20,10 @@ const getTvMazeCharacterProfiles = defineCachedFunction(
       },
       timeout: 8_000,
     };
-    const { data: tvMazeShow } = await axios.get<{ id?: number }>(lookupUrl.toString(), requestConfig);
+    const tvMazeShow = await $fetch<{ id?: number }>(lookupUrl.toString(), requestConfig);
     if (!Number.isInteger(tvMazeShow?.id)) return [];
 
-    const { data: tvMazeCast } = await axios.get<unknown>(
+    const tvMazeCast = await $fetch<unknown>(
       `https://api.tvmaze.com/shows/${tvMazeShow.id}/cast`,
       requestConfig,
     );
@@ -86,7 +85,7 @@ async function createShowInDb(supabase: SupabaseClient<Database>, traktShow: any
   const clientId = process.env.TRAKT_CLIENT_ID;
   const seasonsUrl = `https://api.trakt.tv/shows/${ids.trakt}/seasons?extended=full,images`;
   const headers = createTraktHeaders(clientId);
-  const { data: traktSeasons } = await axios.get(seasonsUrl, { headers });
+  const traktSeasons = await $fetch<any[]>(seasonsUrl, { headers });
 
   const seasonsToInsert = traktSeasons.map((s: any) => ({
     trakt_id: s.ids.trakt,
@@ -132,7 +131,7 @@ export default defineEventHandler(async (event) => {
       const headers = createTraktHeaders(clientId);
 
       const traktUrl = `https://api.trakt.tv/shows/${traktId}?extended=full,images`;
-      const { data: traktShow } = await axios.get(traktUrl, { headers });
+      const traktShow = await $fetch<any>(traktUrl, { headers });
       traktShowDetails = traktShow;
 
       await createShowInDb(serverSupabaseServiceRole<Database>(event), traktShow);
@@ -145,14 +144,13 @@ export default defineEventHandler(async (event) => {
     const castUrl = `https://api.trakt.tv/shows/${traktId}/people?extended=images`;
     const showDetailsRequest = traktShowDetails
       ? Promise.resolve(traktShowDetails)
-      : axios.get(`https://api.trakt.tv/shows/${traktId}?extended=full`, { headers })
-          .then(response => response.data)
+      : $fetch<any>(`https://api.trakt.tv/shows/${traktId}?extended=full`, { headers })
           .catch((error) => {
             console.warn(`Unable to retrieve external show identifiers for Trakt ${traktId}:`, error.message);
             return null;
           });
-    const [{ data: traktCast }, resolvedShowDetails] = await Promise.all([
-      axios.get(castUrl, { headers }),
+    const [traktCast, resolvedShowDetails] = await Promise.all([
+      $fetch<any>(castUrl, { headers }),
       showDetailsRequest,
     ]);
     cast = Array.isArray(traktCast?.cast) ? traktCast.cast : [];
@@ -175,8 +173,9 @@ export default defineEventHandler(async (event) => {
 
     return { show };
   } catch (error: any) {
-    const statusMessage = error.response?.data?.message || error.message || 'An internal error occurred';
-    const statusCode = error.response?.status || 500;
+    // Upstream FetchErrors and our own H3 errors both carry statusCode.
+    const statusMessage = error.data?.message || error.statusMessage || error.message || 'An internal error occurred';
+    const statusCode = error.statusCode || 500;
     throw createError({ statusCode, statusMessage });
   }
 });
