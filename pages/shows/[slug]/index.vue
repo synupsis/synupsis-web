@@ -17,8 +17,16 @@
         <div class="mx-auto flex max-w-7xl flex-col gap-8 px-5 pb-8 pt-48 sm:min-h-[560px] sm:items-start sm:justify-end sm:gap-10 sm:pb-14 sm:pt-24 lg:px-8">
           <div class="min-w-0 max-w-3xl md:max-w-xl">
             <h1 class="text-5xl font-black tracking-tight sm:text-7xl">{{ showData.name }}</h1>
-            <div v-if="firstAired" class="mt-4 flex items-center gap-2 text-sm text-white/60">
-              <CalendarIcon class="h-4 w-4" />{{ new Date(firstAired).getFullYear() }}
+            <div v-if="firstAired || rating" class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-white/60">
+              <span v-if="firstAired" class="flex items-center gap-2">
+                <CalendarIcon class="h-4 w-4" />{{ new Date(firstAired).getFullYear() }}
+              </span>
+              <span v-if="rating" class="flex items-center gap-1.5">
+                <StarIcon class="h-4 w-4 fill-amber-300 text-amber-300" aria-hidden="true" />
+                <span class="sr-only">{{ t('Rating:') }} </span>
+                <span><span class="font-semibold text-white">{{ rating.value.toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) }}</span><span aria-hidden="true">/10</span><span class="sr-only"> {{ t('out of 10') }}</span></span>
+                <span class="text-white/45">· {{ rating.votes > 1 ? t('{count} votes', { count: formatCompact(rating.votes) }) : t('{count} vote', { count: rating.votes }) }}</span>
+              </span>
             </div>
             <p v-if="showSummary" class="mt-5 line-clamp-4 max-w-2xl whitespace-pre-line text-base leading-7 text-white/70">{{ showSummary }}</p>
           </div>
@@ -422,7 +430,7 @@
 </template>
 
 <script setup lang="ts">
-import { CalendarIcon, CheckIcon, ChevronDownIcon, LockIcon, MapIcon, MapPinIcon, MessagesSquareIcon, Share2Icon, SquarePenIcon, ThumbsDownIcon, ThumbsUpIcon, UsersIcon, XIcon } from 'lucide-vue-next';
+import { CalendarIcon, CheckIcon, ChevronDownIcon, LockIcon, MapIcon, MapPinIcon, MessagesSquareIcon, Share2Icon, SquarePenIcon, StarIcon, ThumbsDownIcon, ThumbsUpIcon, UsersIcon, XIcon } from 'lucide-vue-next';
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import type { ShowWithSeasons } from '~/types/database.types';
@@ -499,6 +507,10 @@ const showSummary = computed(() => toPlainText(showData.value?.summary));
 const seasonsChronological = computed(() => [...sortedSeasons.value].reverse());
 const firstAired = computed(() => seasonsChronological.value[0]?.first_aired ?? null);
 const cast = computed<any[]>(() => (showData.value?._embedded?.cast as any[] | undefined) ?? []);
+const rating = computed(() => (showData.value?._embedded?.rating as { value: number; votes: number } | null | undefined) ?? null);
+function formatCompact(count: number) {
+  return new Intl.NumberFormat(locale.value, { notation: 'compact' }).format(count);
+}
 const mediaCharacterProfiles = computed(() => {
   const profiles = new Map<string, ShowCharacterProfile>();
 

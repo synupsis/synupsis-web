@@ -166,9 +166,16 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+    // Trakt's community rating, out of 10; missing when Trakt is unreachable.
+    const ratingValue = Number(resolvedShowDetails?.rating);
+    const ratingVotes = Number(resolvedShowDetails?.votes);
+    const rating = Number.isFinite(ratingValue) && ratingValue > 0 && ratingValue <= 10 && ratingVotes > 0
+      ? { value: ratingValue, votes: ratingVotes }
+      : null;
+
     // Add cast to the show object before returning
     if (show) {
-      (show as any)._embedded = { cast, characterProfiles };
+      (show as any)._embedded = { cast, characterProfiles, rating };
     }
 
     return { show };

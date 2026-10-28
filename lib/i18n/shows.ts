@@ -24,6 +24,8 @@ export const showMessages: Record<string, string> = {
   "Could not save your spoiler shield setting.": "Impossible d’enregistrer le réglage de votre bouclier anti-spoil.",
   "Where are you up to?": "Où en êtes-vous ?",
   "Choose an episode": "Choisir un épisode",
+  "{count} vote": "{count} vote",
+  "{count} votes": "{count} votes",
   "Choose the last episode you watched.": "Choisissez le dernier épisode que vous avez vu.",
   "Choose a season, then an episode to display.": "Choisissez la saison puis l’épisode à afficher.",
   "This information will appear as you progress through the season.": "Ces informations apparaîtront à mesure que vous avancez dans la saison.",
