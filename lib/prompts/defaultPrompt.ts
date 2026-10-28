@@ -25,7 +25,7 @@ Scènes vérifiées, identifiées par [id] :
 {{eventGraph}}
 
 # CRITÈRES DE RÉUSSITE
-- Écris intégralement en français, en conservant les noms propres officiels.
+- Écris intégralement en {{recapLanguage}}, en conservant les noms propres officiels.
 - Chaque affirmation factuelle doit être déductible des scènes citées.
 - Ne complète jamais une information absente avec ta mémoire ou une supposition.
 - Nomme les personnages, les lieux, les objets et les actions : qui fait quoi, à qui, où, et ce que cela change.

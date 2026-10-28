@@ -1,3 +1,5 @@
+import { DEFAULT_RECAP_LOCALE, type RecapLocale } from '~/lib/recap-locales';
+import { getRecapLanguageName } from '~/server/services/recap-generation/prompts';
 import type { RecapEvent, RecapEventGraph } from '~/server/services/recap-generation/types';
 import type { RecapStory, RecapStoryChange } from '~/types/recap-story.types';
 
@@ -42,6 +44,15 @@ const VAGUE_PHRASE_PATTERNS: Array<[string, RegExp]> = [
   ['faire face à son passé', /\bfai(re|t|sant) face à (son|ses|leur|leurs) (passé|démons)\b/i],
   ['les choses se compliquent', /\bles choses se (compliquent|corsent|gâtent)\b/i],
   ['un tournant décisif', /\bun tournant (décisif|inattendu|majeur)\b/i],
+  ['everything changes', /\beverything changes\b/i],
+  ['tensions rise', /\btensions (rise|mount|escalate)\b/i],
+  ['nothing will ever be the same', /\bnothing will (ever )?be the same\b/i],
+  ['more surprises', /\b(more|other) surprises\b/i],
+  ['a shocking discovery', /\ba (sinister|shocking|disturbing|startling) discovery\b/i],
+  ['a difficult decision', /\ba (difficult|tough|crucial) (decision|choice)\b/i],
+  ['faces their past', /\bfac(e|es|ing) (his|her|their) (past|demons)\b/i],
+  ['things get complicated', /\bthings get (complicated|worse|messy)\b/i],
+  ['a turning point', /\ba (decisive|major|shocking) turning point\b/i],
 ];
 const NAME_PARTICLES = new Set(['de', 'du', 'des', 'la', 'le', 'les', 'van', 'von', 'der', 'den', 'al', 'el', 'ser', 'lord', 'lady']);
 
@@ -145,7 +156,11 @@ export function measureStorySpecificity(story: RecapStory, eventGraph: RecapEven
   };
 }
 
-export function createStoryVerificationPrompt(story: RecapStory, eventGraph: RecapEventGraph): string {
+export function createStoryVerificationPrompt(
+  story: RecapStory,
+  eventGraph: RecapEventGraph,
+  locale: RecapLocale = DEFAULT_RECAP_LOCALE,
+): string {
   const scenes = eventGraph.events.map(formatSceneForVerification).join('\n');
   const texts = listStoryTexts(story).map(text => [
     `<<${text.key}>> scènes citées : ${text.eventIds.length ? text.eventIds.join(', ') : 'toutes les scènes'}`,
@@ -166,7 +181,7 @@ ${texts}
 - Pour chaque texte, contrôle chaque affirmation : personnage, action, lieu, cause, conséquence, chiffre, date. Elle doit figurer dans les scènes citées par ce texte (dans toutes les scènes pour la couverture).
 - Une ligne de bilan (death, situation, question) ou de fin de saison (ending) affirme un état : une mort, une captivité, un titre, un lieu, une alliance, une question laissée ouverte. Cet état doit découler des scènes citées ; une question ne doit pas suggérer de réponse. Une question que ses scènes tranchent déjà (une mort, une exécution, un accord rompu) n'est plus ouverte : laisse son correctedText vide.
 - Un texte qui contient une affirmation non soutenue, ou une formule creuse (« tout bascule », « les tensions montent », « rien ne sera plus comme avant »…), doit être corrigé.
-- correctedText réécrit le texte en français en ne gardant que ce que les scènes citées soutiennent, en restant aussi précis que possible et sans dépasser la longueur d'origine. Ne rajoute aucun fait absent des scènes.
+- correctedText réécrit le texte en ${getRecapLanguageName(locale)} en ne gardant que ce que les scènes citées soutiennent, en restant aussi précis que possible et sans dépasser la longueur d'origine. Ne rajoute aucun fait absent des scènes.
 - unsupportedClaims liste les affirmations retirées ou les formules creuses remplacées.
 - Si plus rien d'exact ne peut être dit pour un moment d'épisode, une ligne de bilan ou de fin de saison, laisse correctedText vide : elle sera supprimée.
 - Ne liste que les textes à corriger, avec leur clé exacte. Une liste vide signifie que tout est soutenu.

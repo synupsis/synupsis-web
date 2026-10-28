@@ -50,6 +50,8 @@ export const showMessages: Record<string, string> = {
   "Generate": "Générer",
   "Sign in to generate": "Se connecter pour générer",
   "Preparing": "Préparation",
+  "Recap language": "Langue du récap",
+  "Recap language: {language}": "Langue du récap : {language}",
   "The recap for season {number} is locked": "Le récap de la saison {number} est verrouillé",
   "Preparing the recap for season {number}: {stage}, {progress}%": "Préparation du récap de la saison {number} : {stage}, {progress} %",
   "View the recap for season {number}": "Voir le récap de la saison {number}",

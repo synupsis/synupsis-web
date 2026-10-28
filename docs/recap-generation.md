@@ -1,6 +1,6 @@
 # Recap generation pipeline
 
-Synupsis generates one canonical French recap per season and format version. Existing manually-authored recaps remain valid; scene-backed generated recaps use format version `10`, told chapter by chapter (versions `4` to `9` stay readable; season cards open the newest published format).
+Synupsis generates one canonical recap per season, language and format version. Recap languages (`lib/recap-locales.ts`: French and English) are independent of the interface language: each user keeps a list of them in `user_metadata.recap_languages` (the display language until they choose), and the show page has a select to switch between them. A generation request carries its `locale`; prompts stay in French but every model call writes scenes, arcs, the story and its corrections in that language, and slide headings follow it. The season hub prefers the event graph of the selected language. Existing manually-authored recaps remain valid; scene-backed generated recaps use format version `10`, told chapter by chapter (versions `4` to `9` stay readable; season cards open the newest published format).
 
 ## Current flow
 

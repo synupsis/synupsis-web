@@ -7,9 +7,9 @@ import { isEnabledSetting } from '~/server/utils/app-settings';
 import { isRecapPromptCompatible } from '~/lib/prompts/defaultPrompt';
 import {
   RECAP_FORMAT_VERSION,
-  RECAP_LOCALE,
   RECAP_PROMPT_VERSION,
 } from '~/server/services/recap-generation/config';
+import { getRecapLanguages, normalizeRecapLocale, type RecapLocale } from '~/lib/recap-locales';
 import { getRecapModel, startEpisodeExtraction } from '~/server/services/recap-generation/openai';
 import { createEpisodeExtractionPrompt } from '~/server/services/recap-generation/prompts';
 import {
@@ -31,11 +31,18 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, statusMessage: 'Authentication is required to generate a recap.' });
   }
 
-  const body = await readBody<{ showId?: string; seasonId?: string }>(event);
+  const body = await readBody<{ showId?: string; seasonId?: string; locale?: string }>(event);
   const showId = body?.showId;
   const seasonId = body?.seasonId;
   if (!showId || !seasonId) {
     throw createError({ statusCode: 400, statusMessage: 'showId and seasonId are required.' });
+  }
+  // Each language is its own recap: without one, the user's first recap language.
+  const locale = body?.locale == null
+    ? getRecapLanguages(user.user_metadata?.recap_languages, 'fr')[0]!
+    : normalizeRecapLocale(body.locale);
+  if (!locale) {
+    throw createError({ statusCode: 400, statusMessage: 'Unsupported recap language.' });
   }
 
   const service = serverSupabaseServiceRole<Database>(event);
@@ -45,7 +52,7 @@ export default defineEventHandler(async (event) => {
     .from('recap')
     .select('id')
     .eq('season_id', seasonId)
-    .eq('locale', RECAP_LOCALE)
+    .eq('locale', locale)
     .eq('format_version', RECAP_FORMAT_VERSION)
     .eq('is_canonical', true)
     .eq('status', 'published')
@@ -59,7 +66,7 @@ export default defineEventHandler(async (event) => {
     return { state: 'ready', recapId: existingRecap.id };
   }
 
-  const existingJob = await findActiveJob(service, seasonId);
+  const existingJob = await findActiveJob(service, seasonId, locale);
   if (existingJob) {
     setResponseStatus(event, 202);
     return { state: existingJob.status, jobId: existingJob.id, progress: existingJob.progress };
@@ -95,7 +102,7 @@ export default defineEventHandler(async (event) => {
       season_id: seasonId,
       prompt_id: promptConfig.promptId,
       prompt_template: promptConfig.template ?? null,
-      locale: RECAP_LOCALE,
+      locale,
       format_version: RECAP_FORMAT_VERSION,
       model,
       prompt_version: RECAP_PROMPT_VERSION,
@@ -109,7 +116,7 @@ export default defineEventHandler(async (event) => {
   if (jobError || !job) {
     // A concurrent request may have won the partial unique-index race.
     if (jobError?.code === '23505') {
-      const concurrentJob = await findActiveJob(service, seasonId);
+      const concurrentJob = await findActiveJob(service, seasonId, locale);
       if (concurrentJob) {
         setResponseStatus(event, 202);
         return { state: concurrentJob.status, jobId: concurrentJob.id, progress: concurrentJob.progress };
@@ -169,7 +176,7 @@ export default defineEventHandler(async (event) => {
     const extractionResponses = Object.fromEntries(await Promise.all(
       getExtractableEpisodes(snapshot).map(async (episode) => {
         const providerResponse = await startEpisodeExtraction({
-          prompt: createEpisodeExtractionPrompt(snapshot, episode),
+          prompt: createEpisodeExtractionPrompt(snapshot, episode, locale),
           model,
           jobId: job.id,
           episodeNumber: episode.number,
@@ -218,13 +225,14 @@ export default defineEventHandler(async (event) => {
 async function findActiveJob(
   service: ReturnType<typeof serverSupabaseServiceRole<Database>>,
   seasonId: string,
+  locale: RecapLocale,
 ) {
   await expireStaleRecapGenerationJobs(service);
   const { data, error } = await service
     .from('recap_generation_job')
     .select('id, status, progress')
     .eq('season_id', seasonId)
-    .eq('locale', RECAP_LOCALE)
+    .eq('locale', locale)
     .eq('format_version', RECAP_FORMAT_VERSION)
     .in('status', RECAP_GENERATION_ACTIVE_STATUSES)
     .order('created_at', { ascending: false })

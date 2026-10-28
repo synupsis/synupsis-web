@@ -1,7 +1,6 @@
 export const RECAP_FORMAT_VERSION = 10;
 export const RECAP_PROMPT_VERSION = 'recap-story-v10-chapters';
 export const RECAP_EVENT_PROMPT_VERSION = 'recap-scenes-v5-critic';
-export const RECAP_LOCALE = 'fr';
 // An episode counts as documented once one source describes its plot instead
 // of teasing it. Promotional synopses rarely exceed a couple of sentences.
 export const MIN_DOCUMENTED_EPISODE_CHARS = 400;

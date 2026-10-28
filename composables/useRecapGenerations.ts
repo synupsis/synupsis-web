@@ -10,6 +10,7 @@ import { useStoryViewer } from '~/composables/useStoryViewer';
 type PublicRecapGenerationJob = {
   id: string;
   seasonId: string;
+  locale: string;
   status: string;
   phase: string | null;
   progress: number;
@@ -45,14 +46,20 @@ const DISPLAY_SMOOTHING_MS = 350;
 // Lets the ring visibly reach 100 % before the season turns into a story.
 const COMPLETION_HOLD_MS = 700;
 
+/** A season is generated once per recap language. */
+export function recapGenerationKey(seasonId: string, locale: string) {
+  return `${seasonId}:${locale}`;
+}
+
 /**
  * Follows every recap generation of a show: the ones started on this page and
  * the ones still running server-side when the page loads (after a refresh).
+ * Generations are keyed by recapGenerationKey.
  */
 export function useRecapGenerations(options: {
   showId: () => string | undefined;
-  onCompleted: (seasonId: string, recapId: string | null) => Promise<unknown> | unknown;
-  onFailed: (seasonId: string, message: string) => void;
+  onCompleted: (key: string, recapId: string | null) => Promise<unknown> | unknown;
+  onFailed: (key: string, message: string) => void;
 }) {
   const user = useSupabaseUser();
   const { openStory } = useStoryViewer();
@@ -63,19 +70,20 @@ export function useRecapGenerations(options: {
   let frame = 0;
   let lastFrameAt = 0;
 
-  async function start(seasonId: string) {
+  async function start(seasonId: string, locale: string) {
     const showId = options.showId();
-    if (!showId || generations.value[seasonId]?.pending) return;
+    const key = recapGenerationKey(seasonId, locale);
+    if (!showId || generations.value[key]?.pending) return;
 
     // The request collects the sources before it answers: ease that stage meanwhile.
-    clocks.set(seasonId, {
+    clocks.set(key, {
       status: 'gathering',
       phase: null,
       stageKey: 'gathering',
       storedProgress: getRecapGenerationProgress('gathering'),
       stageStartedAt: Date.now(),
     });
-    generations.value[seasonId] = {
+    generations.value[key] = {
       jobId: null,
       label: generationStageLabel('gathering'),
       progress: 0,
@@ -87,18 +95,18 @@ export function useRecapGenerations(options: {
     try {
       const generation = await $fetch<{ state: string; recapId?: string; jobId?: string }>('/api/recap/generate', {
         method: 'POST',
-        body: { showId, seasonId },
+        body: { showId, seasonId, locale },
       });
       if (generation.state === 'ready' && generation.recapId) {
-        forget(seasonId);
+        forget(key);
         await openStory(generation.recapId);
         return;
       }
       if (!generation.jobId) throw new Error('Generation did not return a job.');
-      generations.value[seasonId] = { ...generations.value[seasonId]!, jobId: generation.jobId };
-      void follow(seasonId, generation.jobId);
+      generations.value[key] = { ...generations.value[key]!, jobId: generation.jobId };
+      void follow(key, generation.jobId);
     } catch (cause) {
-      fail(seasonId, describeError(cause));
+      fail(key, describeError(cause));
     }
   }
 
@@ -112,15 +120,16 @@ export function useRecapGenerations(options: {
       for (const job of jobs) {
         if (!mounted) return;
         if (followedJobs.has(job.id)) continue;
-        apply(job.seasonId, job);
-        void follow(job.seasonId, job.id);
+        const key = recapGenerationKey(job.seasonId, job.locale);
+        apply(key, job);
+        void follow(key, job.id);
       }
     } catch (cause) {
       console.warn('Could not resume the running recap generations.', cause);
     }
   }
 
-  async function follow(seasonId: string, jobId: string) {
+  async function follow(key: string, jobId: string) {
     if (followedJobs.has(jobId)) return;
     followedJobs.add(jobId);
     let failures = 0;
@@ -130,19 +139,19 @@ export function useRecapGenerations(options: {
           const job = await $fetch<PublicRecapGenerationJob>(`/api/recap/generation/${jobId}`);
           failures = 0;
           if (!mounted) return;
-          apply(seasonId, job);
+          apply(key, job);
           if (job.status === 'completed') {
-            await complete(seasonId, job.recapId);
+            await complete(key, job.recapId);
             return;
           }
           if (RECAP_GENERATION_TERMINAL_STATUSES.includes(job.status)) {
-            fail(seasonId, job.errorMessage || 'Generation failed.');
+            fail(key, job.errorMessage || 'Generation failed.');
             return;
           }
         } catch (cause: any) {
           failures += 1;
           if (cause?.statusCode === 404 || failures >= MAX_CONSECUTIVE_POLL_FAILURES) {
-            fail(seasonId, describeError(cause));
+            fail(key, describeError(cause));
             return;
           }
         }
@@ -153,9 +162,9 @@ export function useRecapGenerations(options: {
     }
   }
 
-  function apply(seasonId: string, job: PublicRecapGenerationJob) {
+  function apply(key: string, job: PublicRecapGenerationJob) {
     const stageKey = getRecapGenerationStageKey(job.status, job.phase);
-    const previous = clocks.get(seasonId);
+    const previous = clocks.get(key);
     const serverStageStart = Date.parse(job.stageStartedAt);
     const serverNow = Date.parse(job.serverNow);
     // Measured on the server clock, so every viewer and every refresh agree.
@@ -163,10 +172,10 @@ export function useRecapGenerations(options: {
       ? Date.now() - Math.max(serverNow - serverStageStart, 0)
       : previous?.stageKey === stageKey ? previous.stageStartedAt : Date.now();
     const clock = { status: job.status, phase: job.phase, stageKey, storedProgress: job.progress, stageStartedAt };
-    clocks.set(seasonId, clock);
+    clocks.set(key, clock);
 
-    const current = generations.value[seasonId];
-    generations.value[seasonId] = {
+    const current = generations.value[key];
+    generations.value[key] = {
       jobId: job.id,
       label: job.status === 'completed' ? 'Ready' : generationStageLabel(job.status, job.phase),
       // A resumed job shows its estimate at once instead of climbing from zero.
@@ -177,30 +186,30 @@ export function useRecapGenerations(options: {
     requestFrame();
   }
 
-  async function complete(seasonId: string, recapId: string | null) {
+  async function complete(key: string, recapId: string | null) {
     await Promise.all([
-      Promise.resolve(options.onCompleted(seasonId, recapId)).catch(cause => console.error(cause)),
+      Promise.resolve(options.onCompleted(key, recapId)).catch(cause => console.error(cause)),
       sleep(COMPLETION_HOLD_MS),
     ]);
-    forget(seasonId);
+    forget(key);
   }
 
-  function fail(seasonId: string, message: string) {
-    clocks.delete(seasonId);
-    const current = generations.value[seasonId];
-    generations.value[seasonId] = {
+  function fail(key: string, message: string) {
+    clocks.delete(key);
+    const current = generations.value[key];
+    generations.value[key] = {
       jobId: current?.jobId ?? null,
       label: 'Failed',
       progress: current?.progress ?? 0,
       pending: false,
       error: message,
     };
-    options.onFailed(seasonId, message);
+    options.onFailed(key, message);
   }
 
-  function forget(seasonId: string) {
-    clocks.delete(seasonId);
-    const { [seasonId]: _removed, ...rest } = generations.value;
+  function forget(key: string) {
+    clocks.delete(key);
+    const { [key]: _removed, ...rest } = generations.value;
     generations.value = rest;
   }
 
@@ -217,8 +226,8 @@ export function useRecapGenerations(options: {
     const blend = 1 - Math.exp(-elapsed / DISPLAY_SMOOTHING_MS);
 
     let moving = false;
-    for (const [seasonId, clock] of clocks) {
-      const generation = generations.value[seasonId];
+    for (const [key, clock] of clocks) {
+      const generation = generations.value[key];
       if (!generation) continue;
       moving = true;
       const target = estimate(clock);

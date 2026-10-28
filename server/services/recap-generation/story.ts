@@ -1,4 +1,5 @@
-import { MAX_MOMENTS_PER_EPISODE, RECAP_LOCALE } from '~/server/services/recap-generation/config';
+import { DEFAULT_RECAP_LOCALE, normalizeRecapLocale } from '~/lib/recap-locales';
+import { MAX_MOMENTS_PER_EPISODE } from '~/server/services/recap-generation/config';
 import { evaluateRecapEventGraph } from '~/server/services/recap-generation/scene-graph';
 import { buildRecapSlides } from '~/server/services/recap-generation/slides';
 import { evaluateRecapSourceReadiness } from '~/server/services/recap-generation/sources';
@@ -76,6 +77,8 @@ export function normalizeRecapStory(
   eventGraph: RecapEventGraph,
 ): RecapStory {
   const eventById = new Map(eventGraph.events.map(event => [event.id, event]));
+  // The scenes were extracted in the language of the recap.
+  const locale = normalizeRecapLocale(eventGraph.locale) ?? DEFAULT_RECAP_LOCALE;
   const seenEpisodeNumbers = new Set<number>();
   const episodes = (Array.isArray(raw?.episodes) ? raw.episodes : [])
     .map((value: any): RecapStoryEpisode | null => {
@@ -90,7 +93,7 @@ export function normalizeRecapStory(
         .filter((moment: RecapStoryMoment) => moment.text)
         .slice(0, MAX_MOMENTS_PER_EPISODE);
       // The chapter card already shows the episode number and title.
-      const headline = sanitizeText(value?.headline).replace(/^épisode\s*\d+\s*[—–:·.-]\s*/i, '');
+      const headline = sanitizeText(value?.headline).replace(/^[ée]pisode\s*\d+\s*[—–:·.-]\s*/i, '');
       if (!headline || !moments.length) return null;
       return {
         episodeNumber,
@@ -106,13 +109,15 @@ export function normalizeRecapStory(
     .sort((first: RecapStoryEpisode, second: RecapStoryEpisode) => first.episodeNumber - second.episodeNumber);
 
   return {
-    locale: RECAP_LOCALE,
+    locale,
     spoilerScope: 'through-season',
     layout: 'chapters',
     cover: {
       title: sanitizeText(raw?.cover?.title) || snapshot.show.name,
-      subtitle: sanitizeText(raw?.cover?.subtitle) || `Saison ${snapshot.season.number}`,
-      logline: sanitizeText(raw?.cover?.logline) || 'Les moments essentiels de cette saison.',
+      subtitle: sanitizeText(raw?.cover?.subtitle)
+        || (locale === 'en' ? `Season ${snapshot.season.number}` : `Saison ${snapshot.season.number}`),
+      logline: sanitizeText(raw?.cover?.logline)
+        || (locale === 'en' ? 'The essential moments of this season.' : 'Les moments essentiels de cette saison.'),
     },
     beats: [],
     episodes,

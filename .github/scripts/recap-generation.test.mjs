@@ -56,6 +56,7 @@ const {
   getMissingRecapPromptVariables,
   isRecapPromptCompatible,
 } = await import('../../lib/prompts/defaultPrompt.ts')
+const recapLocales = await import('../../lib/recap-locales.ts')
 
 const fetchedAt = '2026-07-22T12:00:00.000Z'
 const providers = [createRecapSourceProvider('trakt', fetchedAt, 'https://trakt.tv/shows/test')]
@@ -800,6 +801,30 @@ test('découpe chaque épisode en chapitre : carton, moments, bilan', () => {
   assert.deepEqual(plan.at(-1).content.questions, [{ text: 'Que deviendra la décision de Personnage 8 ?', episodeNumbers: [8] }])
 })
 
+test('écrit un recap anglais de l’extraction des scènes jusqu’aux slides', () => {
+  const eventGraph = normalizeRecapEventGraph(createRawEventGraph(), snapshot, 'en')
+  const episode = getExtractableEpisodes(snapshot)[0]
+  const story = normalizeRecapStory(createRawStory(), snapshot, eventGraph)
+  const plan = planStorySlides(story, eventGraph, snapshot)
+
+  assert.equal(eventGraph.locale, 'en')
+  assert.equal(story.locale, 'en')
+  assert.match(createEpisodeExtractionPrompt(snapshot, episode, 'en'), /400 caractères, en anglais\./)
+  assert.match(createSceneLinkingPrompt(snapshot, eventGraph, 'en'), /2 à 5 mots en anglais\./)
+  assert.match(createRecapPrompt(snapshot, eventGraph, undefined, 'en'), /Écris intégralement en anglais/)
+  assert.match(createStoryVerificationPrompt(story, eventGraph, 'en'), /réécrit le texte en anglais/)
+  assert.equal(plan.find(slide => slide.content.kind === 'moment-group')?.content.heading, 'At the start of the episode')
+  // The French default stays unchanged for older jobs.
+  assert.match(createRecapPrompt(snapshot, eventGraph), /Écris intégralement en français/)
+})
+
+test('impose la langue du recap à un prompt personnalisé', () => {
+  const eventGraph = normalizeRecapEventGraph(createRawEventGraph(), snapshot, 'en')
+  const prompt = createRecapPrompt(snapshot, eventGraph, 'Écris en français. {{seasonQuickFacts}} {{eventGraph}} {{episodeMomentTargets}}', 'en')
+
+  assert.match(prompt, /# LANGUE\nÉcris tous les textes en anglais/)
+})
+
 test('répartit un bilan chargé et la fin de saison sur plusieurs slides', () => {
   const eventGraph = createEventGraph()
   const rawStory = createRawStory()
@@ -906,4 +931,13 @@ test('détecte les prompts incompatibles avec le pipeline courant', () => {
   assert.equal(isRecapPromptCompatible(compatible), true)
   assert.equal(isRecapPromptCompatible(beatsPrompt), false)
   assert.deepEqual(getMissingRecapPromptVariables(beatsPrompt), ['{{episodeMomentTargets}}'])
+})
+
+test('recap languages default to the display language and ignore unsupported values', () => {
+  assert.deepEqual(recapLocales.getRecapLanguages(undefined, 'en'), ['en'])
+  assert.deepEqual(recapLocales.getRecapLanguages([], 'fr'), ['fr'])
+  assert.deepEqual(recapLocales.getRecapLanguages(['en-US', 'de', 'fr', 'en'], 'fr'), ['en', 'fr'])
+  assert.deepEqual(recapLocales.getRecapLanguages('fr', 'en'), ['en'])
+  assert.equal(recapLocales.normalizeRecapLocale(' FR '), 'fr')
+  assert.equal(recapLocales.normalizeRecapLocale('es'), null)
 })

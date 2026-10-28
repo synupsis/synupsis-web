@@ -1,4 +1,4 @@
-import { MIN_DOCUMENTED_EPISODE_CHARS, RECAP_LOCALE } from '~/server/services/recap-generation/config';
+import { MIN_DOCUMENTED_EPISODE_CHARS } from '~/server/services/recap-generation/config';
 import type { EpisodeSource, RecapEvent, RecapEvidence, RecapSourceSnapshot } from '~/server/services/recap-generation/types';
 import type { RecapStoryChange, RecapStoryEpisode } from '~/types/recap-story.types';
 
@@ -13,7 +13,7 @@ export function evidencePriority(evidence: RecapEvidence): number {
     editorial: 300,
     reference: 200,
   }[evidence.trustTier];
-  const localeScore = evidence.locale === RECAP_LOCALE ? 80 : evidence.locale === 'en' ? 40 : 0;
+  const localeScore = evidence.locale === 'fr' ? 80 : evidence.locale === 'en' ? 40 : 0;
   return kindScore + trustScore + localeScore + Math.min(evidence.text.length, 6_000) / 100;
 }
 

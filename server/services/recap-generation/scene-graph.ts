@@ -2,8 +2,8 @@ import {
   MAX_CRITIC_GAPS_PER_EPISODE,
   MIN_DOCUMENTED_EPISODE_CHARS,
   RECAP_EVENT_PROMPT_VERSION,
-  RECAP_LOCALE,
 } from '~/server/services/recap-generation/config';
+import { DEFAULT_RECAP_LOCALE, type RecapLocale } from '~/lib/recap-locales';
 import type {
   RecapCriticGap,
   RecapEvent,
@@ -118,6 +118,7 @@ export function applyRecoveredScenes(
 export function assembleSceneGraph(
   snapshot: RecapSourceSnapshot,
   outputs: Map<number, string | null>,
+  locale: RecapLocale = DEFAULT_RECAP_LOCALE,
 ): RecapEventGraph {
   const failedEpisodes: number[] = [];
   const rawEvents = [...outputs.entries()]
@@ -137,7 +138,7 @@ export function assembleSceneGraph(
       }));
     });
 
-  const eventGraph = normalizeRecapEventGraph({ events: rawEvents }, snapshot);
+  const eventGraph = normalizeRecapEventGraph({ events: rawEvents }, snapshot, locale);
   return { ...eventGraph, verification: { ...eventGraph.verification, failedEpisodes } };
 }
 
@@ -253,7 +254,11 @@ function normalizeRawScene(value: any, id: string, context: SceneVerificationCon
   return { ...event, confidence: calculateEventConfidence(event, context.evidenceById) };
 }
 
-export function normalizeRecapEventGraph(raw: any, snapshot: RecapSourceSnapshot): RecapEventGraph {
+export function normalizeRecapEventGraph(
+  raw: any,
+  snapshot: RecapSourceSnapshot,
+  locale: RecapLocale = DEFAULT_RECAP_LOCALE,
+): RecapEventGraph {
   const context: SceneVerificationContext = {
     evidenceById: getEvidenceById(snapshot),
     rejectedScenes: [],
@@ -284,7 +289,7 @@ export function normalizeRecapEventGraph(raw: any, snapshot: RecapSourceSnapshot
   }
 
   return {
-    locale: RECAP_LOCALE,
+    locale,
     version: RECAP_EVENT_PROMPT_VERSION,
     events: sanitizeCausalLinks(events),
     verification: {

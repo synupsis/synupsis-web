@@ -29,6 +29,7 @@ import {
 } from '~/server/services/recap-generation/scene-graph';
 import { finalizeRecapStory, processRecapDraft } from '~/server/services/recap-generation/story';
 import { createStoryVerificationPrompt } from '~/server/services/recap-story-quality';
+import { DEFAULT_RECAP_LOCALE, normalizeRecapLocale } from '~/lib/recap-locales';
 import {
   RECAP_GENERATION_ACTIVE_STATUSES,
   RECAP_GENERATION_TERMINAL_STATUSES,
@@ -352,13 +353,13 @@ async function collectEpisodeResponses(
     return await startLinkingPhase(service, job, snapshot, eventGraph, { extraction_results: results as unknown as Json });
   }
 
-  const eventGraph = assembleSceneGraph(snapshot, outputs);
+  const eventGraph = assembleSceneGraph(snapshot, outputs, jobLocale(job));
   return await startSingleResponsePhase(service, job, {
     phase: 'critiquing_events',
     eventGraph,
     extraUpdate: { extraction_results: results as unknown as Json },
     start: claimedJob => startSceneCritic({
-      prompt: createSceneCriticPrompt(snapshot, eventGraph),
+      prompt: createSceneCriticPrompt(snapshot, eventGraph, jobLocale(job)),
       model: claimedJob.model,
       jobId: claimedJob.id,
     }),
@@ -431,7 +432,7 @@ function startLinkingPhase(
     eventGraph,
     extraUpdate,
     start: claimedJob => startSceneLinking({
-      prompt: createSceneLinkingPrompt(snapshot, eventGraph),
+      prompt: createSceneLinkingPrompt(snapshot, eventGraph, jobLocale(claimedJob)),
       model: claimedJob.model,
       jobId: claimedJob.id,
     }),
@@ -469,7 +470,7 @@ async function startRecoveryPhase(
         .filter(episode => gaps.some(gap => gap.episodeNumber === episode.number))
         .map(async (episode) => {
           const providerResponse = await startSceneRecovery({
-            prompt: createSceneRecoveryPrompt(snapshot, episode, pendingGraph, gaps.filter(gap => gap.episodeNumber === episode.number)),
+            prompt: createSceneRecoveryPrompt(snapshot, episode, pendingGraph, gaps.filter(gap => gap.episodeNumber === episode.number), jobLocale(leasedJob)),
             model: leasedJob.model,
             jobId: leasedJob.id,
             episodeNumber: episode.number,
@@ -537,7 +538,7 @@ async function startVerificationPhase(
 
   try {
     const providerResponse = await startStoryVerification({
-      prompt: createStoryVerificationPrompt(draft, eventGraph),
+      prompt: createStoryVerificationPrompt(draft, eventGraph, jobLocale(verifyingJob)),
       model: verifyingJob.model,
       jobId: verifyingJob.id,
     });
@@ -619,7 +620,7 @@ async function startStoryPhase(
     const template = typeof job.prompt_template === 'string' && job.prompt_template.trim()
       ? job.prompt_template
       : undefined;
-    const prompt = createRecapPrompt(snapshot, eventGraph, template);
+    const prompt = createRecapPrompt(snapshot, eventGraph, template, jobLocale(job));
     const providerResponse = await startRecapGeneration({
       prompt,
       model: job.model,
@@ -747,10 +748,16 @@ async function failJob(
   return toPublicJob(data);
 }
 
+/** The language every model call of the job writes in. */
+function jobLocale(job: JobRow) {
+  return normalizeRecapLocale(job.locale) ?? DEFAULT_RECAP_LOCALE;
+}
+
 export function toPublicJob(job: JobRow) {
   return {
     id: job.id,
     seasonId: job.season_id,
+    locale: job.locale,
     status: job.status,
     phase: job.generation_phase,
     progress: job.progress,

@@ -1,6 +1,7 @@
 import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server';
 import type { Database } from '~/types/database.types';
 import { buildSeasonHub } from '~/server/services/season-hub';
+import { normalizeRecapLocale } from '~/lib/recap-locales';
 
 export default defineEventHandler(async (event) => {
   const slug = event.context.params?.slug;
@@ -11,6 +12,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const throughEpisode = Number(getQuery(event).throughEpisode ?? 0);
+  const locale = normalizeRecapLocale(getQuery(event).locale);
   const service = serverSupabaseServiceRole<Database>(event);
   const { data: show, error: showError } = await service
     .from('show')
@@ -32,7 +34,7 @@ export default defineEventHandler(async (event) => {
   const [{ data: recaps, error: recapError }, { data: overrides }, { data: corrections }] = await Promise.all([
     service
       .from('recap')
-      .select('id, source_snapshot, event_graph, is_canonical, format_version')
+      .select('id, locale, source_snapshot, event_graph, is_canonical, format_version')
       .eq('season_id', season.id)
       .eq('status', 'published')
       .order('is_canonical', { ascending: false })
@@ -58,7 +60,10 @@ export default defineEventHandler(async (event) => {
   ]);
   if (recapError) throw createError({ statusCode: 500, statusMessage: 'Could not load season knowledge.' });
 
-  const recapList = recaps ?? [];
+  // The recap in the requested language first; another language rather than no knowledge.
+  const recapList = [...(recaps ?? [])].sort((first, second) => (
+    Number(second.locale === locale) - Number(first.locale === locale)
+  ));
   const knowledgeRecap = recapList.find(recap => recap.source_snapshot && recap.event_graph) ?? null;
   let userId: string | null = null;
   try {

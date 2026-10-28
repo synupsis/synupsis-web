@@ -4,11 +4,12 @@ import {
 } from '#supabase/server';
 import type { Database } from '~/types/database.types';
 import { RECAP_GENERATION_ACTIVE_STATUSES } from '~/lib/recap-generation-progress';
-import { RECAP_FORMAT_VERSION, RECAP_LOCALE } from '~/server/services/recap-generation/config';
+import { RECAP_FORMAT_VERSION } from '~/server/services/recap-generation/config';
 import { expireStaleRecapGenerationJobs, toPublicJob } from '~/server/services/recap-generation-runner';
 
 // Lets a show page pick up the generations still running after a refresh,
 // including one started by another user, which anyone signed in may join.
+// Every recap language is listed: the page follows each one.
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event);
   if (!user) {
@@ -26,7 +27,6 @@ export default defineEventHandler(async (event) => {
     .from('recap_generation_job')
     .select('*')
     .eq('show_id', showId)
-    .eq('locale', RECAP_LOCALE)
     .eq('format_version', RECAP_FORMAT_VERSION)
     .in('status', RECAP_GENERATION_ACTIVE_STATUSES);
   if (error) {

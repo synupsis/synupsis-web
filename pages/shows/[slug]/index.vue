@@ -48,6 +48,29 @@
             <div>
               <h2 class="text-2xl font-bold">{{ t('Recaps') }}</h2>
             </div>
+            <DropdownMenu v-if="recapLocaleOptions.length > 1">
+              <DropdownMenuTrigger
+                :aria-label="t('Recap language: {language}', { language: recapLocaleNames[selectedRecapLocale] })"
+                :title="recapLocaleNames[selectedRecapLocale]"
+                class="grid h-10 w-10 place-items-center rounded-full border border-white/15 bg-white/5 text-lg leading-none transition-colors hover:border-white/25 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:border-primary/40 data-[state=open]:bg-primary/15"
+              >
+                <span aria-hidden="true">{{ recapLocaleFlags[selectedRecapLocale] }}</span>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" :side-offset="8" class="w-48 rounded-2xl border-white/10 bg-background/95 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
+                <DropdownMenuLabel class="px-2.5 pb-1.5 pt-1 text-xs font-medium text-white/45">{{ t('Recap language') }}</DropdownMenuLabel>
+                <DropdownMenuItem
+                  v-for="option in recapLocaleOptions"
+                  :key="option"
+                  class="flex cursor-pointer items-center gap-3 rounded-xl px-2.5 py-2 text-sm focus:bg-white/10"
+                  :class="option === selectedRecapLocale ? 'text-primary' : 'text-white/85'"
+                  @select="selectedRecapLocale = option"
+                >
+                  <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/10 text-base leading-none" aria-hidden="true">{{ recapLocaleFlags[option] }}</span>
+                  <span class="min-w-0 flex-1 font-semibold" :lang="option">{{ recapLocaleNames[option] }}</span>
+                  <CheckIcon v-if="option === selectedRecapLocale" class="h-4 w-4 shrink-0" aria-hidden="true" />
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           <!-- A scroller clips both axes: its top padding, taken back by a negative margin, leaves room for the ring halo, wider on hover. -->
           <div
@@ -58,12 +81,12 @@
               v-for="(season, index) in sortedSeasons"
               :key="season.id"
               class="snap-start"
-              :season="season"
+              :season="withRecapsInLocale(season)"
               :is-admin="isAdmin"
-              :is-generating="recapGenerations[season.id]?.pending ?? false"
-              :generation-progress="recapGenerations[season.id]?.progress ?? 0"
-              :generation-label="recapGenerations[season.id]?.label"
-              :generation-error="recapGenerations[season.id]?.error ?? null"
+              :is-generating="recapGenerationOf(season.id)?.pending ?? false"
+              :generation-progress="recapGenerationOf(season.id)?.progress ?? 0"
+              :generation-label="recapGenerationOf(season.id)?.label"
+              :generation-error="recapGenerationOf(season.id)?.error ?? null"
               :is-latest="index === 0"
               :spoiler-locked="!isRecapUnlocked(season.number)"
               @view="goToRecap"
@@ -384,7 +407,7 @@
 </template>
 
 <script setup lang="ts">
-import { CalendarIcon, ChevronDownIcon, LockIcon, MapIcon, MapPinIcon, MessagesSquareIcon, Share2Icon, SquarePenIcon, ThumbsDownIcon, ThumbsUpIcon, UsersIcon, XIcon } from 'lucide-vue-next';
+import { CalendarIcon, CheckIcon, ChevronDownIcon, LockIcon, MapIcon, MapPinIcon, MessagesSquareIcon, Share2Icon, SquarePenIcon, ThumbsDownIcon, ThumbsUpIcon, UsersIcon, XIcon } from 'lucide-vue-next';
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import type { ShowWithSeasons } from '~/types/database.types';
@@ -396,6 +419,7 @@ import type {
 import { Badge } from '~/components/shadcn/badge';
 import { Button } from '~/components/shadcn/button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/shadcn/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '~/components/shadcn/dropdown-menu';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '~/components/shadcn/dialog';
 import { Input } from '~/components/shadcn/input';
 import { Textarea } from '~/components/shadcn/textarea';
@@ -405,7 +429,8 @@ import SeasonStory from '~/components/SeasonStory.vue';
 import TimelineCharacterChip from '~/components/TimelineCharacterChip.vue';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import { proxiedImageUrl } from '~/lib/image-url';
-import { useRecapGenerations } from '~/composables/useRecapGenerations';
+import { recapGenerationKey, useRecapGenerations } from '~/composables/useRecapGenerations';
+import { recapLocaleFlags, recapLocaleNames, recapLocales, type RecapLocale } from '~/lib/recap-locales';
 import { useStoryViewer } from '~/composables/useStoryViewer';
 import { isRegularSeasonReleased } from '~/lib/season-availability';
 import { toPlainText } from '~/lib/plain-text';
@@ -502,13 +527,38 @@ const trackingMode = computed<'undecided' | 'tracking'>(() => reachedSeasonNumbe
 // Lifts the spoiler block for a quick check without losing progress; a reload hides the rest again.
 const revealAll = ref(false);
 
+// Each season has one recap per language: every language is offered, so a
+// missing one can be generated, with the user's recap languages first.
+const { recapLanguages } = useRecapLanguages();
+const publishedRecapLocales = computed(() => new Set(sortedSeasons.value.flatMap(season => (season.recap ?? [])
+  .filter(recap => recap.status === 'published')
+  .map(recap => recap.locale))));
+const recapLocaleOptions = computed<RecapLocale[]>(() => [
+  ...recapLanguages.value,
+  ...recapLocales.filter(locale => !recapLanguages.value.includes(locale)),
+]);
+const recapLocaleCookie = useCookie<string | null>('synupsis-recap-locale', {
+  maxAge: 60 * 60 * 24 * 365, sameSite: 'lax', default: () => null,
+});
+// Until the reader picks one, the first language with something to read.
+const selectedRecapLocale = computed<RecapLocale>({
+  get: () => recapLocaleOptions.value.find(locale => locale === recapLocaleCookie.value)
+    ?? recapLocaleOptions.value.find(locale => publishedRecapLocales.value.has(locale))
+    ?? recapLocaleOptions.value[0]!,
+  set: (locale) => { recapLocaleCookie.value = locale; },
+});
+
+function withRecapsInLocale<T extends { recap?: Array<{ locale: string }> | null }>(season: T): T {
+  return { ...season, recap: (season.recap ?? []).filter(recap => recap.locale === selectedRecapLocale.value) };
+}
+
 const { data: seasonHubs, pending: hubsPending, refresh: refreshHubs } = await useAsyncData(
   `series-knowledge-${route.params.slug}`,
   async () => Promise.all(sortedSeasons.value.map(season => $fetch<SeasonHubResponse>(
     `/api/shows/${route.params.slug}/seasons/${season.number}`,
-    { query: { throughEpisode: cursorForSeason(season.number) } },
+    { query: { throughEpisode: cursorForSeason(season.number), locale: selectedRecapLocale.value } },
   ))),
-  { watch: [reachedSeasonNumber, reachedEpisode, revealAll] },
+  { watch: [reachedSeasonNumber, reachedEpisode, revealAll, selectedRecapLocale] },
 );
 
 function cursorForSeason(seasonNumber: number) {
@@ -898,7 +948,11 @@ async function generateRecap(seasonId: string) {
     await navigateTo('/login');
     return;
   }
-  await startRecapGeneration(seasonId);
+  await startRecapGeneration(seasonId, selectedRecapLocale.value);
+}
+
+function recapGenerationOf(seasonId: string) {
+  return recapGenerations.value[recapGenerationKey(seasonId, selectedRecapLocale.value)];
 }
 
 function goToRecapEditor(show?: string, season?: string, recap?: string) {

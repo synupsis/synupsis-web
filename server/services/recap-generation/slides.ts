@@ -1,4 +1,5 @@
 import { proxiedImageUrl } from '~/lib/image-url';
+import { DEFAULT_RECAP_LOCALE, normalizeRecapLocale, type RecapLocale } from '~/lib/recap-locales';
 import { RECAP_FORMAT_VERSION } from '~/server/services/recap-generation/config';
 import type { GeneratedSlide, RecapEvent, RecapEventGraph, RecapSourceSnapshot } from '~/server/services/recap-generation/types';
 import { listEpisodeChanges, normalizeCharacterKey } from '~/server/services/recap-generation/utils';
@@ -13,6 +14,52 @@ const STAGE_WIDTH = 390;
 const STAGE_HEIGHT = 844;
 const TITLE_FONT_FAMILY = 'Fredoka, Inter, sans-serif';
 const BODY_FONT_FAMILY = 'Inter, sans-serif';
+
+// Slide wording follows the language of the recap, not the reader's interface.
+const SLIDE_COPY: Record<RecapLocale, {
+  episode: (number: number) => string;
+  episodeStart: string;
+  meanwhile: string;
+  next: string;
+  decisive: string;
+  outcome: string;
+  whatChanged: string;
+  seasonEnd: string;
+  whereThingsStand: string;
+  deathsThisSeason: string;
+  openQuestions: string;
+}> = {
+  fr: {
+    episode: number => `Épisode ${number}`,
+    episodeStart: 'Au début de l’épisode',
+    meanwhile: 'Pendant ce temps',
+    next: 'Ensuite',
+    decisive: 'Décisif',
+    outcome: 'Bilan',
+    whatChanged: 'Ce qui a changé',
+    seasonEnd: 'Fin de saison',
+    whereThingsStand: 'Où en est-on',
+    deathsThisSeason: 'Morts cette saison',
+    openQuestions: 'Questions ouvertes',
+  },
+  en: {
+    episode: number => `Episode ${number}`,
+    episodeStart: 'At the start of the episode',
+    meanwhile: 'Meanwhile',
+    next: 'Next',
+    decisive: 'Turning point',
+    outcome: 'Outcome',
+    whatChanged: 'What changed',
+    seasonEnd: 'End of season',
+    whereThingsStand: 'Where things stand',
+    deathsThisSeason: 'Deaths this season',
+    openQuestions: 'Open questions',
+  },
+};
+
+function slideCopyOf(story: RecapStory) {
+  return SLIDE_COPY[normalizeRecapLocale(story.locale) ?? DEFAULT_RECAP_LOCALE];
+}
 
 type Palette = {
   gradient: [string, string];
@@ -66,6 +113,7 @@ export function planStorySlides(
   const eventById = new Map(eventGraph.events.map(event => [event.id, event]));
   const eventsOf = (eventIds: string[]) => eventIds.flatMap(id => eventById.get(id) ?? []);
   const episodes = story.episodes || [];
+  const copy = slideCopyOf(story);
   const portraitOf = createPortraitResolver(snapshot, eventGraph);
   const character = (name: string): RecapSlideCharacter => ({ ...toSlideCharacter(name), imageUrl: portraitOf(name) });
   const characters = (events: RecapEvent[], limit: number) => [...new Set(events.flatMap(event => event.characters))]
@@ -126,8 +174,8 @@ export function planStorySlides(
           kind: 'moment-group',
           episodeNumber,
           heading: slides.length === chapterStart + 1
-            ? 'Au début de l’épisode'
-            : places.size > 1 ? 'Pendant ce temps' : 'Ensuite',
+            ? copy.episodeStart
+            : places.size > 1 ? copy.meanwhile : copy.next,
           items,
         },
         eventIds: [...new Set(group.flatMap(momentIndex => episode.moments[momentIndex]!.eventIds))],
@@ -297,7 +345,7 @@ export function buildRecapSlides(
     }
     return {
       order,
-      canvas: createPlannedSlideCanvas({ order, slide, palette, backgroundImage: slide.imageUrl || coverImage }),
+      canvas: createPlannedSlideCanvas({ order, slide, palette, backgroundImage: slide.imageUrl || coverImage, copy: slideCopyOf(story) }),
     };
   });
 }
@@ -382,8 +430,9 @@ function createPlannedSlideCanvas(input: {
   slide: RecapPlannedSlide;
   palette: Palette;
   backgroundImage: string | null;
+  copy: typeof SLIDE_COPY[RecapLocale];
 }) {
-  const { label, title, body } = describePlannedSlide(input.slide.content);
+  const { label, title, body } = describePlannedSlide(input.slide.content, input.copy);
   const children: Record<string, unknown>[] = createBackgroundNodes(input.backgroundImage, input.palette, input.order);
   let currentY = 112;
 
@@ -440,35 +489,38 @@ function createPlannedSlideCanvas(input: {
   return createStage(children, durationMs);
 }
 
-function describePlannedSlide(content: RecapPlannedSlide['content']): { label: string; title: string; body: string } {
+function describePlannedSlide(
+  content: RecapPlannedSlide['content'],
+  copy: typeof SLIDE_COPY[RecapLocale],
+): { label: string; title: string; body: string } {
   const lines = (items: Array<{ text: string }>) => items.map(item => `• ${item.text}`).join('\n');
   switch (content.kind) {
     case 'chapter':
       return {
-        label: `Épisode ${content.episodeNumber}${content.episodeTitle ? ` · ${content.episodeTitle}` : ''}`,
+        label: `${copy.episode(content.episodeNumber)}${content.episodeTitle ? ` · ${content.episodeTitle}` : ''}`,
         title: content.headline,
         body: content.locations.join(' · '),
       };
     case 'moment':
-      return { label: `Épisode ${content.episodeNumber} · Décisif`, title: content.text, body: content.detail ?? '' };
+      return { label: `${copy.episode(content.episodeNumber)} · ${copy.decisive}`, title: content.text, body: content.detail ?? '' };
     case 'moment-group':
-      return { label: `Épisode ${content.episodeNumber}`, title: content.heading, body: lines(content.items) };
+      return { label: copy.episode(content.episodeNumber), title: content.heading, body: lines(content.items) };
     case 'changes':
       return {
-        label: `Épisode ${content.episodeNumber} · Bilan`,
-        title: 'Ce qui a changé',
+        label: `${copy.episode(content.episodeNumber)} · ${copy.outcome}`,
+        title: copy.whatChanged,
         body: lines([...content.deaths, ...content.situations, ...content.questions.map(text => ({ text }))]),
       };
     case 'ending-status':
-      return { label: 'Fin de saison', title: 'Où en est-on', body: lines(content.characters) };
+      return { label: copy.seasonEnd, title: copy.whereThingsStand, body: lines(content.characters) };
     case 'ending-deaths':
       return {
-        label: 'Fin de saison',
-        title: 'Morts cette saison',
-        body: content.deaths.map(death => `• ${death.character.name} · épisode ${death.episodeNumber}`).join('\n'),
+        label: copy.seasonEnd,
+        title: copy.deathsThisSeason,
+        body: content.deaths.map(death => `• ${death.character.name} · ${copy.episode(death.episodeNumber).toLocaleLowerCase()}`).join('\n'),
       };
     case 'ending-questions':
-      return { label: 'Fin de saison', title: 'Questions ouvertes', body: lines(content.questions) };
+      return { label: copy.seasonEnd, title: copy.openQuestions, body: lines(content.questions) };
     default:
       return { label: '', title: '', body: '' };
   }

@@ -47,6 +47,27 @@
               <p v-if="languageStatus" class="mt-3 text-sm" :class="languageError ? 'text-destructive' : 'text-muted-foreground'" role="status" aria-live="polite">{{ t(languageStatus) }}</p>
             </CardContent>
           </Card>
+          <Card class="mb-6">
+            <CardHeader>
+              <CardTitle>{{ t('Recap languages') }}</CardTitle>
+              <CardDescription>{{ t('Choose the languages you read recaps in. A show page lets you switch between them.') }}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form class="flex flex-col gap-3 sm:flex-row sm:items-end" @submit.prevent="saveRecapLanguageSelection">
+                <fieldset class="flex flex-1 flex-wrap gap-x-6 gap-y-2" :disabled="savingRecapLanguages">
+                  <legend class="sr-only">{{ t('Recap languages') }}</legend>
+                  <label v-for="language in recapLocales" :key="language" class="flex items-center gap-2 text-sm" :lang="language">
+                    <input v-model="selectedRecapLanguages" type="checkbox" :value="language" class="h-4 w-4 rounded border-input bg-background text-primary focus-visible:ring-2 focus-visible:ring-ring">
+                    {{ recapLocaleNames[language] }}
+                  </label>
+                </fieldset>
+                <Button type="submit" :disabled="savingRecapLanguages || !selectedRecapLanguages.length || !recapLanguagesChanged">
+                  {{ savingRecapLanguages ? t('Saving…') : t('Save recap languages') }}
+                </Button>
+              </form>
+              <p v-if="recapLanguageStatus" class="mt-3 text-sm" :class="recapLanguageError ? 'text-destructive' : 'text-muted-foreground'" role="status" aria-live="polite">{{ t(recapLanguageStatus) }}</p>
+            </CardContent>
+          </Card>
           <Tabs v-model="activeTab" default-value="recaps">
             <TabsList class="grid w-full grid-cols-2">
               <TabsTrigger value="recaps">{{ t("My Recaps") }}</TabsTrigger>
@@ -169,6 +190,7 @@ import SpinLoader from '~/components/ui/SpinLoader.vue';
 import AvatarUploadModal from '~/components/AvatarUploadModal.vue';
 import { useStoryViewer } from '~/composables/useStoryViewer';
 import type { LanguagePreference } from '~/lib/i18n/locale';
+import { recapLocaleNames, recapLocales, type RecapLocale } from '~/lib/recap-locales';
 
 const { t, preference } = useI18n();
 const { saving, saveLanguagePreference } = useLanguagePreference();
@@ -186,6 +208,27 @@ async function saveLanguage() {
   } catch {
     languageError.value = true;
     languageStatus.value = 'Could not save your language. Please try again.';
+  }
+}
+
+const { recapLanguages, saving: savingRecapLanguages, saveRecapLanguages } = useRecapLanguages();
+const selectedRecapLanguages = ref<RecapLocale[]>([...recapLanguages.value]);
+const recapLanguageStatus = ref('');
+const recapLanguageError = ref(false);
+// Saved in the catalog order: the show page starts on the display language when it is one of them.
+const orderedRecapLanguages = computed(() => recapLocales.filter(language => selectedRecapLanguages.value.includes(language)));
+const recapLanguagesChanged = computed(() => orderedRecapLanguages.value.join() !== recapLanguages.value.join());
+watch(recapLanguages, value => { selectedRecapLanguages.value = [...value]; });
+watch(selectedRecapLanguages, () => { recapLanguageStatus.value = ''; });
+
+async function saveRecapLanguageSelection() {
+  recapLanguageStatus.value = '';
+  recapLanguageError.value = false;
+  try {
+    if (await saveRecapLanguages(orderedRecapLanguages.value)) recapLanguageStatus.value = 'Recap languages saved.';
+  } catch {
+    recapLanguageError.value = true;
+    recapLanguageStatus.value = 'Could not save your recap languages. Please try again.';
   }
 }
 
