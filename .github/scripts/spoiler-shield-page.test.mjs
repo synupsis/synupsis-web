@@ -205,17 +205,15 @@ test('toggling saves the preference without changing progress and ignores duplic
   assert.equal(page.reachedEpisode.value, 2);
 });
 
-test('reenabling immediately hides cached future characters and corrections even when refresh fails', async t => {
+test('reenabling immediately hides cached future characters even when refresh fails', async t => {
   const harness = await createPage(t, { savedEntry: { ...entry, spoilerShieldEnabled: false } });
   const { page, mutations } = harness;
   assert.equal(page.knownCharacterProfiles.value.length, 6);
-  assert.equal(page.visibleCorrections.value.length, 6);
   harness.failHubRefresh();
   const saving = page.toggleSpoilerShield();
   // Check before any async refresh can replace the cached, fully revealed hubs.
   assert.deepEqual(plain(page.visibleSeasonHubs.value.map(item => item.season.number)), [1]);
   assert.ok(page.knownCharacterProfiles.value.every(item => item.name.startsWith('Character 1-')));
-  assert.ok(page.visibleCorrections.value.every(item => item.seasonNumber === 1));
   await settle();
   assert.equal(page.hubsPending.value, false);
   assert.equal(page.seasonHubs.value.length, 3);

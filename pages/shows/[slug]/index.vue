@@ -145,7 +145,7 @@
         </div>
       </section>
 
-      <section id="discussion" class="scroll-mt-16 border-b border-white/10 py-10 sm:py-16">
+      <section id="discussion" class="scroll-mt-16 py-10 sm:py-16">
         <div class="mx-auto max-w-7xl px-5 lg:px-8">
           <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -182,22 +182,6 @@
         </div>
       </section>
 
-      <section id="community" class="py-10 sm:py-16">
-        <div class="mx-auto max-w-7xl px-5 lg:px-8">
-          <div class="mb-8"><h2 class="text-2xl font-bold sm:text-3xl">{{ t('Community corrections') }}</h2><p class="mt-2 text-sm text-muted-foreground">{{ t('Visible suggestions also respect your spoiler limit.') }}</p></div>
-          <div v-if="visibleCorrections.length" class="grid gap-5 md:grid-cols-2">
-            <Card v-for="correction in visibleCorrections" :key="correction.id" class="border-white/10">
-              <CardHeader><div class="flex justify-between gap-3"><Badge variant="outline">{{ t('Season {number}', { number: correction.seasonNumber }) }} · {{ correctionFieldLabel(correction.field) }}</Badge><span class="text-xs text-muted-foreground">{{ t('Score {score}', { score: correction.score }) }}</span></div></CardHeader>
-              <CardContent>
-                <div class="grid gap-3 sm:grid-cols-2"><div class="rounded-lg bg-red-500/5 p-3"><span class="text-xs text-muted-foreground">{{ t('Current') }}</span><p class="mt-1 text-sm">{{ correction.currentValue }}</p></div><div class="rounded-lg bg-emerald-500/10 p-3"><span class="text-xs text-muted-foreground">{{ t('Suggested') }}</span><p class="mt-1 text-sm">{{ correction.proposedValue }}</p></div></div>
-                <p class="mt-4 text-sm leading-6 text-muted-foreground">{{ correction.reason }}</p>
-                <div class="mt-4 flex gap-2"><Button size="sm" :variant="correction.userVote === 1 ? 'default' : 'outline'" @click="vote(correction.id, 1, correction.throughEpisode)"><ThumbsUpIcon class="mr-1 h-4 w-4" />{{ correction.score }}</Button><Button size="sm" :variant="correction.userVote === -1 ? 'destructive' : 'outline'" @click="vote(correction.id, -1, correction.throughEpisode)"><ThumbsDownIcon class="h-4 w-4" /></Button></div>
-              </CardContent>
-            </Card>
-          </div>
-          <p v-else class="rounded-xl border border-dashed border-white/15 p-8 text-center text-sm text-muted-foreground">{{ t('No pending corrections for episodes you have watched.') }}</p>
-        </div>
-      </section>
     </main>
 
     <div v-else-if="showPending" class="grid min-h-[70vh] place-items-center"><SpinLoader class="h-8 w-8" /></div>
@@ -216,16 +200,14 @@
 </template>
 
 <script setup lang="ts">
-import { CalendarIcon, CheckIcon, MessagesSquareIcon, StarIcon, ThumbsDownIcon, ThumbsUpIcon } from 'lucide-vue-next';
+import { CalendarIcon, CheckIcon, MessagesSquareIcon, StarIcon } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import type { ShowWithSeasons } from '~/types/database.types';
 import type { LibraryEntry } from '~/types/library.types';
-import type { SeasonHubCorrection, SeasonHubResponse } from '~/types/season-hub.types';
+import type { SeasonHubResponse } from '~/types/season-hub.types';
 import type { ShowCharacterProfile } from '~/types/show-character.types';
-import { Badge } from '~/components/shadcn/badge';
 import { Button } from '~/components/shadcn/button';
-import { Card, CardContent, CardHeader } from '~/components/shadcn/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '~/components/shadcn/dropdown-menu';
 import CharacterProfileCard from '~/components/CharacterProfileCard.vue';
 import EpisodeComments from '~/components/EpisodeComments.vue';
@@ -239,7 +221,6 @@ import { useStoryViewer } from '~/composables/useStoryViewer';
 import { isRegularSeasonReleased } from '~/lib/season-availability';
 import { toPlainText } from '~/lib/plain-text';
 
-type VisibleCorrection = SeasonHubCorrection & { seasonNumber: number; throughEpisode: number };
 type ProgressEpisode = { number: number; title: string; firstAired: string | null };
 const { t, locale } = useI18n();
 
@@ -460,9 +441,6 @@ const discussionTabs = computed(() => [
 watch(lastSeenEpisode, (episode) => {
   if (!episode && discussionTab.value === 'episode' && !discussionEpisode.value) discussionTab.value = 'theories';
 });
-const visibleCorrections = computed<VisibleCorrection[]>(() => visibleSeasonHubs.value
-  .flatMap(hub => hub.corrections.map(correction => ({ ...correction, seasonNumber: hub.season.number, throughEpisode: hub.progress.throughEpisode }))));
-
 function castMemberCharacterNames(member: any): string[] {
   const values = [
     ...(Array.isArray(member?.characters) ? member.characters : []),
@@ -760,34 +738,6 @@ function goToRecapEditor(show?: string, season?: string, recap?: string) {
 }
 const { openStory } = useStoryViewer();
 function goToRecap(recapId: string) { openStory(recapId); }
-
-function correctionFieldLabel(field: string) {
-  const labels: Record<string, string> = {
-    description: t('Description'),
-    name: t('Name'),
-    title: t('Title'),
-    status: t('Status'),
-    role: t('Role'),
-    label: t('Label'),
-    detail: t('Details'),
-    summary: t('Summary'),
-  };
-  return labels[field] ?? field;
-}
-
-async function vote(correctionId: string, value: -1 | 1, throughEpisode: number) {
-  if (!user.value) {
-    toast.info(t('Sign in to vote.'));
-    await navigateTo('/login');
-    return;
-  }
-  try {
-    await $fetch(`/api/corrections/${correctionId}/vote`, { method: 'POST', body: { value, throughEpisode } });
-    await refreshHubs();
-  } catch (cause: any) {
-    toast.error(t('Could not save this vote.'), { description: cause.data?.statusMessage || cause.message });
-  }
-}
 
 useHead(() => {
   const description = showSummary.value.slice(0, 155) || t('Spoiler-free show recaps and information.');
