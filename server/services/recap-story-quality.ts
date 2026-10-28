@@ -1,4 +1,4 @@
-import type { RecapEvent, RecapEventGraph } from '~/server/services/recap-generation';
+import type { RecapEvent, RecapEventGraph } from '~/server/services/recap-generation/types';
 import type { RecapStory, RecapStoryChange } from '~/types/recap-story.types';
 
 export type StoryText = {

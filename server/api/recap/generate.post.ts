@@ -9,15 +9,16 @@ import {
   RECAP_FORMAT_VERSION,
   RECAP_LOCALE,
   RECAP_PROMPT_VERSION,
-  createEpisodeExtractionPrompt,
+} from '~/server/services/recap-generation/config';
+import { getRecapModel, startEpisodeExtraction } from '~/server/services/recap-generation/openai';
+import { createEpisodeExtractionPrompt } from '~/server/services/recap-generation/prompts';
+import {
   describeInsufficientSources,
   evaluateRecapSourceReadiness,
   fetchRecapSourceSnapshot,
   getEpisodeExtractionTokenBudget,
   getExtractableEpisodes,
-  getRecapModel,
-  startEpisodeExtraction,
-} from '~/server/services/recap-generation';
+} from '~/server/services/recap-generation/sources';
 import { expireStaleRecapGenerationJobs } from '~/server/services/recap-generation-runner';
 import {
   RECAP_GENERATION_ACTIVE_STATUSES,

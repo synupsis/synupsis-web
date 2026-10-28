@@ -1,5 +1,5 @@
-import type { RecapCoverArt } from '~/server/services/recap-generation';
-import { fetchTmdbCoverArt } from '~/server/services/recap-generation';
+import type { RecapCoverArt } from '~/server/services/recap-generation/sources';
+import { fetchTmdbCoverArt } from '~/server/services/recap-generation/sources';
 
 // Read when a recap is opened, so recaps generated before the cover art existed
 // get it too; posters and logos rarely change, so one lookup lasts a week.

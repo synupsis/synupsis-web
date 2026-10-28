@@ -17,28 +17,36 @@ registerHooks({
 })
 
 const {
-  applyRecoveredScenes,
-  applySceneLinks,
-  assembleSceneGraph,
-  buildRecapSlides,
   createEpisodeExtractionPrompt,
   createRecapPrompt,
   createSceneCriticPrompt,
   createSceneLinkingPrompt,
   createSceneRecoveryPrompt,
-  parseCriticGaps,
-  describeInsufficientSources,
+  getEpisodeMomentTarget,
+} = await import('../../server/services/recap-generation/prompts.ts')
+const {
+  applyRecoveredScenes,
+  applySceneLinks,
+  assembleSceneGraph,
   evaluateRecapEventGraph,
+  normalizeRecapEventGraph,
+  parseCriticGaps,
+} = await import('../../server/services/recap-generation/scene-graph.ts')
+const {
+  buildRecapSlides,
+  planStorySlides,
+} = await import('../../server/services/recap-generation/slides.ts')
+const {
+  describeInsufficientSources,
   evaluateRecapSourceReadiness,
+  getEpisodeExtractionTokenBudget,
+  getExtractableEpisodes,
+} = await import('../../server/services/recap-generation/sources.ts')
+const {
   evaluateRecapStory,
   finalizeRecapStory,
-  getEpisodeExtractionTokenBudget,
-  getEpisodeMomentTarget,
-  getExtractableEpisodes,
-  normalizeRecapEventGraph,
   normalizeRecapStory,
-  planStorySlides,
-} = await import('../../server/services/recap-generation.ts')
+} = await import('../../server/services/recap-generation/story.ts')
 const { createStoryVerificationPrompt, listStoryTexts } = await import('../../server/services/recap-story-quality.ts')
 const {
   createRecapSourceProvider,

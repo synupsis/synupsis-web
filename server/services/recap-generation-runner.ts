@@ -1,30 +1,33 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, Json } from '~/types/database.types';
+import type { RecapStory } from '~/types/recap-story.types';
 import type {
   RecapCriticGap,
   RecapEventGraph,
   RecapSourceSnapshot,
-  RecapStory,
-} from '~/server/services/recap-generation';
+} from '~/server/services/recap-generation/types';
 import {
-  applyRecoveredScenes,
-  applySceneLinks,
-  assembleSceneGraph,
-  createRecapPrompt,
-  createSceneCriticPrompt,
-  createSceneLinkingPrompt,
-  createSceneRecoveryPrompt,
-  evaluateRecapEventGraph,
-  finalizeRecapStory,
-  parseCriticGaps,
-  processRecapDraft,
   retrieveRecapGeneration,
   startRecapGeneration,
   startSceneCritic,
   startSceneLinking,
   startSceneRecovery,
   startStoryVerification,
-} from '~/server/services/recap-generation';
+} from '~/server/services/recap-generation/openai';
+import {
+  createRecapPrompt,
+  createSceneCriticPrompt,
+  createSceneLinkingPrompt,
+  createSceneRecoveryPrompt,
+} from '~/server/services/recap-generation/prompts';
+import {
+  applyRecoveredScenes,
+  applySceneLinks,
+  assembleSceneGraph,
+  evaluateRecapEventGraph,
+  parseCriticGaps,
+} from '~/server/services/recap-generation/scene-graph';
+import { finalizeRecapStory, processRecapDraft } from '~/server/services/recap-generation/story';
 import { createStoryVerificationPrompt } from '~/server/services/recap-story-quality';
 import {
   RECAP_GENERATION_ACTIVE_STATUSES,

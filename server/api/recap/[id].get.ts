@@ -1,10 +1,9 @@
 import { serverSupabaseClient } from '#supabase/server';
-import {
-  planStorySlides,
-  toDisplayImageUrl,
-  type RecapEventGraph,
-  type RecapSourceSnapshot,
-} from '~/server/services/recap-generation';
+import { planStorySlides, toDisplayImageUrl } from '~/server/services/recap-generation/slides';
+import type {
+  RecapEventGraph,
+  RecapSourceSnapshot,
+} from '~/server/services/recap-generation/types';
 import { getRecapCoverArt } from '~/server/services/recap-cover-art';
 import type { Database } from '~/types/database.types';
 import type { RecapPlannedSlide, RecapStory } from '~/types/recap-story.types';

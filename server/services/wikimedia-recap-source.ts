@@ -1,4 +1,4 @@
-import type { RecapEvidence, RecapSourceProvider } from '~/server/services/recap-generation';
+import type { RecapEvidence, RecapSourceProvider } from '~/server/services/recap-generation/types';
 import { createRecapSourceProvider, getRecapSourcePolicy } from '~/server/services/recap-source-registry';
 
 export type WikiLocale = 'fr' | 'en';

@@ -4,7 +4,7 @@ import {
 } from '#supabase/server';
 import type { Database } from '~/types/database.types';
 import { RECAP_GENERATION_ACTIVE_STATUSES } from '~/lib/recap-generation-progress';
-import { RECAP_FORMAT_VERSION, RECAP_LOCALE } from '~/server/services/recap-generation';
+import { RECAP_FORMAT_VERSION, RECAP_LOCALE } from '~/server/services/recap-generation/config';
 import { expireStaleRecapGenerationJobs, toPublicJob } from '~/server/services/recap-generation-runner';
 
 // Lets a show page pick up the generations still running after a refresh,
