@@ -3,7 +3,7 @@
     <NuxtRouteAnnouncer />
     <NuxtLoadingIndicator />
     <NuxtPage class="flex-grow" />
-    <Footer v-if="showFooter" />
+    <Footer v-if="showFooter" :compact="compactFooter" />
     <ClientOnly>
       <RecapStoryOverlay />
     </ClientOnly>
@@ -19,6 +19,7 @@ import RecapStoryOverlay from '~/components/RecapStoryOverlay.vue'
 
 const route = useRoute();
 const showFooter = computed(() => !route.path.startsWith('/recap'));
+const compactFooter = computed(() => ['login', 'signup', 'pwdforgot', 'password-reset', 'email-confirmation'].includes(String(route.name)));
 
 useHead({
   link: [
