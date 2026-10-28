@@ -23,7 +23,7 @@ function compiledPage(name) {
 
 // Execute each page's actual setup and handlers. Only presentation imports and
 // Nuxt/network boundaries are stubbed; Vue refs and the SFC compiler are real.
-function createPage(name) {
+function createPage(name, { query = {} } = {}) {
   const requests = [];
   const navigations = [];
   const module = { exports: {} };
@@ -36,6 +36,8 @@ function createPage(name) {
     useI18n: () => ({ t: message => message, locale: vue.ref('en') }),
     Error,
     ref: vue.ref,
+    computed: vue.computed,
+    useRoute: () => ({ query }),
     useHead: () => {},
     useSupabaseClient: () => ({
       auth: {
@@ -70,6 +72,27 @@ test('login trims email, preserves password exactly and navigates only after suc
   assert.equal(page.errorMessage.value, '');
 });
 
+for (const redirect of ['/library', '/shows/example-42?season=2#episodes']) {
+  test(`login returns to the requested local destination ${redirect} after success`, async () => {
+    const { page, requests, navigations } = createPage('login', { query: { redirect } });
+    const pending = page.login();
+    assert.deepEqual(navigations, []);
+    requests[0].resolve({ error: null });
+    await pending;
+    assert.deepEqual(navigations, [redirect]);
+  });
+}
+
+for (const redirect of ['', null, ['/library'], {}, 'https://example.com/path', '//example.com/path', '/\\example.com/path', 'library']) {
+  test(`login falls back home for an invalid redirect ${JSON.stringify(redirect)}`, async () => {
+    const { page, requests, navigations } = createPage('login', { query: { redirect } });
+    const pending = page.login();
+    requests[0].resolve({ error: null });
+    await pending;
+    assert.deepEqual(navigations, ['/']);
+  });
+}
+
 test('login rejects duplicate submissions while a request is pending', async () => {
   const { page, requests } = createPage('login');
   const pending = page.login();
@@ -92,7 +115,7 @@ test('login requires a nonblank email and a password before contacting Supabase'
 
 for (const failure of ['credentials', 'network']) {
   test(`login recovers from a ${failure} failure and can be retried`, async () => {
-    const { page, requests, navigations } = createPage('login');
+    const { page, requests, navigations } = createPage('login', { query: { redirect: '/library' } });
     const pending = page.login();
     if (failure === 'credentials') requests[0].resolve({ error: { message: 'Invalid login credentials' } });
     else requests[0].reject(new Error('Network unavailable'));
@@ -108,7 +131,7 @@ for (const failure of ['credentials', 'network']) {
     requests[1].resolve({ error: null });
     await retry;
     assert.equal(page.isLoading.value, false);
-    assert.deepEqual(navigations, ['/']);
+    assert.deepEqual(navigations, ['/library']);
   });
 }
 
