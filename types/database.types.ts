@@ -12,10 +12,14 @@ export type Prompt = Database['public']['Tables']['prompts']['Row'] & {
 };
 export type Recap = Database['public']['Tables']['recap']['Row'];
 export type SeasonWithRecaps = Season & { recap: Recap[] };
+/** Trakt's community rating, out of 10. */
+export type ShowRating = { value: number; votes: number };
 export type ShowWithSeasons = Show & {
   seasons: SeasonWithRecaps[];
   _embedded?: {
     cast?: unknown[];
     characterProfiles?: ShowCharacterProfile[];
+    // Missing when Trakt is unreachable or has no votes.
+    rating?: ShowRating | null;
   };
 };

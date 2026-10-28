@@ -288,7 +288,7 @@ const showSummary = computed(() => toPlainText(showData.value?.summary));
 const seasonsChronological = computed(() => [...sortedSeasons.value].reverse());
 const firstAired = computed(() => seasonsChronological.value[0]?.first_aired ?? null);
 const cast = computed<any[]>(() => (showData.value?._embedded?.cast as any[] | undefined) ?? []);
-const rating = computed(() => (showData.value?._embedded?.rating as { value: number; votes: number } | null | undefined) ?? null);
+const rating = computed(() => showData.value?._embedded?.rating ?? null);
 function formatCompact(count: number) {
   return new Intl.NumberFormat(locale.value, { notation: 'compact' }).format(count);
 }
