@@ -30,6 +30,8 @@
         </div>
       </div>
 
+      <HomeRecentLibrary v-if="user && !hasQuery" :key="user.sub" :user-id="user.sub" />
+
       <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">{{ searchAnnouncement }}</p>
       <section id="show-results" ref="resultsSection" :aria-busy="isSearching" aria-labelledby="results-heading" @keydown="onResultsKeydown">
         <template v-if="hasQuery">
@@ -101,8 +103,10 @@ import { RefreshCw, SearchX, TrendingUp, WifiOff } from 'lucide-vue-next';
 import { useEventListener } from '@vueuse/core';
 import SearchInput from '~/components/ui/SearchInput.vue';
 import ShowSearchCard from '~/components/ShowSearchCard.vue';
+import HomeRecentLibrary from '~/components/HomeRecentLibrary.vue';
 import type { TraktShowCard } from '~/types/trakt.types';
 
+const user = useSupabaseUser();
 const route = useRoute();
 const router = useRouter();
 const readRouteQuery = () => typeof route.query.q === 'string' ? route.query.q.slice(0, 100) : '';
