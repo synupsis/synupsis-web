@@ -48,7 +48,7 @@ const text = element => element.tag === '#comment' ? '' : element.text + element
 const settle = async () => { for (let i = 0; i < 4; i += 1) await vue.nextTick(); };
 const libraryEntry = (name, overrides = {}) => ({
   slug: `${name.toLowerCase()}-42`, name, image: null, season: 2, episode: 3,
-  spoilerShieldEnabled: true, updatedAt: '2026-10-28T12:00:00Z', ...overrides,
+  spoilerShieldEnabled: true, isCaughtUp: false, updatedAt: '2026-10-28T12:00:00Z', ...overrides,
 });
 const NuxtLink = vue.defineComponent({
   props: ['to'],
@@ -154,6 +154,13 @@ test('signed-in visitors see recent additions before trends with correct library
   assert.ok(home.find(element => element.tag === 'a' && element.props.href === '/shows/tracked-42'));
 });
 
+test('caught-up shows display their status instead of the saved episode code', t => {
+  const home = createHome(t, { entries: [libraryEntry('CaughtUp', { isCaughtUp: true })] });
+  const card = home.find(element => element.tag === 'a' && element.props.href === '/shows/caughtup-42');
+  assert.equal(text(card), 'CaughtUpUp to date');
+  assert.doesNotMatch(text(card), /S02E03/);
+});
+
 test('search results replace the discovery sections and returning home reloads additions', async t => {
   const home = createHome(t);
   const original = home.states[0];
@@ -174,7 +181,12 @@ for (const status of ['idle', 'pending']) {
     const home = createHome(t, { status });
     const section = home.find(element => element.tag === 'section' && element.props['aria-labelledby'] === 'recent-library-heading');
     assert.equal(section.props['aria-busy'], true);
-    assert.ok(home.find(element => element.props.role === 'status' && element.props['aria-label'] === 'Loading your library'));
+    const loading = home.find(element => element.props.role === 'status' && element.props['aria-label'] === 'Loading your library');
+    assert.ok(loading);
+    const cards = loading.children.filter(element => element.tag === 'div');
+    assert.equal(cards.length, 5);
+    // Each placeholder has an image and one text row, matching the loaded card.
+    for (const card of cards) assert.equal(card.children.filter(element => element.tag === 'div').length, 2);
     assert.match(home.text(), /Trending series/);
     assert.doesNotMatch(home.text(), /Start your library/);
   });

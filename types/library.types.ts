@@ -9,3 +9,5 @@ export type LibraryEntry = {
 };
 
 export type LibraryListEntry = LibraryEntry & { name: string; image: string | null };
+
+export type HomeLibraryEntry = LibraryListEntry & { isCaughtUp: boolean };

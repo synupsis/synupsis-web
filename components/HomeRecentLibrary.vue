@@ -14,7 +14,6 @@
       <div v-for="i in 5" :key="i" aria-hidden="true" class="motion-safe:animate-pulse">
         <div class="aspect-video rounded-xl bg-muted" />
         <div class="mt-3 h-4 w-3/4 rounded bg-muted" />
-        <div class="mt-2 h-3 w-1/2 rounded bg-muted" />
       </div>
     </div>
     <div v-else-if="error" class="rounded-2xl border border-border px-6 py-8 text-center text-sm text-muted-foreground" role="status">
@@ -38,7 +37,8 @@
           </div>
           <div class="mt-3 flex items-baseline justify-between gap-2">
             <h3 :title="entry.name" class="min-w-0 flex-1 truncate text-sm font-semibold leading-snug transition group-hover:text-violet-500 sm:text-base dark:group-hover:text-violet-300">{{ entry.name }}</h3>
-            <span v-if="entry.season && entry.episode > 0" class="shrink-0 text-xs text-muted-foreground tabular-nums sm:text-sm">
+            <span v-if="entry.isCaughtUp" class="shrink-0 text-xs font-medium text-emerald-600 sm:text-sm dark:text-emerald-300">{{ t('Up to date') }}</span>
+            <span v-else-if="entry.season && entry.episode > 0" class="shrink-0 text-xs text-muted-foreground tabular-nums sm:text-sm">
               {{ `S${String(entry.season).padStart(2, '0')}E${String(entry.episode).padStart(2, '0')}` }}
             </span>
           </div>
@@ -55,12 +55,12 @@
 <script setup lang="ts">
 import { ArrowRight, LibraryBig, Tv } from 'lucide-vue-next';
 import { proxiedImageUrl } from '~/lib/image-url';
-import type { LibraryListEntry } from '~/types/library.types';
+import type { HomeLibraryEntry } from '~/types/library.types';
 
 // The parent remounts this component for each signed-in user.
 const props = defineProps<{ userId: string }>();
 const { t } = useI18n();
-const { data, status, error, refresh, clear } = useFetch<{ entries: LibraryListEntry[] }>('/api/home/library', {
+const { data, status, error, refresh, clear } = useFetch<{ entries: HomeLibraryEntry[] }>('/api/home/library', {
   key: `home-recent-library:${props.userId}`,
   lazy: true,
   // Hydrate the server result, but fetch fresh additions when coming back home.

@@ -169,6 +169,7 @@ export const showMessages: Record<string, string> = {
   "Publishing": "Publication",
   "Add to my library": "Ajouter à ma bibliothèque",
   "In your library": "Dans votre bibliothèque",
+  "Up to date": "À jour",
   "Library options": "Options de bibliothèque",
   "Remove from my library": "Retirer de ma bibliothèque",
   "Stop tracking": "Arrêter le suivi",

@@ -52,10 +52,11 @@
 
       <div v-else key="tracking" class="flex flex-col gap-4">
       <div class="-mb-2 flex items-center justify-between gap-2">
-        <span v-if="!saved" />
-        <span v-else class="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-300">
-          <BookmarkCheckIcon class="h-3.5 w-3.5" aria-hidden="true" />
-          {{ t('In your library') }}
+        <span v-if="!saved && !isCaughtUp" />
+        <span v-else class="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-300" role="status" aria-live="polite" aria-atomic="true">
+          <CircleCheckIcon v-if="isCaughtUp" class="h-3.5 w-3.5" aria-hidden="true" />
+          <BookmarkCheckIcon v-else class="h-3.5 w-3.5" aria-hidden="true" />
+          {{ isCaughtUp ? t('Up to date') : t('In your library') }}
         </span>
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
@@ -282,6 +283,7 @@ import { Button } from '~/components/shadcn/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '~/components/shadcn/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '~/components/shadcn/dropdown-menu';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
+import { lastConfirmedAiredEpisode } from '~/lib/watching-progress';
 
 type CatalogEpisode = { number: number; title: string; firstAired: string | null };
 type EpisodePosition = { season: number; episode: number };
@@ -318,11 +320,16 @@ const emit = defineEmits<{
 }>();
 
 const catalogs = reactive<Record<number, CatalogEpisode[]>>({});
-if (props.initialCatalog?.seasonNumber && props.initialCatalog.episodes.length) {
-  catalogs[props.initialCatalog.seasonNumber] = props.initialCatalog.episodes
-    .filter(isReleased)
-    .sort((a, b) => a.number - b.number);
+const lastAiredEpisodes = reactive<Record<number, number | null>>({});
+
+function storeCatalog(season: number, episodes: CatalogEpisode[]) {
+  lastAiredEpisodes[season] = lastConfirmedAiredEpisode(episodes);
+  catalogs[season] = episodes.filter(isReleased).sort((a, b) => a.number - b.number);
 }
+watch(() => props.initialCatalog, (catalog) => {
+  if (!catalog?.seasonNumber) return;
+  storeCatalog(catalog.seasonNumber, catalog.episodes);
+}, { immediate: true });
 const catalogPending = ref(false);
 const initialPosition = nextPosition({ season: props.reachedSeason, episode: props.reachedEpisode });
 const viewSeason = ref(initialPosition.season);
@@ -333,6 +340,13 @@ let keepViewOnNextSync = false;
 const viewEpisodes = computed(() => catalogs[viewSeason.value] ?? []);
 const viewedEpisode = computed(() => viewEpisodes.value.find(episode => episode.number === viewEpisode.value) ?? null);
 const isSeen = computed(() => isEpisodeSeen(viewSeason.value, viewEpisode.value));
+// Progress is global: browsing the finale alone does not mean it was watched.
+const isCaughtUp = computed(() => {
+  const latestSeason = props.seasons.at(-1);
+  if (props.mode !== 'tracking' || !latestSeason || props.reachedSeason !== latestSeason) return false;
+  const lastEpisode = lastAiredEpisodes[latestSeason];
+  return !!lastEpisode && props.reachedEpisode >= lastEpisode;
+});
 const seenInViewSeason = computed(() => viewEpisodes.value.filter(episode => isEpisodeSeen(viewSeason.value, episode.number)).length);
 const seasonIndex = computed(() => props.seasons.indexOf(viewSeason.value));
 const hasPrevious = computed(() => viewEpisode.value > 1 || seasonIndex.value > 0);
@@ -366,13 +380,14 @@ async function loadCatalog(season: number) {
   catalogPending.value = true;
   try {
     const response = await $fetch<{ episodes: CatalogEpisode[] }>(`/api/shows/${props.slug}/seasons/${season}/episodes`);
-    catalogs[season] = response.episodes.filter(isReleased).sort((a, b) => a.number - b.number);
+    storeCatalog(season, response.episodes);
   } catch {
     catalogs[season] = [];
+    lastAiredEpisodes[season] = null;
   } finally {
     catalogPending.value = false;
   }
-  return catalogs[season];
+  return catalogs[season] ?? [];
 }
 
 // The episode after the last one seen: the start of the series without progress.
