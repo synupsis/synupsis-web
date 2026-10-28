@@ -44,7 +44,7 @@
           <div class="min-w-0">
             <p class="truncate font-semibold text-white">{{ name }}</p>
             <p v-if="profile?.actorName" class="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-              <MicrophoneIcon v-if="profile.isVoice" class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <MicIcon v-if="profile.isVoice" class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <span class="truncate">{{ profile.isVoice ? t('Voiced by') : t('Played by') }} {{ profile.actorName }}</span>
             </p>
             <p v-if="profile?.imageKind === 'actor'" class="mt-1 text-[10px] text-amber-200/70">
@@ -103,7 +103,7 @@
           class="mt-4 inline-flex items-center gap-1 text-[10px] text-muted-foreground transition-colors hover:text-primary"
         >
           {{ t('Portrait and cast via TVMaze') }}
-          <ArrowTopRightOnSquareIcon class="h-3 w-3" aria-hidden="true" />
+          <ExternalLinkIcon class="h-3 w-3" aria-hidden="true" />
         </a>
       </HoverCardContent>
     </HoverCardPortal>
@@ -111,8 +111,8 @@
 </template>
 
 <script setup lang="ts">
+import { ExternalLinkIcon, MicIcon } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
-import { ArrowTopRightOnSquareIcon, MicrophoneIcon } from '@heroicons/vue/24/outline';
 import {
   HoverCardContent,
   HoverCardPortal,

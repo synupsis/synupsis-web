@@ -59,7 +59,7 @@
                 v-if="spoilerLocked || isGenerating"
                 class="absolute inset-0 grid place-items-center bg-black/60 text-white"
               >
-                <LockClosedIcon v-if="spoilerLocked" class="h-6 w-6" />
+                <LockIcon v-if="spoilerLocked" class="h-6 w-6" />
                 <span v-else class="text-base font-bold tabular-nums">
                   {{ displayedProgress }}<span class="text-[10px] font-semibold text-white/70">%</span>
                 </span>
@@ -68,7 +68,7 @@
                 v-else-if="isPublished"
                 class="absolute inset-0 grid place-items-center bg-black/0 text-white opacity-0 transition group-hover:bg-black/35 group-hover:opacity-100 group-focus-within:bg-black/35 group-focus-within:opacity-100"
               >
-                <PlayIcon class="h-7 w-7 drop-shadow" />
+                <PlayIcon fill="currentColor" class="h-7 w-7 drop-shadow" />
               </span>
               <span
                 v-else-if="!isDraft"
@@ -86,9 +86,9 @@
         :class="statusIconClass"
         aria-hidden="true"
       >
-        <LockClosedIcon v-if="spoilerLocked" class="h-3 w-3" />
+        <LockIcon v-if="spoilerLocked" class="h-3 w-3" />
         <SpinLoader v-else-if="isGenerating" class="h-3 w-3" />
-        <PlayIcon v-else-if="isPublished" class="h-3 w-3" />
+        <PlayIcon fill="currentColor" v-else-if="isPublished" class="h-3 w-3" />
         <PencilIcon v-else-if="isDraft" class="h-3 w-3" />
         <SparklesIcon v-else class="h-3 w-3" />
       </span>
@@ -116,9 +116,8 @@
 </template>
 
 <script setup lang="ts">
+import { LockIcon, PencilIcon, PlayIcon, SparklesIcon } from 'lucide-vue-next';
 import { computed, useId } from 'vue';
-import { LockClosedIcon, PencilIcon, SparklesIcon } from '@heroicons/vue/24/outline';
-import { PlayIcon } from '@heroicons/vue/24/solid';
 import CachedImage from '~/components/CachedImage.vue';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import { prefetchRecapStory } from '~/composables/useStoryViewer';

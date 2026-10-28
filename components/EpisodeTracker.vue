@@ -15,7 +15,7 @@
             {{ t('Start watching') }}
           </Button>
           <Button type="button" variant="outline" size="lg" class="w-full rounded-full" @click="openPicker('set')">
-            <ForwardIcon class="mr-2 h-4 w-4" aria-hidden="true" />
+            <FastForwardIcon class="mr-2 h-4 w-4" aria-hidden="true" />
             {{ t('I am already at…') }}
           </Button>
         </div>
@@ -107,21 +107,21 @@
       <div class="grid gap-2">
         <template v-if="isSeen">
           <Button type="button" variant="secondary" size="lg" class="w-full rounded-full" @click="unmark">
-            <CheckCircleIcon class="mr-2 h-4 w-4 text-emerald-400" aria-hidden="true" />
+            <CircleCheckIcon class="mr-2 h-4 w-4 text-emerald-400" aria-hidden="true" />
             {{ t('Watched · undo') }}
           </Button>
           <Button type="button" variant="outline" size="lg" class="w-full rounded-full" @click="emit('discuss', { season: viewSeason, episode: viewEpisode })">
-            <ChatBubbleLeftRightIcon class="mr-2 h-4 w-4" aria-hidden="true" />
+            <MessagesSquareIcon class="mr-2 h-4 w-4" aria-hidden="true" />
             {{ t('Comments') }}
           </Button>
         </template>
         <template v-else>
           <Button type="button" size="lg" class="w-full rounded-full" :disabled="!viewedEpisode" @click="mark">
-            <CheckCircleIcon class="mr-2 h-4 w-4" aria-hidden="true" />
+            <CircleCheckIcon class="mr-2 h-4 w-4" aria-hidden="true" />
             {{ t('Mark as watched') }}
           </Button>
           <Button type="button" variant="outline" size="lg" class="w-full rounded-full" disabled>
-            <LockClosedIcon class="mr-2 h-4 w-4" aria-hidden="true" />
+            <LockIcon class="mr-2 h-4 w-4" aria-hidden="true" />
             {{ t('Comments') }}
           </Button>
         </template>
@@ -133,7 +133,7 @@
           :aria-pressed="revealed"
           @click="emit('toggle-reveal')"
         >
-          <EyeSlashIcon v-if="revealed" class="h-3.5 w-3.5" aria-hidden="true" />
+          <EyeOffIcon v-if="revealed" class="h-3.5 w-3.5" aria-hidden="true" />
           <EyeIcon v-else class="h-3.5 w-3.5" aria-hidden="true" />
           {{ revealed ? t('Spoilers visible · hide what comes next') : t('Show the entire series') }}
         </button>
@@ -159,7 +159,7 @@
             :aria-pressed="pickerSeason === season"
             @click="selectPickerSeason(season)"
           >
-            <CheckCircleIcon v-if="isSeasonComplete(season)" class="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" />
+            <CircleCheckIcon v-if="isSeasonComplete(season)" class="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" />
             {{ t('Season {number}', { number: season }) }}
             <span v-if="!isSeasonComplete(season) && season === reachedSeason && reachedEpisode" class="tabular-nums text-emerald-200">{{ reachedEpisode }}/{{ catalogs[season]?.length || '?' }}</span>
           </button>
@@ -191,7 +191,7 @@
                   {{ episode.number }}
                 </span>
                 <span class="min-w-0 flex-1 truncate text-sm font-medium">{{ episode.title || t('Episode {number}', { number: episode.number }) }}</span>
-                <CheckCircleIcon v-if="isEpisodeSeen(pickerSeason, episode.number)" class="h-4 w-4 shrink-0 text-emerald-400" :aria-label="t('Watched')" />
+                <CircleCheckIcon v-if="isEpisodeSeen(pickerSeason, episode.number)" class="h-4 w-4 shrink-0 text-emerald-400" :aria-label="t('Watched')" />
               </button>
             </li>
           </ol>
@@ -208,11 +208,8 @@
 </template>
 
 <script setup lang="ts">
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, CircleCheckIcon, EyeIcon, EyeOffIcon, FastForwardIcon, LockIcon, MessagesSquareIcon, PlayIcon } from 'lucide-vue-next';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import {
-  ChatBubbleLeftRightIcon, CheckCircleIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, EyeIcon, EyeSlashIcon, ForwardIcon,
-  LockClosedIcon, PlayIcon,
-} from '@heroicons/vue/24/outline';
 import { Button } from '~/components/shadcn/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '~/components/shadcn/dialog';
 import SpinLoader from '~/components/ui/SpinLoader.vue';

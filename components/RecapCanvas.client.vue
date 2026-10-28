@@ -40,19 +40,19 @@
     <div v-if="!readOnly" class="absolute top-1/2 -translate-y-1/2 right-full mr-4 z-10 flex flex-col items-start gap-4">
       <Button v-if="!visualOnly" class="py-2 px-4" variant="outline" @click="addTextbox">
         <span class="flex items-center gap-2">
-          <PlusCircleIcon class="h-5 w-5" />
+          <CirclePlusIcon class="h-5 w-5" />
           {{ t('Add text') }}
         </span>
       </Button>
       <Button class="py-2 px-4" variant="outline" @click="openBackgroundModal">
         <span class="flex items-center gap-2">
-          <PhotoIcon class="h-5 w-5" />
+          <ImageIcon class="h-5 w-5" />
           {{ visualOnly ? t('Change image') : t('Add Image') }}
         </span>
       </Button>
       <Button v-if="!visualOnly" class="py-2 px-4" variant="outline" @click="clearSlide">
         <span class="flex items-center gap-2">
-          <ArrowPathRoundedSquareIcon class="h-5 w-5" />
+          <RotateCcwIcon class="h-5 w-5" />
           {{ t('Reset slide') }}
         </span>
       </Button>
@@ -63,7 +63,7 @@
         @click="deleteSelectedObject"
       >
         <span class="flex items-center gap-2">
-          <TrashIcon class="h-5 w-5" />
+          <Trash2Icon class="h-5 w-5" />
           {{ t('Delete') }}
         </span>
       </Button>
@@ -79,15 +79,10 @@
 </template>
 
 <script lang="ts" setup>
+import { CirclePlusIcon, ImageIcon, RotateCcwIcon, Trash2Icon } from 'lucide-vue-next';
 const { t } = useI18n();
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import Konva from 'konva';
-import {
-  ArrowPathRoundedSquareIcon,
-  PhotoIcon,
-  PlusCircleIcon,
-  TrashIcon,
-} from '@heroicons/vue/24/outline';
 import { Button } from '~/components/shadcn/button';
 import { toast } from 'vue-sonner';
 import RecapImageModal from '~/components/RecapImageModal.vue';

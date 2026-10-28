@@ -154,7 +154,7 @@
             </div>
           </div>
           <div class="mt-6 rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-6 text-center sm:p-10">
-            <ChatBubbleLeftRightIcon class="mx-auto h-7 w-7 text-muted-foreground" aria-hidden="true" />
+            <MessagesSquareIcon class="mx-auto h-7 w-7 text-muted-foreground" aria-hidden="true" />
             <template v-if="discussionTab === 'theories'">
               <h3 class="mt-4 font-semibold">{{ t('No theories yet') }}</h3>
               <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">{{ t('Each theory will list the episodes it is based on. You will only see theories based on episodes you have already watched.') }}</p>
@@ -227,7 +227,7 @@
                 @click="timelineCharacterFilter = null"
               >
                 {{ timelineCharacterFilter }}
-                <XMarkIcon class="h-3.5 w-3.5" aria-hidden="true" />
+                <XIcon class="h-3.5 w-3.5" aria-hidden="true" />
               </button>
             </div>
             </div>
@@ -267,7 +267,7 @@
                             <CardTitle class="text-xl">{{ item.title }}</CardTitle>
                           </div>
                           <Button variant="ghost" size="icon" :title="t('Suggest a correction')" @click="openCorrection(item.seasonNumber, 'event', item.id, 'description', item.description, Math.max(...item.episodeNumbers), item.throughEpisode)">
-                            <PencilSquareIcon class="h-4 w-4" />
+                            <SquarePenIcon class="h-4 w-4" />
                           </Button>
                         </div>
                       </CardHeader>
@@ -339,7 +339,7 @@
             </div>
           </div>
           <div v-else class="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-10 text-center">
-            <LockClosedIcon class="mx-auto h-7 w-7 text-muted-foreground" />
+            <LockIcon class="mx-auto h-7 w-7 text-muted-foreground" />
             <h3 class="mt-4 font-semibold">{{ t('The timeline is protected') }}</h3>
             <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">{{ t('Set your progress to see all the events you have watched, without revealing what comes next.') }}</p>
           </div>
@@ -356,7 +356,7 @@
               <CardContent>
                 <div class="grid gap-3 sm:grid-cols-2"><div class="rounded-lg bg-red-500/5 p-3"><span class="text-xs text-muted-foreground">{{ t('Current') }}</span><p class="mt-1 text-sm">{{ correction.currentValue }}</p></div><div class="rounded-lg bg-emerald-500/10 p-3"><span class="text-xs text-muted-foreground">{{ t('Suggested') }}</span><p class="mt-1 text-sm">{{ correction.proposedValue }}</p></div></div>
                 <p class="mt-4 text-sm leading-6 text-muted-foreground">{{ correction.reason }}</p>
-                <div class="mt-4 flex gap-2"><Button size="sm" :variant="correction.userVote === 1 ? 'default' : 'outline'" @click="vote(correction.id, 1, correction.throughEpisode)"><HandThumbUpIcon class="mr-1 h-4 w-4" />{{ correction.score }}</Button><Button size="sm" :variant="correction.userVote === -1 ? 'destructive' : 'outline'" @click="vote(correction.id, -1, correction.throughEpisode)"><HandThumbDownIcon class="h-4 w-4" /></Button></div>
+                <div class="mt-4 flex gap-2"><Button size="sm" :variant="correction.userVote === 1 ? 'default' : 'outline'" @click="vote(correction.id, 1, correction.throughEpisode)"><ThumbsUpIcon class="mr-1 h-4 w-4" />{{ correction.score }}</Button><Button size="sm" :variant="correction.userVote === -1 ? 'destructive' : 'outline'" @click="vote(correction.id, -1, correction.throughEpisode)"><ThumbsDownIcon class="h-4 w-4" /></Button></div>
               </CardContent>
             </Card>
           </div>
@@ -384,11 +384,8 @@
 </template>
 
 <script setup lang="ts">
+import { CalendarIcon, ChevronDownIcon, LockIcon, MapIcon, MapPinIcon, MessagesSquareIcon, Share2Icon, SquarePenIcon, ThumbsDownIcon, ThumbsUpIcon, UsersIcon, XIcon } from 'lucide-vue-next';
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
-import {
-  CalendarIcon, ChatBubbleLeftRightIcon, ChevronDownIcon, HandThumbDownIcon, HandThumbUpIcon, LockClosedIcon, MapIcon,
-  MapPinIcon, PencilSquareIcon, ShareIcon, UserGroupIcon, XMarkIcon,
-} from '@heroicons/vue/24/outline';
 import { toast } from 'vue-sonner';
 import type { ShowWithSeasons } from '~/types/database.types';
 import type { SeasonHubCorrection, SeasonHubCorrectionTarget, SeasonHubEvent, SeasonHubResponse } from '~/types/season-hub.types';
@@ -706,9 +703,9 @@ const timelineSummary = computed(() => {
 });
 // Placeholders until these views can be built from sources without invention.
 const universeItems = computed(() => [
-  { title: t('Family tree'), description: t('Families and their connections, as they are revealed.'), icon: UserGroupIcon },
+  { title: t('Family tree'), description: t('Families and their connections, as they are revealed.'), icon: UsersIcon },
   { title: t('Location map'), description: t('Locations from the series and the scenes that take place there.'), icon: MapIcon },
-  { title: t('Relationships'), description: t('Who knows what and who lies to whom, episode by episode.'), icon: ShareIcon },
+  { title: t('Relationships'), description: t('Who knows what and who lies to whom, episode by episode.'), icon: Share2Icon },
 ]);
 type DiscussionTab = 'theories' | 'episode';
 const discussionTab = ref<DiscussionTab>('theories');

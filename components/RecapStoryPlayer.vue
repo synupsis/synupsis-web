@@ -65,7 +65,7 @@
             class="absolute right-2 top-[calc(env(safe-area-inset-top)_+_1.1rem)] h-10 w-10 rounded-full text-white hover:bg-white/10 hover:text-white"
             @click="requestClose"
           >
-            <XMarkIcon class="h-6 w-6 drop-shadow" />
+            <XIcon class="h-6 w-6 drop-shadow" />
           </Button>
         </div>
 
@@ -126,7 +126,7 @@
                 :aria-label="t('View sources')"
                 @click.stop="openSources"
               >
-                <InformationCircleIcon class="h-6 w-6 drop-shadow" />
+                <InfoIcon class="h-6 w-6 drop-shadow" />
               </Button>
               <Button
                 variant="ghost"
@@ -135,7 +135,7 @@
                 class="h-10 w-10 rounded-full text-white hover:bg-white/10 hover:text-white"
                 @click="requestClose"
               >
-                <XMarkIcon class="h-6 w-6 drop-shadow" />
+                <XIcon class="h-6 w-6 drop-shadow" />
               </Button>
             </div>
           </header>
@@ -230,7 +230,7 @@
                   :tabindex="skipLabel ? undefined : -1"
                   @click="skipChapter"
                 >
-                  <ForwardIcon class="h-6 w-6" aria-hidden="true" />
+                  <FastForwardIcon class="h-6 w-6" aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -261,7 +261,7 @@
             </p>
           </div>
           <Button variant="ghost" size="icon" :aria-label="t('Close sources')" @click="closeSources">
-            <XMarkIcon class="h-5 w-5" />
+            <XIcon class="h-5 w-5" />
           </Button>
         </div>
 
@@ -324,10 +324,10 @@
 </template>
 
 <script lang="ts" setup>
+import { FastForwardIcon, InfoIcon, XIcon } from 'lucide-vue-next';
 const { t } = useI18n();
 import { ref, shallowRef, onMounted, onUnmounted, computed } from 'vue';
 import { Button } from '~/components/shadcn/button';
-import { ForwardIcon, InformationCircleIcon, XMarkIcon } from '@heroicons/vue/24/outline';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import RecapCanvas from '~/components/RecapCanvas.client.vue';
 import RecapStorySlide from '~/components/RecapStorySlide.vue';

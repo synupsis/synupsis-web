@@ -152,6 +152,7 @@
 </template>
 
 <script lang="ts" setup>
+import { EyeIcon, PencilIcon } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import {
   Card,
@@ -165,7 +166,6 @@ import { Button } from '~/components/shadcn/button'
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/shadcn/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/shadcn/tabs'
 import SpinLoader from '~/components/ui/SpinLoader.vue';
-import { PencilIcon, EyeIcon } from '@heroicons/vue/24/outline';
 import AvatarUploadModal from '~/components/AvatarUploadModal.vue';
 import { useStoryViewer } from '~/composables/useStoryViewer';
 import type { LanguagePreference } from '~/lib/i18n/locale';

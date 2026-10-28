@@ -24,8 +24,8 @@
           <Button variant="ghost" class="min-w-[90px]" @click="goBack">{{ t('Cancel') }}</Button>
           <Button variant="outline" class="min-w-[130px]" :disabled="loading || isSaving || !isDirty" @click="saveDraft">
             <span v-if="isSaving" class="loading loading-spinner h-4 w-4" />
-            <CheckCircleIcon v-else-if="!isDirty" class="h-4 w-4 text-green-500 mr-2" />
-            <DocumentArrowDownIcon v-else class="h-4 w-4 mr-2" />
+            <CircleCheckIcon v-else-if="!isDirty" class="h-4 w-4 text-green-500 mr-2" />
+            <FileDownIcon v-else class="h-4 w-4 mr-2" />
             <span>
               <template v-if="isSaving">{{ t('Saving...') }}</template>
               <template v-else-if="!isDirty">{{ t('Saved') }}</template>
@@ -34,7 +34,7 @@
           </Button>
           <Button v-if="recapStatus !== 'published'" class="min-w-[130px]" :disabled="loading || isPublishing" @click="publishRecap">
             <span v-if="isPublishing" class="loading loading-spinner h-4 w-4" />
-            <ArrowUpCircleIcon v-else class="h-4 w-4 mr-2" />
+            <CircleArrowUpIcon v-else class="h-4 w-4 mr-2" />
             <span>{{ isPublishing ? t('Publishing...') : t('Publish') }}</span>
           </Button>
           <Button v-if="recapStatus === 'published' && existingRecapId" variant="outline" as-child>
@@ -44,7 +44,7 @@
             </router-link>
           </Button>
           <Button variant="outline" @click="copyJsonToClipboard">
-            <DocumentDuplicateIcon class="h-4 w-4 mr-2" />
+            <CopyIcon class="h-4 w-4 mr-2" />
             {{ t('Copy JSON') }}
           </Button>
         </div>
@@ -79,7 +79,7 @@
                   class="absolute top-2 right-2 p-1 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
                   @click.stop="removeSlide(slide)"
                 >
-                  <TrashIcon class="h-4 w-4" />
+                  <Trash2Icon class="h-4 w-4" />
                 </button>
               </div>
             </template>
@@ -89,13 +89,13 @@
           </div>
           <div class="mt-auto space-y-2">
             <Button v-if="!hasSemanticStory" variant="outline" class="w-full" @click="addSlide">
-              <SquaresPlusIcon class="h-4 w-4 mr-2" />
+              <Grid2x2PlusIcon class="h-4 w-4 mr-2" />
               {{ t('Add Slide') }}
             </Button>
             <AlertDialog>
               <AlertDialogTrigger as-child>
                 <Button v-if="existingRecapId" variant="destructive" class="w-full">
-                  <TrashIcon class="h-4 w-4 mr-2" />
+                  <Trash2Icon class="h-4 w-4 mr-2" />
                   {{ t('Delete Recap') }}
                 </Button>
               </AlertDialogTrigger>
@@ -131,7 +131,7 @@
                 :variant="editorMode === 'story' ? 'default' : 'ghost'"
                 @click="editorMode = 'story'"
               >
-                <DocumentTextIcon class="mr-2 h-4 w-4" />
+                <FileTextIcon class="mr-2 h-4 w-4" />
                 {{ t('Story preview') }}
               </Button>
               <Button
@@ -139,7 +139,7 @@
                 :variant="editorMode === 'visual' ? 'default' : 'ghost'"
                 @click="editorMode = 'visual'"
               >
-                <PhotoIcon class="mr-2 h-4 w-4" />
+                <ImageIcon class="mr-2 h-4 w-4" />
                 {{ t('Image') }}
               </Button>
             </div>
@@ -237,19 +237,9 @@
 </template>
 
 <script lang="ts" setup>
+import { CircleArrowUpIcon, CircleCheckIcon, CopyIcon, EyeIcon, FileDownIcon, FileTextIcon, Grid2x2PlusIcon, ImageIcon, Trash2Icon } from 'lucide-vue-next';
 const { t } = useI18n();
 import { ref, computed, watch } from 'vue';
-import {
-  ArrowUpCircleIcon,
-  DocumentArrowDownIcon,
-  DocumentTextIcon,
-  SquaresPlusIcon,
-  TrashIcon,
-  CheckCircleIcon,
-  EyeIcon,
-  DocumentDuplicateIcon,
-  PhotoIcon,
-} from '@heroicons/vue/24/outline';
 import draggable from 'vuedraggable';
 import InspectorPanel from '~/components/InspectorPanel.vue';
 import RecapCanvas from '~/components/RecapCanvas.client.vue';
