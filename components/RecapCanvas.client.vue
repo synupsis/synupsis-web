@@ -91,6 +91,7 @@ import {
 import { Button } from '~/components/shadcn/button';
 import { toast } from 'vue-sonner';
 import RecapImageModal from '~/components/RecapImageModal.vue';
+import { proxiedImageUrl } from '~/lib/image-url';
 
 type BaseCanvasItem = {
   key: string;
@@ -354,7 +355,7 @@ function stripRuntimeImage(config: Record<string, any>) {
 }
 
 function addImageToCanvas(imageUrl: string) {
-  const proxiedUrl = `/api/image-proxy/?url=${encodeURIComponent(imageUrl)}`;
+  const proxiedUrl = proxiedImageUrl(imageUrl);
   const key = `image-${Date.now()}`;
   const item: ImageCanvasItem = {
     kind: 'image',

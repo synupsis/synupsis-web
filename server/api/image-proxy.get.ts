@@ -1,4 +1,5 @@
 import { sendStream, setResponseStatus, setHeader, getQuery } from 'h3';
+import { TRAKT_USER_AGENT } from '~/server/utils/trakt';
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
@@ -38,7 +39,8 @@ export default defineEventHandler(async (event) => {
 
   try {
     const trustedImageUrl = parseTrustedImageUrl(url);
-    const response = await fetch(trustedImageUrl);
+    // The Trakt image CDN rejects Node's default User-Agent with a 403.
+    const response = await fetch(trustedImageUrl, { headers: { 'User-Agent': TRAKT_USER_AGENT } });
 
     if (!response.ok || !response.body) {
       setResponseStatus(event, response.status);

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import OpenAI from 'openai';
+import { proxiedImageUrl } from '~/lib/image-url';
 import { defaultRecapPromptTemplate } from '~/lib/prompts/defaultPrompt';
 import {
   createRecapSourceProvider,
@@ -2861,7 +2862,7 @@ export function toDisplayImageUrl(url: string): string {
     }
   })();
   return hostname === 'trakt.tv' || hostname.endsWith('.trakt.tv')
-    ? `/api/image-proxy/?url=${encodeURIComponent(url)}`
+    ? proxiedImageUrl(url)
     : url;
 }
 

@@ -5,8 +5,8 @@
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
 
-# nuxt.config.ts reads the public Supabase settings while building (image proxy
-# route, Supabase module). Both are public values: secrets are runtime-only.
+# nuxt.config.ts reads the public Supabase settings while building (Supabase
+# module). Both are public values: secrets are runtime-only.
 ARG NUXT_PUBLIC_SUPABASE_URL
 ARG NUXT_PUBLIC_SUPABASE_KEY
 ENV NUXT_PUBLIC_SUPABASE_URL=$NUXT_PUBLIC_SUPABASE_URL \

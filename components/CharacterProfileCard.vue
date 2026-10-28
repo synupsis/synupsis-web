@@ -26,7 +26,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { characterImageUrl } from '~/lib/image-url';
+import { proxiedImageUrl } from '~/lib/image-url';
 import { nameInitials } from '~/lib/utils';
 import type { TimelineCharacterProfile } from '~/types/show-character.types';
 
@@ -42,7 +42,7 @@ defineEmits<{
 
 const imageLoadFailed = ref(false);
 const initials = computed(() => nameInitials(props.profile.name));
-const imageSrc = computed(() => (imageLoadFailed.value ? '' : characterImageUrl(props.profile)));
+const imageSrc = computed(() => (imageLoadFailed.value ? '' : proxiedImageUrl(props.profile?.imageUrl)));
 const lastSeenLabel = computed(() => {
   const lastSeen = props.profile.lastSeen;
   if (!lastSeen) return '';

@@ -61,8 +61,7 @@ An incompatible active prompt is ignored and the versioned default prompt is use
 2. Optionally configure `TMDB_API_READ_ACCESS_TOKEN` or `TMDB_API_KEY`. Wikimedia enrichment is enabled by default and can be disabled with `RECAP_WIKIMEDIA_ENABLED=false`.
 3. Keep `RECAP_SOURCE_POLICY_MODE=audit` in development. Confirm provider terms and commercial agreements, list the reviewed IDs in `RECAP_SOURCE_APPROVALS`, then use `enforce` before commercial launch.
 4. Apply Supabase migrations with the normal deployment workflow.
-5. Ensure the existing `image-proxy` Edge Function and `images` storage bucket are deployed.
-6. Generate several known seasons and inspect the event graph, `quality_report`, costs, latency and slide readability before enabling the feature broadly.
+5. Generate several known seasons and inspect the event graph, `quality_report`, costs, latency and slide readability before enabling the feature broadly.
 
 ## Known limits and next iterations
 

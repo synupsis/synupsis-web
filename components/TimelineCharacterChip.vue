@@ -119,7 +119,7 @@ import {
   HoverCardRoot,
   HoverCardTrigger,
 } from 'reka-ui';
-import { characterImageUrl } from '~/lib/image-url';
+import { proxiedImageUrl } from '~/lib/image-url';
 import { nameInitials } from '~/lib/utils';
 import type { TimelineCharacterProfile } from '~/types/show-character.types';
 
@@ -134,7 +134,7 @@ const isOpen = ref(false);
 const imageLoadFailed = ref(false);
 
 const initials = computed(() => nameInitials(props.name));
-const imageSrc = computed(() => (imageLoadFailed.value ? '' : characterImageUrl(props.profile)));
+const imageSrc = computed(() => (imageLoadFailed.value ? '' : proxiedImageUrl(props.profile?.imageUrl)));
 const hasTimelineDetails = computed(() => Boolean(
   props.profile?.eventCount
   || props.profile?.lastSeen

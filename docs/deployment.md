@@ -73,7 +73,6 @@ Isolation, car le serveur tourne chez vous :
 - **Auth → URL Configuration** : Site URL `https://dev.synupsis.<domaine>` et `https://dev.synupsis.<domaine>/**` dans les Redirect URLs. Les liens de confirmation passent d'abord par l'authentification Pangolin : les testeurs doivent y être autorisés.
 - **Emails** : l'envoi intégré est limité à quelques messages par heure ; branchez un SMTP (Resend, par exemple) ou désactivez la confirmation par email pour les tests.
 - **Migrations** : `supabase link --project-ref <ref de dev>` puis `supabase db push`. Appliquez une migration en dev avant la prod, et déployez le code qui ne dépend plus d'une règle avant la migration qui la retire.
-- **Fonction Edge** : `supabase functions deploy image-proxy`.
 
 ## Production : Render
 

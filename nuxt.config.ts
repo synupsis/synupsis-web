@@ -15,16 +15,6 @@ export default defineNuxtConfig({
       secretKey: ''
     }
   },
-  routeRules: {
-    '/api/image-proxy/**': {
-      proxy: {
-        to: `${supabaseUrl}/functions/v1/image-proxy/**`,
-        headers: supabasePublishableKey
-          ? { apikey: supabasePublishableKey }
-          : undefined
-      }
-    }
-  },
   devtools: { enabled: false },
   css: ['~/assets/css/main.css'],
 
