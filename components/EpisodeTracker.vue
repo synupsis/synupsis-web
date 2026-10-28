@@ -61,7 +61,7 @@
         <div class="relative pt-4">
           <!-- The marker glides to the episode on screen. -->
           <span
-            class="pointer-events-none absolute top-0 -translate-x-1/2 transition-[left] duration-300 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none"
+            class="pointer-events-none absolute top-0 -translate-x-1/2 transition-[left] duration-300 [transition-timing-function:cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none"
             :style="{ left: `${((viewEpisode - 0.5) / viewEpisodes.length) * 100}%` }"
             aria-hidden="true"
           >

@@ -19,7 +19,7 @@ module.exports = {
     'coverage/',
     'components/shadcn/**',
     'supabase/**',
-    'types/database-generated.types.ts'
+    'types/generated/**'
   ],
   globals: {
     Atomics: 'readonly',

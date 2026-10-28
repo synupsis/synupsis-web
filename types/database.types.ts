@@ -1,7 +1,7 @@
-import type { Database as DatabaseGenerated } from './database-generated.types';
+import type { Database as DatabaseGenerated } from './generated/database';
 import type { ShowCharacterProfile } from './show-character.types';
 
-export type { Json } from './database-generated.types';
+export type { Json } from './generated/database';
 
 export type Database = DatabaseGenerated;
 

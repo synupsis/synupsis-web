@@ -1,7 +1,7 @@
-/* eslint-disable linebreak-style */
-/** @type {import('tailwindcss').Config} */
+import forms from '@tailwindcss/forms';
 import animate from 'tailwindcss-animate';
 
+/** @type {import('tailwindcss').Config} */
 export default {
   darkMode: ['selector', 'class'],
   safelist: ['dark'],
@@ -80,5 +80,5 @@ export default {
       },
     },
   },
-  plugins: [require('@tailwindcss/forms'), animate],
+  plugins: [forms, animate],
 };

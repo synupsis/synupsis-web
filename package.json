@@ -1,6 +1,7 @@
 {
   "name": "synupsis-web",
   "private": true,
+  "type": "module",
   "engines": {
     "node": ">=24.15 <25"
   },
@@ -15,7 +16,8 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "test:pipeline": "node --test .github/scripts/*.test.mjs",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck",
+    "types:supabase": "supabase gen types typescript --linked > types/generated/database.ts"
   },
   "devDependencies": {
     "@nuxtjs/supabase": "^2.0.9",
