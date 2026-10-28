@@ -1,7 +1,7 @@
 <template>
   <div
     class="rounded-2xl border bg-black/45 p-5 backdrop-blur-xl transition-colors duration-300"
-    :class="revealed ? 'border-amber-500/40' : 'border-white/15'"
+    :class="mode === 'tracking' ? (spoilerShieldEnabled ? 'border-emerald-500/25' : 'border-amber-500/40') : 'border-white/15'"
   >
     <Transition name="tracker-swap" mode="out-in">
       <div v-if="mode !== 'tracking'" :key="mode" class="flex flex-col gap-4">
@@ -179,17 +179,38 @@
           </Button>
         </template>
         </div>
-        <button
-          type="button"
-          class="inline-flex items-center justify-center gap-1.5 self-center py-1 text-xs font-medium transition-colors"
-          :class="revealed ? 'text-amber-300 hover:text-amber-200' : 'text-muted-foreground hover:text-white'"
-          :aria-pressed="revealed"
-          @click="emit('toggle-reveal')"
-        >
-          <EyeOffIcon v-if="revealed" class="h-3.5 w-3.5" aria-hidden="true" />
-          <EyeIcon v-else class="h-3.5 w-3.5" aria-hidden="true" />
-          {{ revealed ? t('Spoilers visible · hide what comes next') : t('Show the entire series') }}
-        </button>
+        <div class="border-t border-white/10 pt-3">
+          <button
+            type="button"
+            role="switch"
+            class="flex min-h-11 w-full items-center gap-2 rounded-lg text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-wait disabled:opacity-60"
+            :class="spoilerShieldEnabled ? 'text-emerald-300 hover:text-emerald-200' : 'text-amber-300 hover:text-amber-200'"
+            :aria-checked="spoilerShieldEnabled"
+            :aria-label="t('Spoiler shield')"
+            :aria-describedby="spoilerShieldHintId"
+            :aria-busy="spoilerShieldSaving"
+            :title="spoilerShieldEnabled ? t('Deactivate spoiler shield') : t('Activate spoiler shield')"
+            :disabled="spoilerShieldSaving"
+            @click="emit('toggle-spoiler-shield')"
+          >
+            <ShieldCheckIcon v-if="spoilerShieldEnabled" class="h-4 w-4 shrink-0" aria-hidden="true" />
+            <ShieldOffIcon v-else class="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span class="min-w-0 flex-1 text-xs font-semibold">{{ t('Spoiler shield') }}</span>
+            <span class="text-xs font-medium">{{ spoilerShieldEnabled ? t('Enabled') : t('Disabled') }}</span>
+            <span
+              class="inline-flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors"
+              :class="spoilerShieldEnabled ? 'bg-emerald-400/30' : 'bg-amber-400/20'"
+              aria-hidden="true"
+            >
+              <span class="h-4 w-4 rounded-full bg-current transition-transform motion-reduce:transition-none" :class="spoilerShieldEnabled ? 'translate-x-4' : 'translate-x-0'" />
+            </span>
+          </button>
+          <p :id="spoilerShieldHintId" class="text-xs leading-5 text-muted-foreground">
+            {{ spoilerShieldEnabled
+              ? t('The whole page follows your progress.')
+              : t('All spoilers are visible. Your progress is unchanged.') }}
+          </p>
+        </div>
       </div>
     </Transition>
 
@@ -261,8 +282,8 @@
 </template>
 
 <script setup lang="ts">
-import { BookmarkCheckIcon, BookmarkIcon, BookmarkXIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, CircleCheckIcon, CircleStopIcon, EllipsisIcon, EyeIcon, EyeOffIcon, FastForwardIcon, LockIcon, MessagesSquareIcon, PlayIcon } from 'lucide-vue-next';
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { BookmarkCheckIcon, BookmarkIcon, BookmarkXIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, CircleCheckIcon, CircleStopIcon, EllipsisIcon, FastForwardIcon, LockIcon, MessagesSquareIcon, PlayIcon, ShieldCheckIcon, ShieldOffIcon } from 'lucide-vue-next';
+import { computed, onMounted, reactive, ref, useId, watch } from 'vue';
 import { Button } from '~/components/shadcn/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '~/components/shadcn/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '~/components/shadcn/dropdown-menu';
@@ -272,6 +293,7 @@ type CatalogEpisode = { number: number; title: string; firstAired: string | null
 type EpisodePosition = { season: number; episode: number };
 
 const { t } = useI18n();
+const spoilerShieldHintId = useId();
 
 const props = defineProps<{
   slug: string;
@@ -283,8 +305,9 @@ const props = defineProps<{
   mode: 'undecided' | 'library' | 'tracking';
   // In the viewer's library; progress kept in the browser before accounts is not.
   saved?: boolean;
-  // Progress is kept, but the page temporarily shows everything.
-  revealed: boolean;
+  // This series' saved preference; changing it never changes episode progress.
+  spoilerShieldEnabled: boolean;
+  spoilerShieldSaving?: boolean;
   showName: string;
   // The episodes of the season the page already loaded, so the server renders the right episode.
   initialCatalog?: { seasonNumber: number; episodes: CatalogEpisode[] } | null;
@@ -294,7 +317,7 @@ const emit = defineEmits<{
   mark: [position: EpisodePosition];
   discuss: [position: EpisodePosition];
   start: [];
-  'toggle-reveal': [];
+  'toggle-spoiler-shield': [];
   // Stops tracking; the series stays in the library.
   reset: [];
   save: [];

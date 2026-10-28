@@ -31,8 +31,9 @@
             :reached-episode="reachedEpisode"
             :initial-catalog="progressEpisodeCatalog"
             :mode="trackingMode"
-            :revealed="revealAll"
-            @toggle-reveal="revealAll = !revealAll"
+            :spoiler-shield-enabled="spoilerShieldEnabled"
+            :spoiler-shield-saving="spoilerShieldSaving"
+            @toggle-spoiler-shield="toggleSpoilerShield"
             :show-name="showData.name"
             @start="startTracking"
             @mark="markEpisodeSeen"
@@ -517,7 +518,7 @@ const showTraktId = String(route.params.slug).split('-').pop();
 const requestFetch = useRequestFetch();
 // The library holds the viewer's progress; the server reads it so the page renders at the right episode.
 const { data: libraryEntry } = await useAsyncData(
-  `library-entry-${route.params.slug}`,
+  `library-entry-${user.value?.sub ?? 'guest'}-${route.params.slug}`,
   async () => {
     if (!user.value || !showData.value) return null;
     try {
@@ -545,8 +546,9 @@ const trackingMode = computed<'undecided' | 'library' | 'tracking'>(() => {
   if (reachedSeasonNumber.value) return 'tracking';
   return libraryEntry.value ? 'library' : 'undecided';
 });
-// Lifts the spoiler block for a quick check without losing progress; a reload hides the rest again.
-const revealAll = ref(false);
+// A per-series account preference, independent of the last episode watched.
+const spoilerShieldEnabled = ref(libraryEntry.value?.spoilerShieldEnabled ?? true);
+const spoilerShieldSaving = ref(false);
 
 // Each season has one recap per language: every language is offered, so a
 // missing one can be generated, with the user's recap languages first.
@@ -574,22 +576,26 @@ function withRecapsInLocale<T extends { recap?: Array<{ locale: string }> | null
 }
 
 const { data: seasonHubs, pending: hubsPending, refresh: refreshHubs } = await useAsyncData(
-  `series-knowledge-${route.params.slug}`,
+  `series-knowledge-${user.value?.sub ?? 'guest'}-${route.params.slug}`,
   async () => Promise.all(sortedSeasons.value.map(season => $fetch<SeasonHubResponse>(
     `/api/shows/${route.params.slug}/seasons/${season.number}`,
     { query: { throughEpisode: cursorForSeason(season.number), locale: selectedRecapLocale.value } },
   ))),
-  { watch: [reachedSeasonNumber, reachedEpisode, revealAll, selectedRecapLocale] },
+  { watch: [reachedSeasonNumber, reachedEpisode, spoilerShieldEnabled, selectedRecapLocale] },
 );
 
 function cursorForSeason(seasonNumber: number) {
-  if (revealAll.value || !reachedSeasonNumber.value) return 999;
+  if (!spoilerShieldEnabled.value || !reachedSeasonNumber.value) return 999;
   if (seasonNumber < reachedSeasonNumber.value) return 999;
   if (seasonNumber === reachedSeasonNumber.value) return reachedEpisode.value;
   return 0;
 }
 
-const currentSeasonHub = computed(() => seasonHubs.value?.find(hub => hub.season.number === reachedSeasonNumber.value) ?? null);
+// Old responses can contain future character arcs and corrections as well as
+// scenes. Hide whole out-of-scope hubs immediately, even if the refresh fails.
+const visibleSeasonHubs = computed(() => (seasonHubs.value ?? [])
+  .filter(hub => hub.progress.throughEpisode <= cursorForSeason(hub.season.number)));
+const currentSeasonHub = computed(() => visibleSeasonHubs.value.find(hub => hub.season.number === reachedSeasonNumber.value) ?? null);
 const {
   data: progressEpisodeCatalog,
 } = await useAsyncData(
@@ -619,17 +625,17 @@ const progressEpisodeTotal = computed(() => progressEpisodeOptions.value.reduce(
   (maximum, episode) => Math.max(maximum, episode.number),
   0,
 ));
-const timelineEvents = computed<TimelineEvent[]>(() => (seasonHubs.value ?? [])
+const timelineEvents = computed<TimelineEvent[]>(() => visibleSeasonHubs.value
   .flatMap(hub => hub.events.map(event => ({ ...event, seasonNumber: hub.season.number, throughEpisode: hub.progress.throughEpisode })))
   .sort((a, b) => a.seasonNumber - b.seasonNumber
     || Math.max(...a.episodeNumbers) - Math.max(...b.episodeNumbers)
     || (a.sceneIndex ?? 0) - (b.sceneIndex ?? 0)));
-const timelineEpisodeTitles = computed(() => new Map<string, string>((seasonHubs.value ?? [])
+const timelineEpisodeTitles = computed(() => new Map<string, string>(visibleSeasonHubs.value
   .flatMap(hub => hub.episodes.map(episode => [`${hub.season.number}-${episode.number}`, episode.title]))));
 const timelineCharacterKnowledge = computed(() => {
   const builders = new Map<string, TimelineCharacterKnowledgeBuilder>();
 
-  for (const hub of seasonHubs.value ?? []) {
+  for (const hub of visibleSeasonHubs.value) {
     for (const character of hub.characters) {
       const key = normalizeCharacterName(character.name);
       if (!key) continue;
@@ -734,7 +740,7 @@ watch(timelineFilterSeasons, (availableSeasons) => {
 const knownCharacterProfiles = computed<TimelineCharacterProfile[]>(() => {
   const profiles = new Map<string, TimelineCharacterProfile>();
 
-  for (const hub of seasonHubs.value ?? []) {
+  for (const hub of visibleSeasonHubs.value) {
     for (const character of hub.characters) {
       const profile = timelineCharacterProfile(character.name);
       if (!profile) continue;
@@ -759,7 +765,7 @@ const displayedCharacterProfiles = computed(() => areCharactersExpanded.value
   ? knownCharacterProfiles.value
   : knownCharacterProfiles.value.slice(0, CHARACTER_PREVIEW_COUNT));
 const progressScopeLabel = computed(() => {
-  if (revealAll.value) return t('Protection off: the entire series is visible, including spoilers.');
+  if (!spoilerShieldEnabled.value) return t('Spoiler shield off: the entire series is visible, including spoilers.');
   if (!reachedSeasonNumber.value) return t('The entire series is visible. Set your progress to hide what comes next.');
   if (!reachedEpisode.value) return t('Up to the start of season {number}: nothing after this point is shown.', { number: reachedSeasonNumber.value });
   return t('Up to S{season}E{episode}: nothing after this point is shown.', { season: reachedSeasonNumber.value, episode: reachedEpisode.value });
@@ -767,9 +773,9 @@ const progressScopeLabel = computed(() => {
 const timelineSummary = computed(() => {
   if (hubsPending.value) return t('Loading scenes…');
   const count = timelineEvents.value.length;
-  const scope = reachedSeasonNumber.value && reachedEpisode.value && !revealAll.value
+  const scope = reachedSeasonNumber.value && reachedEpisode.value && spoilerShieldEnabled.value
     ? t('up to S{season}E{episode}', { season: reachedSeasonNumber.value, episode: reachedEpisode.value })
-    : revealAll.value ? t('across the entire series') : t('seen so far');
+    : !spoilerShieldEnabled.value ? t('across the entire series') : t('seen so far');
   return count > 1 ? t('{count} scenes {scope}, with their sources', { count, scope }) : t('{count} scene {scope}, with its sources', { count, scope });
 });
 // Placeholders until these views can be built from sources without invention.
@@ -794,7 +800,7 @@ const discussionTabs = computed(() => [
 watch(lastSeenEpisode, (episode) => {
   if (!episode && discussionTab.value === 'episode' && !discussionEpisode.value) discussionTab.value = 'theories';
 });
-const visibleCorrections = computed<VisibleCorrection[]>(() => (seasonHubs.value ?? [])
+const visibleCorrections = computed<VisibleCorrection[]>(() => visibleSeasonHubs.value
   .flatMap(hub => hub.corrections.map(correction => ({ ...correction, seasonNumber: hub.season.number, throughEpisode: hub.progress.throughEpisode }))));
 
 function castMemberCharacterNames(member: any): string[] {
@@ -922,7 +928,6 @@ function resetProgress() {
     progressCookie.value = null;
     localStorage.removeItem(progressStorageKey);
   }
-  revealAll.value = false;
   reachedSeasonNumber.value = 0;
   reachedEpisode.value = 0;
   discussionEpisode.value = null;
@@ -950,7 +955,14 @@ function saveToLibrary() {
 }
 
 async function removeFromLibrary() {
-  revealAll.value = false;
+  // Let an in-flight preference save settle before taking the rollback state.
+  if (spoilerShieldSaving.value) await librarySync;
+  const operation = ++libraryOperation;
+  const previousShield = spoilerShieldEnabled.value;
+  const previousSeason = reachedSeasonNumber.value;
+  const previousEpisode = reachedEpisode.value;
+  const previousDiscussion = discussionEpisode.value;
+  spoilerShieldEnabled.value = true;
   reachedSeasonNumber.value = 0;
   reachedEpisode.value = 0;
   discussionEpisode.value = null;
@@ -961,7 +973,14 @@ async function removeFromLibrary() {
     try {
       await $fetch(`/api/library/${showTraktId}`, { method: 'DELETE' });
     } catch {
-      libraryEntry.value = previous;
+      if (operation === libraryOperation) {
+        libraryEntry.value = previous;
+        spoilerShieldEnabled.value = previousShield;
+        reachedSeasonNumber.value = previousSeason;
+        reachedEpisode.value = previousEpisode;
+        discussionEpisode.value = previousDiscussion;
+        syncProgressQuery();
+      }
       toast.error(t('Could not update your library.'));
     }
   });
@@ -977,7 +996,7 @@ function openEpisodeDiscussion(position: { season: number; episode: number }) {
 }
 
 function isRecapUnlocked(seasonNumber: number) {
-  if (revealAll.value || !reachedSeasonNumber.value) return true;
+  if (!spoilerShieldEnabled.value || !reachedSeasonNumber.value) return true;
   if (seasonNumber < reachedSeasonNumber.value) return true;
   if (seasonNumber > reachedSeasonNumber.value) return false;
   return progressEpisodeTotal.value > 0 && reachedEpisode.value >= progressEpisodeTotal.value;
@@ -993,25 +1012,51 @@ function syncProgressQuery() {
 
 // Saves run one after the other, so quick clicks reach the library in order.
 let librarySync = Promise.resolve();
+let libraryOperation = 0;
 
-function persistProgress() {
+async function toggleSpoilerShield() {
+  if (spoilerShieldSaving.value || !requireAccount()) return;
+  const previous = spoilerShieldEnabled.value;
+  spoilerShieldEnabled.value = !previous;
+  spoilerShieldSaving.value = true;
+  const saving = persistProgress(true);
+  try {
+    if (!await saving) {
+      // Progress may have changed while saving; only roll back the preference.
+      spoilerShieldEnabled.value = previous;
+      if (libraryEntry.value) libraryEntry.value.spoilerShieldEnabled = previous;
+    }
+  } finally {
+    spoilerShieldSaving.value = false;
+  }
+}
+
+function persistProgress(updateSpoilerShield = false): Promise<boolean> {
   syncProgressQuery();
-  if (!user.value) return;
+  if (!user.value) return Promise.resolve(false);
+  const operation = ++libraryOperation;
   const body = {
     slug: String(route.params.slug),
     season: reachedSeasonNumber.value || null,
     episode: reachedEpisode.value,
+    // Ordinary progress updates leave the stored shield untouched, including
+    // updates queued while a shield save is pending or has failed.
+    ...(updateSpoilerShield ? { spoilerShieldEnabled: spoilerShieldEnabled.value } : {}),
   };
   // The card follows at once; the saved row replaces it when it comes back.
-  libraryEntry.value = { ...body, updatedAt: new Date().toISOString() };
-  librarySync = librarySync.then(async () => {
+  libraryEntry.value = { ...body, spoilerShieldEnabled: spoilerShieldEnabled.value, updatedAt: new Date().toISOString() };
+  const saving = librarySync.then(async () => {
     try {
       const response = await $fetch<{ entry: LibraryEntry }>(`/api/library/${showTraktId}`, { method: 'PUT', body });
-      libraryEntry.value = response.entry;
+      if (operation === libraryOperation) libraryEntry.value = response.entry;
+      return true;
     } catch {
-      toast.error(t('Could not save your library.'));
+      toast.error(updateSpoilerShield ? t('Could not save your spoiler shield setting.') : t('Could not save your library.'));
+      return false;
     }
   });
+  librarySync = saving.then(() => {});
+  return saving;
 }
 
 const { generations: recapGenerations, start: startRecapGeneration } = useRecapGenerations({

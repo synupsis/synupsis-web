@@ -59,6 +59,7 @@ export type Database = {
           season: number | null
           show_id: string
           slug: string
+          spoiler_shield_enabled: boolean
           updated_at: string
           user_id: string
         }
@@ -68,6 +69,7 @@ export type Database = {
           season?: number | null
           show_id: string
           slug: string
+          spoiler_shield_enabled?: boolean
           updated_at?: string
           user_id: string
         }
@@ -77,6 +79,7 @@ export type Database = {
           season?: number | null
           show_id?: string
           slug?: string
+          spoiler_shield_enabled?: boolean
           updated_at?: string
           user_id?: string
         }

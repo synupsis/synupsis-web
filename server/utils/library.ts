@@ -18,6 +18,12 @@ export async function resolveLibraryShow(event: H3Event) {
   return { client, userId: user.sub, showId: show.id };
 }
 
-export function toLibraryEntry(row: Pick<Database['public']['Tables']['library_entry']['Row'], 'slug' | 'season' | 'episode' | 'updated_at'>): LibraryEntry {
-  return { slug: row.slug, season: row.season, episode: row.episode, updatedAt: row.updated_at };
+export function toLibraryEntry(row: Pick<Database['public']['Tables']['library_entry']['Row'], 'slug' | 'season' | 'episode' | 'spoiler_shield_enabled' | 'updated_at'>): LibraryEntry {
+  return {
+    slug: row.slug,
+    season: row.season,
+    episode: row.episode,
+    spoilerShieldEnabled: row.spoiler_shield_enabled,
+    updatedAt: row.updated_at,
+  };
 }

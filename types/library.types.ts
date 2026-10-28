@@ -3,6 +3,8 @@ export type LibraryEntry = {
   // Null when the series is saved without episode tracking.
   season: number | null;
   episode: number;
+  // Independent of viewing progress, saved for this user and series.
+  spoilerShieldEnabled: boolean;
   updatedAt: string;
 };
 

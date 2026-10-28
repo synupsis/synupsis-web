@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
   const user = await requireAuthenticatedUser(event);
   const client = await serverSupabaseClient<Database>(event);
   const { data, error } = await client.from('library_entry')
-    .select('slug, season, episode, updated_at, show(name, image)')
+    .select('slug, season, episode, spoiler_shield_enabled, updated_at, show(name, image)')
     .eq('user_id', user.sub)
     .order('updated_at', { ascending: false });
   if (error) throw createError({ statusCode: 500, statusMessage: 'Could not load your library.' });
