@@ -187,10 +187,11 @@
               <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">{{ t('Each theory will list the episodes it is based on. You will only see theories based on episodes you have already watched.') }}</p>
             </template>
             <template v-else>
-              <h3 class="mt-4 font-semibold">{{ t('No comments on episode {number}', { number: activeDiscussionEpisode?.episode ?? '' }) }}</h3>
+              <h3 class="mt-4 font-semibold">{{ t('Comments on episode {number}', { number: activeDiscussionEpisode?.episode ?? '' }) }}</h3>
               <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">{{ t('Only people who have watched this episode can read and write here. Discuss only what happened up to S{season}E{episode}.', { season: activeDiscussionEpisode?.season ?? '', episode: activeDiscussionEpisode?.episode ?? '' }) }}</p>
             </template>
-            <Button type="button" class="mt-5 rounded-full" disabled>{{ t('Coming soon') }}</Button>
+            <Button v-if="discussionTab === 'episode' && activeDiscussionEpisode" type="button" class="mt-5 rounded-full" @click="openEpisodeDiscussion(activeDiscussionEpisode)">{{ t('Open the comments') }}</Button>
+            <Button v-else type="button" class="mt-5 rounded-full" disabled>{{ t('Coming soon') }}</Button>
           </div>
         </div>
       </section>
@@ -395,6 +396,16 @@
     <div v-else-if="showPending" class="grid min-h-[70vh] place-items-center"><SpinLoader class="h-8 w-8" /></div>
     <div v-else class="grid min-h-[70vh] place-items-center px-5 text-center"><div><h1 class="text-2xl font-bold">{{ t('Could not load this show') }}</h1><p class="mt-2 text-muted-foreground">{{ showError?.statusMessage || t('Please try again in a moment.') }}</p><Button class="mt-5" @click="refreshShow">{{ t('Retry') }}</Button></div></div>
 
+    <EpisodeComments
+      v-if="commentsEpisode"
+      v-model:open="commentsOpen"
+      :slug="String(route.params.slug)"
+      :show-name="showData?.name ?? ''"
+      :season="commentsEpisode.season"
+      :episode="commentsEpisode.episode"
+      :episode-title="commentsEpisode.title"
+    />
+
     <Dialog v-model:open="correctionOpen">
       <DialogContent class="sm:max-w-xl">
         <DialogHeader><DialogTitle>{{ t('Suggest a correction') }}</DialogTitle><DialogDescription>{{ t('The suggestion will be voted on and reviewed by the team before publication.') }}</DialogDescription></DialogHeader>
@@ -429,6 +440,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '~/components/shadcn/input';
 import { Textarea } from '~/components/shadcn/textarea';
 import CharacterProfileCard from '~/components/CharacterProfileCard.vue';
+import EpisodeComments from '~/components/EpisodeComments.vue';
 import EpisodeTracker from '~/components/EpisodeTracker.vue';
 import SeasonStory from '~/components/SeasonStory.vue';
 import TimelineCharacterChip from '~/components/TimelineCharacterChip.vue';
@@ -987,12 +999,61 @@ async function removeFromLibrary() {
   await librarySync;
 }
 
-function openEpisodeDiscussion(position: { season: number; episode: number }) {
+// Comments open full screen through `?comments=S1E3`: the back button closes
+// them, and the address can be shared or reloaded.
+const COMMENTS_QUERY_KEY = 'comments';
+const requestedComments = computed(() => {
+  const match = /^S(\d+)E(\d+)$/i.exec(String(route.query[COMMENTS_QUERY_KEY] ?? ''));
+  return match ? { season: Number(match[1]), episode: Number(match[2]) } : null;
+});
+// Titles of episodes opened from the tracker, which knows every loaded season.
+const commentEpisodeTitles = new Map<string, string | null>();
+// The episode whose comments are shown; kept after closing so the view can animate out.
+const commentsEpisode = ref<{ season: number; episode: number; title: string | null } | null>(null);
+// The view only opens in the browser: comments are read with the viewer's session.
+const isMounted = ref(false);
+onMounted(() => { isMounted.value = true; });
+// Whether opening the comments added a history entry, which closing removes.
+let pushedComments = false;
+
+watch(requestedComments, (position) => {
+  if (!position) {
+    pushedComments = false;
+    return;
+  }
+  const key = `${position.season}-${position.episode}`;
+  const title = commentEpisodeTitles.get(key)
+    ?? (position.season === progressEpisodeCatalog.value?.seasonNumber
+      ? progressEpisodeCatalog.value.episodes.find(episode => episode.number === position.episode)?.title || null
+      : null);
+  commentsEpisode.value = { ...position, title };
   discussionEpisode.value = position;
   discussionTab.value = 'episode';
-  nextTick(() => {
-    document.getElementById('discussion')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
+}, { immediate: true });
+
+const commentsOpen = computed({
+  get: () => isMounted.value && !!requestedComments.value,
+  set: (open) => {
+    if (!open) closeEpisodeDiscussion();
+  },
+});
+
+function openEpisodeDiscussion(position: { season: number; episode: number; title?: string | null }) {
+  if (position.title !== undefined) commentEpisodeTitles.set(`${position.season}-${position.episode}`, position.title);
+  const value = `S${position.season}E${position.episode}`;
+  if (route.query[COMMENTS_QUERY_KEY] === value) return;
+  pushedComments = true;
+  router.push({ query: { ...route.query, [COMMENTS_QUERY_KEY]: value } });
+}
+
+function closeEpisodeDiscussion() {
+  if (pushedComments) {
+    pushedComments = false;
+    router.back();
+    return;
+  }
+  const { [COMMENTS_QUERY_KEY]: _comments, ...query } = route.query;
+  router.replace({ query });
 }
 
 function isRecapUnlocked(seasonNumber: number) {

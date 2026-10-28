@@ -15,6 +15,9 @@
             <SidebarMenuItem to="/admin/corrections">
               {{ t('Corrections') }}
             </SidebarMenuItem>
+            <SidebarMenuItem to="/admin/comments">
+              {{ t('Reported comments') }}
+            </SidebarMenuItem>
           </SidebarMenu>
         </SidebarContent>
       </Sidebar>

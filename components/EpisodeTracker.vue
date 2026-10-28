@@ -164,9 +164,13 @@
             <CircleCheckIcon class="mr-2 h-4 w-4 text-emerald-400" aria-hidden="true" />
             {{ t('Watched · undo') }}
           </Button>
-          <Button type="button" variant="outline" size="lg" class="w-full rounded-full" @click="emit('discuss', { season: viewSeason, episode: viewEpisode })">
+          <Button type="button" variant="outline" size="lg" class="w-full rounded-full" @click="emit('discuss', { season: viewSeason, episode: viewEpisode, title: viewedEpisode?.title || null })">
             <MessagesSquareIcon class="mr-2 h-4 w-4" aria-hidden="true" />
             {{ t('Comments') }}
+            <template v-if="viewedCommentCount">
+              <span class="ml-2 rounded-full bg-white/10 px-2 py-0.5 text-xs font-semibold tabular-nums" aria-hidden="true">{{ formatCount(viewedCommentCount) }}</span>
+              <span class="sr-only">· {{ viewedCommentCount > 1 ? t('{count} comments', { count: viewedCommentCount }) : t('{count} comment', { count: viewedCommentCount }) }}</span>
+            </template>
           </Button>
         </template>
         <template v-else>
@@ -288,7 +292,7 @@ import { lastConfirmedAiredEpisode } from '~/lib/watching-progress';
 type CatalogEpisode = { number: number; title: string; firstAired: string | null };
 type EpisodePosition = { season: number; episode: number };
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 const props = defineProps<{
   slug: string;
@@ -310,7 +314,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   mark: [position: EpisodePosition];
-  discuss: [position: EpisodePosition];
+  discuss: [position: EpisodePosition & { title: string | null }];
   start: [];
   'toggle-spoiler-shield': [];
   // Stops tracking; the series stays in the library.
@@ -320,6 +324,7 @@ const emit = defineEmits<{
 }>();
 
 const catalogs = reactive<Record<number, CatalogEpisode[]>>({});
+const { countOf: commentCountOf, loadCount: loadCommentCount } = useEpisodeCommentCounts(props.slug);
 const lastAiredEpisodes = reactive<Record<number, number | null>>({});
 
 function storeCatalog(season: number, episodes: CatalogEpisode[]) {
@@ -340,6 +345,15 @@ let keepViewOnNextSync = false;
 const viewEpisodes = computed(() => catalogs[viewSeason.value] ?? []);
 const viewedEpisode = computed(() => viewEpisodes.value.find(episode => episode.number === viewEpisode.value) ?? null);
 const isSeen = computed(() => isEpisodeSeen(viewSeason.value, viewEpisode.value));
+const viewedCommentCount = computed(() => isSeen.value ? commentCountOf(viewSeason.value, viewEpisode.value) ?? 0 : 0);
+// Only watched episodes have readable comments, so only they are counted.
+watch(() => `${viewSeason.value}:${viewEpisode.value}:${isSeen.value}`, () => {
+  if (import.meta.client && isSeen.value) loadCommentCount(viewSeason.value, viewEpisode.value);
+}, { immediate: true });
+
+function formatCount(count: number) {
+  return new Intl.NumberFormat(locale.value, { notation: 'compact' }).format(count);
+}
 // Progress is global: browsing the finale alone does not mean it was watched.
 const isCaughtUp = computed(() => {
   const latestSeason = props.seasons.at(-1);

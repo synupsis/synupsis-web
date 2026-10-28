@@ -52,6 +52,144 @@ export type Database = {
         }
         Relationships: []
       }
+      episode_comment: {
+        Row: {
+          author_avatar_url: string | null
+          author_name: string | null
+          body: string
+          created_at: string
+          episode: number
+          id: string
+          is_spoiler: boolean
+          parent_id: string | null
+          season: number
+          show_id: string
+          spoiler_report_count: number
+          user_id: string
+        }
+        Insert: {
+          author_avatar_url?: string | null
+          author_name?: string | null
+          body: string
+          created_at?: string
+          episode: number
+          id?: string
+          is_spoiler?: boolean
+          parent_id?: string | null
+          season: number
+          show_id: string
+          spoiler_report_count?: number
+          user_id: string
+        }
+        Update: {
+          author_avatar_url?: string | null
+          author_name?: string | null
+          body?: string
+          created_at?: string
+          episode?: number
+          id?: string
+          is_spoiler?: boolean
+          parent_id?: string | null
+          season?: number
+          show_id?: string
+          spoiler_report_count?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episode_comment_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "episode_comment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_comment_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: false
+            referencedRelation: "show"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      episode_comment_like: {
+        Row: {
+          comment_id: string
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          comment_id: string
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          comment_id?: string
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episode_comment_like_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "episode_comment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      episode_comment_spoiler_report: {
+        Row: {
+          comment_id: string
+          created_at: string
+          reporter_id: string
+        }
+        Insert: {
+          comment_id: string
+          created_at?: string
+          reporter_id: string
+        }
+        Update: {
+          comment_id?: string
+          created_at?: string
+          reporter_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episode_comment_spoiler_report_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "episode_comment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      episode_comment_report: {
+        Row: {
+          comment_id: string
+          created_at: string
+          reporter_id: string
+        }
+        Insert: {
+          comment_id: string
+          created_at?: string
+          reporter_id: string
+        }
+        Update: {
+          comment_id?: string
+          created_at?: string
+          reporter_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episode_comment_report_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "episode_comment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       library_entry: {
         Row: {
           created_at: string
@@ -604,6 +742,10 @@ export type Database = {
       }
     }
     Functions: {
+      has_watched_episode: {
+        Args: { p_show_id: string; p_season: number; p_episode: number }
+        Returns: boolean
+      }
       is_admin: {
         Args: { p_user_id: string }
         Returns: boolean
