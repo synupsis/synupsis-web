@@ -145,27 +145,6 @@
         </div>
       </section>
 
-      <section id="universe" class="border-b border-white/10 py-10 sm:py-16">
-        <div class="mx-auto max-w-7xl px-5 lg:px-8">
-          <h2 class="text-2xl font-bold sm:text-3xl">{{ t('World') }}</h2>
-          <p class="mt-2 text-sm text-muted-foreground">{{ progressScopeLabel }}</p>
-          <div class="mt-6 grid gap-3 sm:gap-4 md:grid-cols-3">
-            <div
-              v-for="item in universeItems"
-              :key="item.title"
-              class="flex flex-col gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.02] p-4 sm:gap-3 sm:p-6"
-            >
-              <component :is="item.icon" class="h-6 w-6 text-muted-foreground" aria-hidden="true" />
-              <h3 class="flex items-center justify-between gap-2 text-base font-semibold">
-                {{ item.title }}
-                <span class="text-xs font-medium text-muted-foreground">{{ t('Soon') }}</span>
-              </h3>
-              <p class="text-sm leading-6 text-muted-foreground">{{ item.description }}</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <section id="discussion" class="scroll-mt-16 border-b border-white/10 py-10 sm:py-16">
         <div class="mx-auto max-w-7xl px-5 lg:px-8">
           <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -237,7 +216,7 @@
 </template>
 
 <script setup lang="ts">
-import { CalendarIcon, CheckIcon, MapIcon, MessagesSquareIcon, Share2Icon, StarIcon, ThumbsDownIcon, ThumbsUpIcon, UsersIcon } from 'lucide-vue-next';
+import { CalendarIcon, CheckIcon, MessagesSquareIcon, StarIcon, ThumbsDownIcon, ThumbsUpIcon } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import type { ShowWithSeasons } from '~/types/database.types';
@@ -465,18 +444,6 @@ const areCharactersExpanded = ref(false);
 const displayedCharacterProfiles = computed(() => areCharactersExpanded.value
   ? knownCharacterProfiles.value
   : knownCharacterProfiles.value.slice(0, CHARACTER_PREVIEW_COUNT));
-const progressScopeLabel = computed(() => {
-  if (!spoilerShieldEnabled.value) return t('Spoiler shield off: the entire series is visible, including spoilers.');
-  if (!reachedSeasonNumber.value) return t('The entire series is visible. Set your progress to hide what comes next.');
-  if (!reachedEpisode.value) return t('Up to the start of season {number}: nothing after this point is shown.', { number: reachedSeasonNumber.value });
-  return t('Up to S{season}E{episode}: nothing after this point is shown.', { season: reachedSeasonNumber.value, episode: reachedEpisode.value });
-});
-// Placeholders until these views can be built from sources without invention.
-const universeItems = computed(() => [
-  { title: t('Family tree'), description: t('Families and their connections, as they are revealed.'), icon: UsersIcon },
-  { title: t('Location map'), description: t('Locations from the series and the scenes that take place there.'), icon: MapIcon },
-  { title: t('Relationships'), description: t('Who knows what and who lies to whom, episode by episode.'), icon: Share2Icon },
-]);
 type DiscussionTab = 'theories' | 'episode';
 const discussionTab = ref<DiscussionTab>('theories');
 const discussionEpisode = ref<{ season: number; episode: number } | null>(null);
