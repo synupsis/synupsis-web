@@ -4,7 +4,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useImageUrl } from '~/composables/useUtils'
+import { proxiedImageUrl } from '~/lib/image-url'
 
 const props = defineProps<{
   src: string | null | undefined
@@ -13,12 +13,7 @@ const props = defineProps<{
 
 const error = ref(false)
 
-const imageUrl = computed(() => {
-  if (error.value || !props.src) {
-    return '' // Image de remplacement
-  }
-  return useImageUrl(props.src)
-})
+const imageUrl = computed(() => (error.value ? '' : proxiedImageUrl(props.src)))
 
 const onImageError = () => {
   error.value = true

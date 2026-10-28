@@ -26,5 +26,5 @@
     "experimentalDecorators": true,
     "resolveJsonModule": true
   },
-  "exclude": ["supabase", "composables/useUtils.ts"]
+  "exclude": ["supabase"]
 }

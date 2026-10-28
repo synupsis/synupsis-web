@@ -11,7 +11,7 @@
         <!-- Fanarts are landscape with the subject right of centre: on a phone a full-height cover would keep only a sliver, so they become a faded band on top; on a wide screen they slide right, clear of the text column. -->
         <div
           class="absolute inset-x-0 top-0 -z-20 aspect-[4/3] bg-cover bg-[position:70%_center] [mask-image:linear-gradient(to_bottom,black_60%,transparent)] sm:inset-0 sm:aspect-auto sm:bg-top sm:[mask-image:none] md:left-auto md:w-[72%] md:[mask-image:linear-gradient(to_right,transparent,black_35%)]"
-          :style="{ backgroundImage: `url(${useImageUrl(showData.image)})` }"
+          :style="{ backgroundImage: `url(${proxiedImageUrl(showData.image)})` }"
         />
         <div class="absolute inset-0 -z-10 bg-gradient-to-t from-background via-background/70 to-background/20" />
         <div class="mx-auto flex max-w-7xl flex-col gap-8 px-5 pb-8 pt-48 sm:min-h-[560px] sm:items-start sm:justify-end sm:gap-10 sm:pb-14 sm:pt-24 lg:px-8">
@@ -407,7 +407,7 @@ import EpisodeTracker from '~/components/EpisodeTracker.vue';
 import SeasonStory from '~/components/SeasonStory.vue';
 import TimelineCharacterChip from '~/components/TimelineCharacterChip.vue';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
-import { useImageUrl } from '~/composables/useUtils';
+import { proxiedImageUrl } from '~/lib/image-url';
 import { useRecapGenerations } from '~/composables/useRecapGenerations';
 import { useStoryViewer } from '~/composables/useStoryViewer';
 import { isRegularSeasonReleased } from '~/lib/season-availability';
@@ -985,7 +985,7 @@ useHead(() => {
     title: showData.value ? `${showData.value.name} — Synupsis` : t('Show — Synupsis'),
     meta: [
       { name: 'description', content: description },
-      { property: 'og:image', content: useImageUrl(showData.value?.image) ?? '/svg/logo.svg' },
+      { property: 'og:image', content: proxiedImageUrl(showData.value?.image) || '/svg/logo.svg' },
     ],
   };
 });

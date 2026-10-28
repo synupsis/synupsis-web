@@ -15,7 +15,6 @@ export default defineNuxtConfig({
       secretKey: ''
     }
   },
-  pages: true,
   routeRules: {
     '/api/image-proxy/**': {
       proxy: {
@@ -36,10 +35,6 @@ export default defineNuxtConfig({
     }
   },
 
-  typescript: {
-    typeCheck: false
-  },
-
   supabase: {
     url: supabaseUrl,
     key: supabasePublishableKey,
@@ -54,19 +49,11 @@ export default defineNuxtConfig({
   compatibilityDate: '2024-08-15',
   modules: [
     '@nuxtjs/supabase',
-    'nuxt-headlessui',
     'shadcn-nuxt',
     '@nuxtjs/color-mode'
   ],
   shadcn: {
-    /**
-     * Prefix for all the imported component
-     */
     prefix: '',
-    /**
-     * Directory that the component lives in.
-     * @default "./components/ui"
-     */
     componentDir: './components/shadcn'
   }
 });

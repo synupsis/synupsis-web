@@ -41,9 +41,7 @@ useHead(() => ({
   ],
   htmlAttrs: {
     lang: locale.value,
-    'data-theme': 'night',
     class: 'dark'
   }
 }));
-provideHeadlessUseId(() => useId());
 </script>

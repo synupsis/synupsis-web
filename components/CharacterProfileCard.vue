@@ -26,7 +26,8 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useImageUrl } from '~/composables/useUtils';
+import { characterImageUrl } from '~/lib/image-url';
+import { nameInitials } from '~/lib/utils';
 import type { TimelineCharacterProfile } from '~/types/show-character.types';
 
 const { t } = useI18n();
@@ -40,20 +41,8 @@ defineEmits<{
 }>();
 
 const imageLoadFailed = ref(false);
-const initials = computed(() => props.profile.name
-  .split(/\s+/)
-  .filter(Boolean)
-  .slice(0, 2)
-  .map(part => part[0]?.toLocaleUpperCase())
-  .join(''));
-const imageSrc = computed(() => {
-  const imageUrl = props.profile.imageUrl;
-  if (!imageUrl || imageLoadFailed.value) return '';
-  if (props.profile.imageProvider === 'tvmaze') {
-    return `/api/images/proxy?url=${encodeURIComponent(imageUrl)}`;
-  }
-  return useImageUrl(imageUrl);
-});
+const initials = computed(() => nameInitials(props.profile.name));
+const imageSrc = computed(() => (imageLoadFailed.value ? '' : characterImageUrl(props.profile)));
 const lastSeenLabel = computed(() => {
   const lastSeen = props.profile.lastSeen;
   if (!lastSeen) return '';

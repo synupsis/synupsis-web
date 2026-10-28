@@ -91,7 +91,6 @@ import {
 import { Button } from '~/components/shadcn/button';
 import { toast } from 'vue-sonner';
 import RecapImageModal from '~/components/RecapImageModal.vue';
-import { hexToRgb } from '~/lib/utils';
 
 type BaseCanvasItem = {
   key: string;
@@ -395,7 +394,7 @@ function addTextbox() {
     text: t("Your text here"),
     fontSize: 32,
     fontFamily: 'Inter, sans-serif',
-    fill: hexToRgb('#000'),
+    fill: '#000',
     padding: 10,
     width: 300,
     wrap: 'word',
@@ -405,7 +404,7 @@ function addTextbox() {
     kind: 'group',
     key,
     config: { id: key, name: key, x: 50, y: 110, draggable: true },
-    rect: { width: text.width(), height: text.height(), fill: hexToRgb('#fff'), cornerRadius: 10 },
+    rect: { width: text.width(), height: text.height(), fill: '#fff', cornerRadius: 10 },
     text: textConfig,
   });
   nextTick(emitUpdate);

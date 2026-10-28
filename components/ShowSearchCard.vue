@@ -47,10 +47,11 @@
 <script setup lang="ts">
 const { t, locale } = useI18n();
 import { ArrowUpRight, Star, Tv } from 'lucide-vue-next';
+import { proxiedImageUrl } from '~/lib/image-url';
 import type { TraktShowCard } from '~/types/trakt.types';
 
 const props = withDefaults(defineProps<{ show: TraktShowCard; featured?: boolean }>(), { featured: false });
 const imageFailed = ref(false);
-const imageUrl = computed(() => useImageUrl(props.show.image));
+const imageUrl = computed(() => proxiedImageUrl(props.show.image));
 watch(() => props.show.image, () => { imageFailed.value = false; });
 </script>

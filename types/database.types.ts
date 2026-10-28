@@ -7,7 +7,6 @@ export type Database = DatabaseGenerated;
 
 export type Show = Database['public']['Tables']['show']['Row'];
 export type Season = Database['public']['Tables']['season']['Row'];
-export type AppSetting = Database['public']['Tables']['app_settings']['Row'];
 export type Prompt = Database['public']['Tables']['prompts']['Row'] & {
   recaps_count?: Array<{ count: number | null }>;
 };

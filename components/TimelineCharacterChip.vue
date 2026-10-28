@@ -119,7 +119,8 @@ import {
   HoverCardRoot,
   HoverCardTrigger,
 } from 'reka-ui';
-import { useImageUrl } from '~/composables/useUtils';
+import { characterImageUrl } from '~/lib/image-url';
+import { nameInitials } from '~/lib/utils';
 import type { TimelineCharacterProfile } from '~/types/show-character.types';
 
 const { t } = useI18n();
@@ -132,20 +133,8 @@ const props = defineProps<{
 const isOpen = ref(false);
 const imageLoadFailed = ref(false);
 
-const initials = computed(() => props.name
-  .split(/\s+/)
-  .filter(Boolean)
-  .slice(0, 2)
-  .map(part => part[0]?.toLocaleUpperCase())
-  .join(''));
-const imageSrc = computed(() => {
-  const imageUrl = props.profile?.imageUrl;
-  if (!imageUrl || imageLoadFailed.value) return '';
-  if (props.profile?.imageProvider === 'tvmaze') {
-    return `/api/images/proxy?url=${encodeURIComponent(imageUrl)}`;
-  }
-  return useImageUrl(imageUrl);
-});
+const initials = computed(() => nameInitials(props.name));
+const imageSrc = computed(() => (imageLoadFailed.value ? '' : characterImageUrl(props.profile)));
 const hasTimelineDetails = computed(() => Boolean(
   props.profile?.eventCount
   || props.profile?.lastSeen

@@ -277,7 +277,6 @@ import {
 
 definePageMeta({
   middleware: 'admin',
-  layout: false,
 });
 
 type Slide = {
