@@ -7,6 +7,7 @@ import ts from 'typescript';
 import * as vue from 'vue';
 import * as seasonAvailability from '../../lib/season-availability.ts';
 import * as plainText from '../../lib/plain-text.ts';
+import * as showCharacters from '../../lib/show-characters.ts';
 
 const filename = 'pages/shows/[slug]/index.vue';
 const source = readFileSync(new URL(`../../${filename}`, import.meta.url), 'utf8');
@@ -71,6 +72,11 @@ async function createPage(t, { savedEntry = entry, userId = 'viewer-1', query = 
         id: `season-${number}`, number, first_aired: '2020-01-01', recap: [],
       })),
     } };
+    // Two recurring characters per season, each seen in that season only.
+    if (url === '/api/shows/example-42/characters') return { characters: [1, 2, 3].flatMap(season => [1, 5].map(episode => ({
+      name: `Character ${season}-${episode}`, actorName: `Actor ${season}-${episode}`, actorImageUrl: null,
+      episodesBySeason: { [season]: 3 },
+    }))) };
     const episodes = url.match(/\/seasons\/(\d+)\/episodes$/);
     if (episodes) return {
       seasonNumber: Number(episodes[1]), totalEpisodes: 6,
@@ -134,6 +140,7 @@ async function createPage(t, { savedEntry = entry, userId = 'viewer-1', query = 
       } };
       if (specifier === '~/lib/season-availability') return seasonAvailability;
       if (specifier === '~/lib/plain-text') return plainText;
+      if (specifier === '~/lib/show-characters') return showCharacters;
       if (specifier === '~/lib/recap-locales') return {
         recapLocales: ['fr', 'en'], recapLocaleNames: { fr: 'Français', en: 'English' }, recapLocaleFlags: {},
       };
@@ -213,9 +220,10 @@ test('reenabling immediately hides cached future characters even when refresh fa
   const saving = page.toggleSpoilerShield();
   // Check before any async refresh can replace the cached, fully revealed hubs.
   assert.deepEqual(plain(page.visibleSeasonHubs.value.map(item => item.season.number)), [1]);
-  assert.ok(page.knownCharacterProfiles.value.every(item => item.name.startsWith('Character 1-')));
+  // Characters go by season: up to season 2, where the viewer is, and none of season 3.
+  assert.deepEqual(plain(page.knownCharacterProfiles.value.map(item => item.name)).sort(),
+    ['Character 1-1', 'Character 1-5', 'Character 2-1', 'Character 2-5']);
   await settle();
-  assert.equal(page.hubsPending.value, false);
   assert.equal(page.seasonHubs.value.length, 3);
   assert.equal(page.visibleSeasonHubs.value.length, 1);
   assert.equal(page.isRecapUnlocked(3), false);

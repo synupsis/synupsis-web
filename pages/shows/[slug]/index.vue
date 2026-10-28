@@ -125,11 +125,11 @@
               {{ areCharactersExpanded ? t('Show less') : t('View all {count} characters', { count: knownCharacterProfiles.length }) }}
             </button>
           </div>
-          <div v-if="hubsPending" class="grid min-h-28 place-items-center">
+          <div v-if="charactersPending" class="grid min-h-28 place-items-center">
             <SpinLoader class="h-6 w-6" />
           </div>
           <template v-else-if="knownCharacterProfiles.length">
-            <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="mt-6 grid grid-cols-3 gap-3 sm:grid-cols-4 sm:gap-4 md:grid-cols-6">
               <CharacterProfileCard
                 v-for="profile in displayedCharacterProfiles"
                 :key="normalizeCharacterName(profile.name)"
@@ -196,7 +196,8 @@ import { toast } from 'vue-sonner';
 import type { ShowWithSeasons } from '~/types/database.types';
 import type { LibraryEntry } from '~/types/library.types';
 import type { SeasonHubResponse } from '~/types/season-hub.types';
-import type { ShowCharacterProfile } from '~/types/show-character.types';
+import type { ShowCastCharacter, ShowCharacterProfile, VisibleCastCharacter } from '~/types/show-character.types';
+import { visibleCastCharacters } from '~/lib/show-characters';
 import { Button } from '~/components/shadcn/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '~/components/shadcn/dropdown-menu';
 import CharacterProfileCard from '~/components/CharacterProfileCard.vue';
@@ -215,7 +216,7 @@ import { toPlainText } from '~/lib/plain-text';
 type ProgressEpisode = { number: number; title: string; firstAired: string | null };
 const { t, locale } = useI18n();
 
-const CHARACTER_PREVIEW_COUNT = 6;
+const CHARACTER_PREVIEW_COUNT = 12;
 
 const route = useRoute();
 const router = useRouter();
@@ -238,37 +239,20 @@ const sortedSeasons = computed(() => (showData.value?.seasons ?? [])
 const showSummary = computed(() => toPlainText(showData.value?.summary));
 const seasonsChronological = computed(() => [...sortedSeasons.value].reverse());
 const firstAired = computed(() => seasonsChronological.value[0]?.first_aired ?? null);
-const cast = computed<any[]>(() => (showData.value?._embedded?.cast as any[] | undefined) ?? []);
 const rating = computed(() => showData.value?._embedded?.rating ?? null);
 function formatCompact(count: number) {
   return new Intl.NumberFormat(locale.value, { notation: 'compact' }).format(count);
 }
-const mediaCharacterProfiles = computed(() => {
-  const profiles = new Map<string, ShowCharacterProfile>();
-
-  for (const profile of showData.value?._embedded?.characterProfiles ?? []) {
-    const key = normalizeCharacterName(profile.name);
-    if (key) profiles.set(key, profile);
-  }
-
-  for (const member of cast.value) {
-    const imageUrl = castMemberImage(member);
-    const profile: ShowCharacterProfile = {
-      name: '',
-      imageUrl,
-      imageKind: imageUrl ? 'actor' : null,
-      imageProvider: imageUrl ? 'trakt' : null,
-      actorName: typeof member?.person?.name === 'string' ? member.person.name : null,
-      isVoice: false,
-      sourceUrl: null,
-    };
-    for (const characterName of castMemberCharacterNames(member)) {
-      const key = normalizeCharacterName(characterName);
-      if (key && !profiles.has(key)) profiles.set(key, { ...profile, name: characterName });
-    }
-  }
-  return profiles;
-});
+// TVMaze portraits of the main characters, found by their actor first, then by their name.
+const tvMazePortraits = computed(() => (showData.value?._embedded?.characterProfiles ?? [])
+  .filter(profile => profile.imageUrl));
+function tvMazePortraitOf(character: VisibleCastCharacter) {
+  const actor = normalizeCharacterName(character.actorName);
+  const byActor = tvMazePortraits.value.filter(profile => profile.actorName && normalizeCharacterName(profile.actorName) === actor);
+  if (byActor.length === 1) return byActor[0]!;
+  const byName = new Map(tvMazePortraits.value.map(profile => [normalizeCharacterName(profile.name), profile]));
+  return findCharacterMatch(byName, normalizeCharacterName(character.name));
+}
 
 const showTraktId = String(route.params.slug).split('-').pop();
 const requestFetch = useRequestFetch();
@@ -331,7 +315,7 @@ function withRecapsInLocale<T extends { recap?: Array<{ locale: string }> | null
   return { ...season, recap: (season.recap ?? []).filter(recap => recap.locale === selectedRecapLocale.value) };
 }
 
-const { data: seasonHubs, pending: hubsPending, refresh: refreshHubs } = await useAsyncData(
+const { data: seasonHubs, refresh: refreshHubs } = await useAsyncData(
   `series-knowledge-${user.value?.sub ?? 'guest'}-${route.params.slug}`,
   async () => Promise.all(sortedSeasons.value.map(season => $fetch<SeasonHubResponse>(
     `/api/shows/${route.params.slug}/seasons/${season.number}`,
@@ -381,35 +365,35 @@ const progressEpisodeTotal = computed(() => progressEpisodeOptions.value.reduce(
   (maximum, episode) => Math.max(maximum, episode.number),
   0,
 ));
-// Only characters seen in the scenes before the viewer's spoiler limit, with their actor.
-const knownCharacterProfiles = computed<ShowCharacterProfile[]>(() => {
-  const profiles = new Map<string, { profile: ShowCharacterProfile; eventCount: number }>();
-
-  for (const hub of visibleSeasonHubs.value) {
-    for (const character of hub.characters) {
-      const key = normalizeCharacterName(character.name);
-      if (!key) continue;
-      const profile = findCharacterMatch(mediaCharacterProfiles.value, key) ?? {
-        name: character.name,
-        imageUrl: null,
-        imageKind: null,
-        imageProvider: null,
-        actorName: null,
-        isVoice: false,
-        sourceUrl: null,
-      };
-      const profileKey = normalizeCharacterName(profile.name);
-      const known = profiles.get(profileKey);
-      if (known) known.eventCount += character.eventCount;
-      else profiles.set(profileKey, { profile, eventCount: character.eventCount });
-    }
-  }
-
-  // The most present first.
-  return [...profiles.values()]
-    .sort((a, b) => b.eventCount - a.eventCount || a.profile.name.localeCompare(b.profile.name, locale.value))
-    .map(({ profile }) => profile);
+// The series' characters come from its cast, season by season, not from its recaps.
+const { data: castCharacters, pending: charactersPending } = await useAsyncData(
+  `show-characters-${route.params.slug}`,
+  () => $fetch<{ characters: ShowCastCharacter[] }>(`/api/shows/${route.params.slug}/characters`)
+    .then(response => response.characters, () => [] as ShowCastCharacter[]),
+  { default: () => [] as ShowCastCharacter[] },
+);
+// Up to the viewer's season; a season not started yet stays out. Without
+// progress, or with the shield off, the whole series.
+const characterSeasonCursor = computed(() => {
+  if (!spoilerShieldEnabled.value || !reachedSeasonNumber.value) return null;
+  return reachedEpisode.value ? reachedSeasonNumber.value : reachedSeasonNumber.value - 1;
 });
+const knownCharacterProfiles = computed<ShowCharacterProfile[]>(() => visibleCastCharacters(
+  castCharacters.value ?? [],
+  characterSeasonCursor.value,
+).map((character) => {
+  const portrait = tvMazePortraitOf(character);
+  const imageUrl = portrait?.imageUrl ?? character.actorImageUrl;
+  return {
+    name: character.name,
+    imageUrl,
+    imageKind: portrait ? portrait.imageKind : imageUrl ? 'actor' : null,
+    imageProvider: portrait ? 'tvmaze' : imageUrl ? 'trakt' : null,
+    actorName: character.actorName,
+    isVoice: portrait?.isVoice ?? false,
+    sourceUrl: portrait?.sourceUrl ?? null,
+  };
+}));
 const hasTvMazeDirectoryProfiles = computed(() => knownCharacterProfiles.value
   .some(profile => profile.imageProvider === 'tvmaze'));
 const areCharactersExpanded = ref(false);
@@ -419,33 +403,6 @@ const displayedCharacterProfiles = computed(() => areCharactersExpanded.value
 // The feed reloads when the progress moves: other episodes come into reach.
 const progressKey = computed(() => `${reachedSeasonNumber.value}-${reachedEpisode.value}`);
 const commentsFeed = ref<{ reload: () => void } | null>(null);
-function castMemberCharacterNames(member: any): string[] {
-  const values = [
-    ...(Array.isArray(member?.characters) ? member.characters : []),
-    member?.character,
-  ];
-  return values.flatMap((value) => {
-    if (typeof value === 'string') return [value];
-    if (value && typeof value.name === 'string') return [value.name];
-    return [];
-  });
-}
-
-function castMemberImage(member: any): string | null {
-  const candidates = [
-    member?.images?.headshot?.[0],
-    member?.person?.images?.headshot?.[0],
-    member?.person?.images?.headshot?.full,
-    member?.person?.images?.headshot?.medium,
-    member?.person?.image?.medium,
-    member?.person?.image?.original,
-  ];
-  const image = candidates.find(candidate => typeof candidate === 'string' && candidate.length > 0);
-  if (!image) return null;
-  if (/^https?:\/\//i.test(image)) return image;
-  return `https://${image.replace(/^\/\//, '')}`;
-}
-
 function normalizeCharacterName(name: string) {
   return name
     .normalize('NFD')
