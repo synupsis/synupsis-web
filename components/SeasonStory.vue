@@ -49,7 +49,7 @@
               <CachedImage
                 v-if="season.image"
                 :src="season.image"
-                :alt="`Affiche de la saison ${season.number}`"
+                :alt="t('Poster for Season {number}', { number: season.number })"
                 class="h-full w-full object-cover object-[50%_25%] transition duration-300"
                 :class="{ 'group-hover:scale-105': !primaryDisabled, 'grayscale-[35%]': spoilerLocked }"
               />
@@ -107,9 +107,9 @@
     </div>
 
     <h3 class="mt-2 truncate text-xs font-semibold text-white">
-      Saison {{ season.number }}
+      {{ t('Season {number}', { number: season.number }) }}
     </h3>
-    <p class="mt-0.5 truncate text-[11px] leading-4" :class="statusTextClass" :title="failed ? generationError ?? undefined : undefined">
+    <p class="mt-0.5 truncate text-[11px] leading-4" :class="statusTextClass" :title="failed ? t(generationError ?? 'Generation failed.') : undefined">
       {{ statusLabel }}
     </p>
   </article>
@@ -123,6 +123,8 @@ import CachedImage from '~/components/CachedImage.vue';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import { prefetchRecapStory } from '~/composables/useStoryViewer';
 
+const { t } = useI18n();
+
 const props = withDefaults(defineProps<{
   season: any;
   isAdmin: boolean;
@@ -134,7 +136,7 @@ const props = withDefaults(defineProps<{
   spoilerLocked?: boolean;
 }>(), {
   generationProgress: 0,
-  generationLabel: 'Préparation',
+  generationLabel: '',
   generationError: null,
   spoilerLocked: false,
 });
@@ -163,12 +165,12 @@ const ringOffset = computed(() => RING_CIRCUMFERENCE * (1 - Math.min(Math.max(pr
 const primaryDisabled = computed(() => props.spoilerLocked || props.isGenerating || (isDraft.value && !(user.value && props.isAdmin)));
 
 const statusLabel = computed(() => {
-  if (props.spoilerLocked) return 'Verrouillé';
-  if (props.isGenerating) return props.generationLabel;
-  if (isPublished.value) return props.isLatest ? 'Nouveau' : 'Disponible';
-  if (isDraft.value) return 'Brouillon';
-  if (failed.value) return 'Échec · réessayer';
-  return 'À créer';
+  if (props.spoilerLocked) return t('Locked');
+  if (props.isGenerating) return t(props.generationLabel || 'Preparing');
+  if (isPublished.value) return props.isLatest ? t('New') : t('Available');
+  if (isDraft.value) return t('Draft');
+  if (failed.value) return t('Failed · retry');
+  return t('Create recap');
 });
 
 const statusTextClass = computed(() => {
@@ -196,18 +198,18 @@ const statusIconClass = computed(() => {
 });
 
 const actionLabel = computed(() => {
-  if (props.spoilerLocked) return `Le récap de la saison ${props.season.number} est verrouillé`;
-  if (props.isGenerating) return `Préparation du récap de la saison ${props.season.number} : ${props.generationLabel}, ${displayedProgress.value} %`;
-  if (isPublished.value) return `Voir le récap de la saison ${props.season.number}`;
-  if (isDraft.value) return `Modifier le brouillon de la saison ${props.season.number}`;
-  if (failed.value) return `Relancer le récap de la saison ${props.season.number}`;
-  return `Créer le récap de la saison ${props.season.number}`;
+  if (props.spoilerLocked) return t('The recap for season {number} is locked', { number: props.season.number });
+  if (props.isGenerating) return t('Preparing the recap for season {number}: {stage}, {progress}%', { number: props.season.number, stage: t(props.generationLabel || 'Preparing'), progress: displayedProgress.value });
+  if (isPublished.value) return t('View the recap for season {number}', { number: props.season.number });
+  if (isDraft.value) return t('Edit the draft for season {number}', { number: props.season.number });
+  if (failed.value) return t('Retry the recap for season {number}', { number: props.season.number });
+  return t('Create the recap for season {number}', { number: props.season.number });
 });
 
 const adminActionLabel = computed(() => (
   isPublished.value || isDraft.value
-    ? `Modifier le récap de la saison ${props.season.number}`
-    : `Créer manuellement le récap de la saison ${props.season.number}`
+    ? t('Edit the recap for season {number}', { number: props.season.number })
+    : t('Manually create the recap for season {number}', { number: props.season.number })
 ));
 
 // Hovering or pressing the ring loads the story, so it opens ready.

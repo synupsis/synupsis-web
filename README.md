@@ -6,6 +6,7 @@ Generate a quick summary for all seasons of all TV series of the world.
 
 - Search a show
 - Display show informations and seasons
+- French and English display languages, detected from the browser with an account preference
 - [WIP] Authentication
 - [WIP] Create recap canvas
 
@@ -49,6 +50,26 @@ Run Edge Functions locally
 ```bash
   supabase functions serve
 ```
+
+## Display languages
+
+The interface supports French and English. Visitors use the first supported language
+from the browser preferences (`Accept-Language` during server rendering, then
+`navigator.languages` after hydration), with English as the fallback. Signed-in
+users can choose French, English, or **Browser language** in their profile.
+
+The preference is saved in Supabase Auth user metadata as `display_language`
+(`fr`, `en`, or `null` for automatic detection). Existing accounts default to the
+browser language; no database migration is required. Saving refreshes the session
+so the preference also applies to subsequent server-rendered pages. Signing out
+restores browser detection. This setting changes the interface, not show metadata
+or generated recap content.
+
+Use `useI18n().t('English source text', { name: value })` for interface text and
+register the matching French entry in a domain catalog under `lib/i18n/`.
+Translate in a template or computed value to keep language changes reactive.
+Translation coverage, interpolation parameters, language negotiation and account
+preference persistence are checked by `yarn test:pipeline`.
 
 ## Validation
 

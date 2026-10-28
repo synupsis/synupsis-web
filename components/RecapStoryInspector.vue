@@ -2,30 +2,30 @@
   <aside class="w-80 shrink-0 overflow-y-auto border-l border-border bg-background p-5">
     <div class="space-y-1">
       <div class="flex items-center justify-between gap-3">
-        <h2 class="text-xl font-semibold tracking-tight">Contenu</h2>
+        <h2 class="text-xl font-semibold tracking-tight">{{ t('Content') }}</h2>
         <Badge variant="secondary">{{ kindLabel }}</Badge>
       </div>
       <p class="text-xs leading-relaxed text-muted-foreground">
-        Ce texte est celui qui sera réellement affiché dans le lecteur public.
+        {{ t('This is the text displayed in the public player.') }}
       </p>
     </div>
 
     <div class="mt-6 space-y-5">
       <template v-if="content.kind === 'cover'">
         <StoryField
-          label="Titre"
+          :label="t('Title')"
           :model-value="content.title"
           :limit="90"
           @update:model-value="updateCover('title', $event)"
         />
         <StoryField
-          label="Sous-titre"
+          :label="t('Subtitle')"
           :model-value="content.subtitle"
           :limit="140"
           @update:model-value="updateCover('subtitle', $event)"
         />
         <StoryField
-          label="Introduction"
+          :label="t('Introduction')"
           :model-value="content.logline"
           :limit="360"
           multiline
@@ -36,7 +36,7 @@
 
       <template v-else-if="content.kind === 'episode'">
         <StoryField
-          label="Titre de l’épisode"
+          :label="t('Episode title')"
           :model-value="content.headline"
           :limit="90"
           @update:model-value="updateEpisodeHeadline($event)"
@@ -44,7 +44,7 @@
         <StoryField
           v-for="(moment, index) in content.moments"
           :key="index"
-          :label="`Moment ${index + 1}`"
+          :label="t('Moment {number}', { number: index + 1 })"
           :model-value="moment"
           :limit="240"
           multiline
@@ -55,13 +55,13 @@
 
       <template v-else-if="content.kind === 'beat'">
         <StoryField
-          label="Accroche"
+          :label="t('Headline')"
           :model-value="content.headline"
           :limit="90"
           @update:model-value="updateBeat('headline', $event)"
         />
         <StoryField
-          label="Narration"
+          :label="t('Narration')"
           :model-value="content.narration"
           :limit="520"
           multiline
@@ -69,14 +69,14 @@
           @update:model-value="updateBeat('narration', $event)"
         />
         <StoryField
-          label="Tag"
+          :label="t('Tag')"
           :model-value="content.tag"
           :limit="60"
           @update:model-value="updateBeat('tag', $event)"
         />
 
         <div class="space-y-2">
-          <label for="story-episodes" class="text-sm font-medium">Épisodes concernés</label>
+          <label for="story-episodes" class="text-sm font-medium">{{ t('Related episodes') }}</label>
           <Input
             id="story-episodes"
             :model-value="episodeNumbersText"
@@ -84,18 +84,19 @@
             placeholder="1, 2, 3"
             @update:model-value="updateEpisodeNumbers(String($event))"
           />
-          <p class="text-xs text-muted-foreground">Sépare les numéros avec des virgules.</p>
+          <p class="text-xs text-muted-foreground">{{ t('Separate numbers with commas.') }}</p>
         </div>
       </template>
     </div>
 
     <div class="mt-7 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-700 dark:text-amber-300">
-      Les références de sources sont conservées. Après une modification du texte, la vérification automatique sera marquée comme à renouveler.
+      {{ t('Source references are preserved. After editing the text, automatic verification will need to be renewed.') }}
     </div>
   </aside>
 </template>
 
 <script setup lang="ts">
+const { t } = useI18n();
 import { computed, defineComponent, h } from 'vue';
 import { Badge } from '~/components/shadcn/badge';
 import { Input } from '~/components/shadcn/input';
@@ -150,12 +151,12 @@ const episodeNumbersText = computed(() => (
   props.content.kind === 'beat' ? props.content.episodeNumbers.join(', ') : ''
 ));
 const kindLabel = computed(() => {
-  if (props.content.kind === 'cover') return 'Couverture';
+  if (props.content.kind === 'cover') return t("Cover");
   if (props.content.kind === 'episode') {
     const { episodeNumber, part, partCount } = props.content;
-    return partCount && partCount > 1 ? `Épisode ${episodeNumber} · ${part}/${partCount}` : `Épisode ${episodeNumber}`;
+    return partCount && partCount > 1 ? t("Episode {number} · {part}/{count}", { number: episodeNumber, part: part ?? 1, count: partCount }) : t("Episode {number}", { number: episodeNumber });
   }
-  return 'Moment clé';
+  return t("Key moment");
 });
 
 function updateEpisodeHeadline(value: string | number) {

@@ -1,13 +1,13 @@
 <template>
   <aside class="w-80 p-4 border-l border-border flex flex-col gap-4 overflow-y-auto">
-    <h2 class="text-xl font-semibold tracking-tight">Inspector</h2>
+    <h2 class="text-xl font-semibold tracking-tight">{{ t('Inspector') }}</h2>
     
     <!-- Property Editor -->
     <div v-if="selectedElement" class="space-y-4">
-      <Button variant="outline" @click="$emit('deselect')">Back to Layers</Button>
+      <Button variant="outline" @click="$emit('deselect')">{{ t('Back to Layers') }}</Button>
       <div v-if="selectedElement.text">
         <div>
-          <label class="text-sm font-medium">Text Content</label>
+          <label class="text-sm font-medium">{{ t('Text Content') }}</label>
           <textarea
             :value="selectedElement.text.text"
             @input="updateText(readInputValue($event))"
@@ -16,7 +16,7 @@
           />
         </div>
         <div>
-          <label class="text-sm font-medium">Font Size</label>
+          <label class="text-sm font-medium">{{ t('Font Size') }}</label>
           <input
             type="number"
             :value="selectedElement.text.fontSize"
@@ -25,7 +25,7 @@
           />
         </div>
         <div>
-          <label class="text-sm font-medium">Fill Color</label>
+          <label class="text-sm font-medium">{{ t('Fill Color') }}</label>
           <input
             type="color"
             :value="selectedElement.text.fill"
@@ -35,7 +35,7 @@
         </div>
       </div>
       <div>
-        <label class="text-sm font-medium">Position</label>
+        <label class="text-sm font-medium">{{ t('Position') }}</label>
         <div class="flex gap-2">
           <div class="flex-1">
             <label class="text-xs">X</label>
@@ -61,7 +61,7 @@
 
     <!-- Layer List -->
     <div v-else class="space-y-2">
-      <p class="text-sm text-muted-foreground">Layers</p>
+      <p class="text-sm text-muted-foreground">{{ t('Layers') }}</p>
       <div v-if="elements.length > 0" class="space-y-1">
         <button
           v-for="element in elements"
@@ -69,17 +69,18 @@
           @click="$emit('select-by-id', element.attrs.id)"
           class="w-full text-left p-2 rounded-md hover:bg-muted"
         >
-          {{ element.attrs.name || 'Unnamed Layer' }}
+          {{ element.attrs.name || t('Unnamed Layer') }}
         </button>
       </div>
       <div v-else class="text-muted-foreground text-xs text-center mt-8">
-        This slide is empty.
+        {{ t('This slide is empty.') }}
       </div>
     </div>
   </aside>
 </template>
 
 <script setup lang="ts">
+const { t } = useI18n();
 import { Button } from '~/components/shadcn/button';
 
 const props = defineProps<{

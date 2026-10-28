@@ -46,7 +46,7 @@
         <div class="mx-auto max-w-7xl px-5 lg:px-8">
           <div class="mb-4 flex flex-wrap items-end justify-between gap-4 sm:mb-6">
             <div>
-              <h2 class="text-2xl font-bold">Recaps</h2>
+              <h2 class="text-2xl font-bold">{{ t('Recaps') }}</h2>
             </div>
           </div>
           <!-- A scroller clips both axes: its top padding, taken back by a negative margin, leaves room for the ring halo, wider on hover. -->
@@ -72,14 +72,14 @@
               @generate="generateRecap"
             />
           </div>
-          <p v-else class="text-sm text-muted-foreground">Aucune saison diffusée n’est disponible.</p>
+          <p v-else class="text-sm text-muted-foreground">{{ t('No released seasons are available.') }}</p>
         </div>
       </section>
 
       <section id="characters" class="border-b border-white/10 py-10 sm:py-16">
         <div class="mx-auto max-w-7xl px-5 lg:px-8">
           <div class="flex flex-wrap items-baseline justify-between gap-4">
-            <h2 class="text-2xl font-bold sm:text-3xl">Personnages</h2>
+            <h2 class="text-2xl font-bold sm:text-3xl">{{ t('Characters') }}</h2>
             <button
               v-if="knownCharacterProfiles.length > CHARACTER_PREVIEW_COUNT"
               type="button"
@@ -87,7 +87,7 @@
               :aria-expanded="areCharactersExpanded"
               @click="areCharactersExpanded = !areCharactersExpanded"
             >
-              {{ areCharactersExpanded ? 'Réduire' : `Voir les ${knownCharacterProfiles.length} personnages` }}
+              {{ areCharactersExpanded ? t('Show less') : t('View all {count} characters', { count: knownCharacterProfiles.length }) }}
             </button>
           </div>
           <div v-if="hubsPending" class="grid min-h-28 place-items-center">
@@ -103,17 +103,17 @@
               />
             </div>
             <p v-if="hasTvMazeDirectoryProfiles" class="mt-3 text-[9px] text-muted-foreground">
-              Portraits et casting enrichis par
+              {{ t('Portraits and cast enriched by') }}
               <a href="https://www.tvmaze.com/api#licensing" target="_blank" rel="noopener noreferrer" class="hover:text-primary hover:underline">TVMaze (CC BY-SA)</a>.
             </p>
           </template>
-          <p v-else class="mt-4 text-sm text-muted-foreground">Aucun personnage connu pour le moment.</p>
+          <p v-else class="mt-4 text-sm text-muted-foreground">{{ t('No known characters yet.') }}</p>
         </div>
       </section>
 
       <section id="universe" class="border-b border-white/10 py-10 sm:py-16">
         <div class="mx-auto max-w-7xl px-5 lg:px-8">
-          <h2 class="text-2xl font-bold sm:text-3xl">Univers</h2>
+          <h2 class="text-2xl font-bold sm:text-3xl">{{ t('World') }}</h2>
           <p class="mt-2 text-sm text-muted-foreground">{{ progressScopeLabel }}</p>
           <div class="mt-6 grid gap-3 sm:gap-4 md:grid-cols-3">
             <div
@@ -124,7 +124,7 @@
               <component :is="item.icon" class="h-6 w-6 text-muted-foreground" aria-hidden="true" />
               <h3 class="flex items-center justify-between gap-2 text-base font-semibold">
                 {{ item.title }}
-                <span class="text-xs font-medium text-muted-foreground">Bientôt</span>
+                <span class="text-xs font-medium text-muted-foreground">{{ t('Soon') }}</span>
               </h3>
               <p class="text-sm leading-6 text-muted-foreground">{{ item.description }}</p>
             </div>
@@ -136,10 +136,10 @@
         <div class="mx-auto max-w-7xl px-5 lg:px-8">
           <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 class="text-2xl font-bold sm:text-3xl">Discussion</h2>
-              <p class="mt-2 text-sm text-muted-foreground">Entre personnes qui en sont au même point que vous</p>
+              <h2 class="text-2xl font-bold sm:text-3xl">{{ t('Discussion') }}</h2>
+              <p class="mt-2 text-sm text-muted-foreground">{{ t('With people who are at the same point as you') }}</p>
             </div>
-            <div class="flex gap-1.5" role="group" aria-label="Type de discussion">
+            <div class="flex gap-1.5" role="group" :aria-label="t('Discussion type')">
               <button
                 v-for="tab in discussionTabs"
                 :key="tab.id"
@@ -156,14 +156,14 @@
           <div class="mt-6 rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-6 text-center sm:p-10">
             <ChatBubbleLeftRightIcon class="mx-auto h-7 w-7 text-muted-foreground" aria-hidden="true" />
             <template v-if="discussionTab === 'theories'">
-              <h3 class="mt-4 font-semibold">Aucune théorie pour le moment</h3>
-              <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">Chaque théorie indiquera les épisodes sur lesquels elle s’appuie. Vous ne verrez que celles fondées sur des épisodes déjà vus.</p>
+              <h3 class="mt-4 font-semibold">{{ t('No theories yet') }}</h3>
+              <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">{{ t('Each theory will list the episodes it is based on. You will only see theories based on episodes you have already watched.') }}</p>
             </template>
             <template v-else>
-              <h3 class="mt-4 font-semibold">Aucun commentaire sur l’épisode {{ activeDiscussionEpisode?.episode }}</h3>
-              <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">Seules les personnes qui ont vu cet épisode peuvent lire et écrire ici. Ne parlez que de ce qui s’est passé jusqu’à S{{ activeDiscussionEpisode?.season }}E{{ activeDiscussionEpisode?.episode }}.</p>
+              <h3 class="mt-4 font-semibold">{{ t('No comments on episode {number}', { number: activeDiscussionEpisode?.episode ?? '' }) }}</h3>
+              <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">{{ t('Only people who have watched this episode can read and write here. Discuss only what happened up to S{season}E{episode}.', { season: activeDiscussionEpisode?.season ?? '', episode: activeDiscussionEpisode?.episode ?? '' }) }}</p>
             </template>
-            <Button type="button" class="mt-5 rounded-full" disabled>Bientôt disponible</Button>
+            <Button type="button" class="mt-5 rounded-full" disabled>{{ t('Coming soon') }}</Button>
           </div>
         </div>
       </section>
@@ -172,7 +172,7 @@
         <div class="mx-auto max-w-7xl px-5 lg:px-8">
           <div class="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/10 px-6 py-5">
             <div>
-              <h2 class="text-base font-semibold">Timeline</h2>
+              <h2 class="text-base font-semibold">{{ t('Timeline') }}</h2>
               <p class="mt-1 text-[13px] text-muted-foreground">{{ timelineSummary }}</p>
             </div>
             <Button
@@ -184,7 +184,7 @@
               aria-controls="timeline-content"
               @click="isTimelineOpen = !isTimelineOpen"
             >
-              {{ isTimelineOpen ? 'Fermer la timeline' : 'Ouvrir la timeline' }}
+              {{ isTimelineOpen ? t('Close the timeline') : t('Open the timeline') }}
               <ChevronDownIcon class="ml-2 h-4 w-4 transition-transform" :class="isTimelineOpen ? 'rotate-180' : ''" />
             </Button>
           </div>
@@ -194,7 +194,7 @@
               v-if="timelineFilterSeasons.length > 1 || timelineCharacterFilter"
               class="-mx-1 flex max-w-full gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               role="group"
-              aria-label="Filtres de la timeline"
+              :aria-label="t('Timeline filters')"
             >
               <button
                 v-if="timelineFilterSeasons.length > 1"
@@ -204,7 +204,7 @@
                 :aria-pressed="timelineSeasonFilter === 'all'"
                 @click="timelineSeasonFilter = 'all'"
               >
-                Toutes
+                {{ t('All seasons') }}
               </button>
               <template v-if="timelineFilterSeasons.length > 1">
                 <button
@@ -223,7 +223,7 @@
                 v-if="timelineCharacterFilter"
                 type="button"
                 class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-primary/40 bg-primary/15 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
-                :aria-label="`Retirer le filtre ${timelineCharacterFilter}`"
+                :aria-label="t('Remove the {name} filter', { name: timelineCharacterFilter })"
                 @click="timelineCharacterFilter = null"
               >
                 {{ timelineCharacterFilter }}
@@ -238,7 +238,7 @@
                 v-for="(group, groupIndex) in displayedTimelineGroups"
                 :key="group.key"
                 class="grid grid-cols-[52px_1fr] gap-4"
-                :aria-label="`Saison ${group.seasonNumber}, épisode ${group.episodeNumber}`"
+                :aria-label="t('Season {season}, episode {episode}', { season: group.seasonNumber, episode: group.episodeNumber })"
               >
                 <div class="flex flex-col items-center">
                   <div class="grid h-11 w-11 place-items-center rounded-full border border-primary/40 bg-primary/10 text-[11px] font-bold text-primary">S{{ group.seasonNumber }}E{{ group.episodeNumber }}</div>
@@ -246,9 +246,9 @@
                 </div>
                 <div class="mb-8 min-w-0">
                   <h3 class="flex min-h-11 flex-wrap items-center gap-x-2 gap-y-1 text-base font-semibold">
-                    <span>Épisode {{ group.episodeNumber }}</span>
+                    <span>{{ t('Episode {number}', { number: group.episodeNumber }) }}</span>
                     <span v-if="group.title" class="font-normal text-muted-foreground">· {{ group.title }}</span>
-                    <span class="text-xs font-normal text-muted-foreground">{{ group.events.length }} scène{{ group.events.length > 1 ? 's' : '' }}</span>
+                    <span class="text-xs font-normal text-muted-foreground">{{ group.events.length > 1 ? t('{count} scenes', { count: group.events.length }) : t('{count} scene', { count: group.events.length }) }}</span>
                   </h3>
                   <div class="mt-3 space-y-4">
                     <Card v-for="item in group.events" :key="`${item.seasonNumber}-${item.id}`" class="border-white/10">
@@ -260,13 +260,13 @@
                                 <MapPinIcon class="h-3 w-3" aria-hidden="true" />
                                 {{ item.location }}
                               </Badge>
-                              <Badge v-if="item.episodeNumbers.length > 1" variant="outline">Épisodes {{ item.episodeNumbers.join(', ') }}</Badge>
+                              <Badge v-if="item.episodeNumbers.length > 1" variant="outline">{{ t('Episodes {numbers}', { numbers: item.episodeNumbers.join(', ') }) }}</Badge>
                               <Badge v-if="item.arc" variant="secondary">{{ item.arc }}</Badge>
-                              <Badge v-if="item.importance === 'critical'" class="bg-amber-500/15 text-amber-300 hover:bg-amber-500/15">Décisif</Badge>
+                              <Badge v-if="item.importance === 'critical'" class="bg-amber-500/15 text-amber-300 hover:bg-amber-500/15">{{ t('Critical') }}</Badge>
                             </div>
                             <CardTitle class="text-xl">{{ item.title }}</CardTitle>
                           </div>
-                          <Button variant="ghost" size="icon" title="Proposer une correction" @click="openCorrection(item.seasonNumber, 'event', item.id, 'description', item.description, Math.max(...item.episodeNumbers), item.throughEpisode)">
+                          <Button variant="ghost" size="icon" :title="t('Suggest a correction')" @click="openCorrection(item.seasonNumber, 'event', item.id, 'description', item.description, Math.max(...item.episodeNumbers), item.throughEpisode)">
                             <PencilSquareIcon class="h-4 w-4" />
                           </Button>
                         </div>
@@ -299,7 +299,7 @@
                           v-if="item.sources.length && (isTimelineExpanded || !timelineHasMoreEvents)"
                           class="mt-5 text-xs text-muted-foreground"
                         >
-                          <summary class="cursor-pointer hover:text-white">{{ item.sources.length }} source{{ item.sources.length > 1 ? 's' : '' }} vérifiable{{ item.sources.length > 1 ? 's' : '' }}</summary>
+                          <summary class="cursor-pointer hover:text-white">{{ item.sources.length > 1 ? t('{count} verifiable sources', { count: item.sources.length }) : t('{count} verifiable source', { count: item.sources.length }) }}</summary>
                           <ul class="mt-2 space-y-1 pl-4">
                             <li v-for="source in item.sources" :key="source.id">
                               <a v-if="source.sourceUrl" :href="source.sourceUrl" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">{{ source.label }}</a>
@@ -333,15 +333,15 @@
                 aria-controls="timeline-event-list"
                 @click="isTimelineExpanded = !isTimelineExpanded"
               >
-                {{ isTimelineExpanded ? 'Réduire' : `Voir toute la timeline · ${filteredTimelineEvents.length} scènes` }}
+                {{ isTimelineExpanded ? t('Show less') : t('View the full timeline · {count} scenes', { count: filteredTimelineEvents.length }) }}
                 <ChevronDownIcon class="ml-2 h-4 w-4 transition-transform" :class="isTimelineExpanded ? 'rotate-180' : ''" />
               </Button>
             </div>
           </div>
           <div v-else class="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-10 text-center">
             <LockClosedIcon class="mx-auto h-7 w-7 text-muted-foreground" />
-            <h3 class="mt-4 font-semibold">La timeline est protégée</h3>
-            <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">Indiquez où vous en êtes pour afficher tous les événements déjà vus, sans révéler la suite.</p>
+            <h3 class="mt-4 font-semibold">{{ t('The timeline is protected') }}</h3>
+            <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">{{ t('Set your progress to see all the events you have watched, without revealing what comes next.') }}</p>
           </div>
           </div>
         </div>
@@ -349,34 +349,34 @@
 
       <section id="community" class="py-10 sm:py-16">
         <div class="mx-auto max-w-7xl px-5 lg:px-8">
-          <div class="mb-8"><h2 class="text-2xl font-bold sm:text-3xl">Corrections de la communauté</h2><p class="mt-2 text-sm text-muted-foreground">Les propositions visibles respectent elles aussi votre limite anti-spoiler.</p></div>
+          <div class="mb-8"><h2 class="text-2xl font-bold sm:text-3xl">{{ t('Community corrections') }}</h2><p class="mt-2 text-sm text-muted-foreground">{{ t('Visible suggestions also respect your spoiler limit.') }}</p></div>
           <div v-if="visibleCorrections.length" class="grid gap-5 md:grid-cols-2">
             <Card v-for="correction in visibleCorrections" :key="correction.id" class="border-white/10">
-              <CardHeader><div class="flex justify-between gap-3"><Badge variant="outline">Saison {{ correction.seasonNumber }} · {{ correction.field }}</Badge><span class="text-xs text-muted-foreground">Score {{ correction.score }}</span></div></CardHeader>
+              <CardHeader><div class="flex justify-between gap-3"><Badge variant="outline">{{ t('Season {number}', { number: correction.seasonNumber }) }} · {{ correctionFieldLabel(correction.field) }}</Badge><span class="text-xs text-muted-foreground">{{ t('Score {score}', { score: correction.score }) }}</span></div></CardHeader>
               <CardContent>
-                <div class="grid gap-3 sm:grid-cols-2"><div class="rounded-lg bg-red-500/5 p-3"><span class="text-xs text-muted-foreground">Actuel</span><p class="mt-1 text-sm">{{ correction.currentValue }}</p></div><div class="rounded-lg bg-emerald-500/10 p-3"><span class="text-xs text-muted-foreground">Proposé</span><p class="mt-1 text-sm">{{ correction.proposedValue }}</p></div></div>
+                <div class="grid gap-3 sm:grid-cols-2"><div class="rounded-lg bg-red-500/5 p-3"><span class="text-xs text-muted-foreground">{{ t('Current') }}</span><p class="mt-1 text-sm">{{ correction.currentValue }}</p></div><div class="rounded-lg bg-emerald-500/10 p-3"><span class="text-xs text-muted-foreground">{{ t('Suggested') }}</span><p class="mt-1 text-sm">{{ correction.proposedValue }}</p></div></div>
                 <p class="mt-4 text-sm leading-6 text-muted-foreground">{{ correction.reason }}</p>
                 <div class="mt-4 flex gap-2"><Button size="sm" :variant="correction.userVote === 1 ? 'default' : 'outline'" @click="vote(correction.id, 1, correction.throughEpisode)"><HandThumbUpIcon class="mr-1 h-4 w-4" />{{ correction.score }}</Button><Button size="sm" :variant="correction.userVote === -1 ? 'destructive' : 'outline'" @click="vote(correction.id, -1, correction.throughEpisode)"><HandThumbDownIcon class="h-4 w-4" /></Button></div>
               </CardContent>
             </Card>
           </div>
-          <p v-else class="rounded-xl border border-dashed border-white/15 p-8 text-center text-sm text-muted-foreground">Aucune correction en attente dans les épisodes déjà vus.</p>
+          <p v-else class="rounded-xl border border-dashed border-white/15 p-8 text-center text-sm text-muted-foreground">{{ t('No pending corrections for episodes you have watched.') }}</p>
         </div>
       </section>
     </main>
 
     <div v-else-if="showPending" class="grid min-h-[70vh] place-items-center"><SpinLoader class="h-8 w-8" /></div>
-    <div v-else class="grid min-h-[70vh] place-items-center px-5 text-center"><div><h1 class="text-2xl font-bold">Impossible de charger cette série</h1><p class="mt-2 text-muted-foreground">{{ showError?.statusMessage || 'Réessayez dans quelques instants.' }}</p><Button class="mt-5" @click="refreshShow">Réessayer</Button></div></div>
+    <div v-else class="grid min-h-[70vh] place-items-center px-5 text-center"><div><h1 class="text-2xl font-bold">{{ t('Could not load this show') }}</h1><p class="mt-2 text-muted-foreground">{{ showError?.statusMessage || t('Please try again in a moment.') }}</p><Button class="mt-5" @click="refreshShow">{{ t('Retry') }}</Button></div></div>
 
     <Dialog v-model:open="correctionOpen">
       <DialogContent class="sm:max-w-xl">
-        <DialogHeader><DialogTitle>Proposer une correction</DialogTitle><DialogDescription>La proposition sera soumise aux votes puis validée par l’équipe avant publication.</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>{{ t('Suggest a correction') }}</DialogTitle><DialogDescription>{{ t('The suggestion will be voted on and reviewed by the team before publication.') }}</DialogDescription></DialogHeader>
         <form class="space-y-4" @submit.prevent="submitCorrection">
-          <div><label class="mb-1.5 block text-sm font-medium">Information actuelle</label><div class="max-h-28 overflow-y-auto rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">{{ correctionForm.currentValue }}</div></div>
-          <div><label for="correction-value" class="mb-1.5 block text-sm font-medium">Votre correction</label><Textarea id="correction-value" v-model="correctionForm.proposedValue" required :maxlength="3000" rows="4" /></div>
-          <div><label for="correction-reason" class="mb-1.5 block text-sm font-medium">Pourquoi ?</label><Textarea id="correction-reason" v-model="correctionForm.reason" required minlength="10" maxlength="2000" rows="3" placeholder="Expliquez l’erreur et ce qui permet de la vérifier…" /></div>
-          <div><label for="correction-source" class="mb-1.5 block text-sm font-medium">Source vérifiable <span class="font-normal text-muted-foreground">(facultatif)</span></label><Input id="correction-source" v-model="correctionForm.sourceUrl" type="url" placeholder="https://…" /></div>
-          <DialogFooter><Button type="button" variant="outline" @click="correctionOpen = false">Annuler</Button><Button type="submit" :disabled="correctionSubmitting">{{ correctionSubmitting ? 'Envoi…' : 'Envoyer la proposition' }}</Button></DialogFooter>
+          <div><label class="mb-1.5 block text-sm font-medium">{{ t('Current information') }}</label><div class="max-h-28 overflow-y-auto rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">{{ correctionForm.currentValue }}</div></div>
+          <div><label for="correction-value" class="mb-1.5 block text-sm font-medium">{{ t('Your correction') }}</label><Textarea id="correction-value" v-model="correctionForm.proposedValue" required :maxlength="3000" rows="4" /></div>
+          <div><label for="correction-reason" class="mb-1.5 block text-sm font-medium">{{ t('Why?') }}</label><Textarea id="correction-reason" v-model="correctionForm.reason" required minlength="10" maxlength="2000" rows="3" :placeholder="t('Explain the mistake and how to verify it…')" /></div>
+          <div><label for="correction-source" class="mb-1.5 block text-sm font-medium">{{ t('Verifiable source') }} <span class="font-normal text-muted-foreground">{{ t('(optional)') }}</span></label><Input id="correction-source" v-model="correctionForm.sourceUrl" type="url" placeholder="https://…" /></div>
+          <DialogFooter><Button type="button" variant="outline" @click="correctionOpen = false">{{ t('Cancel') }}</Button><Button type="submit" :disabled="correctionSubmitting">{{ correctionSubmitting ? t('Sending…') : t('Send suggestion') }}</Button></DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
@@ -433,6 +433,8 @@ type TimelineCharacterKnowledgeBuilder = TimelineCharacterKnowledge & {
   keyEventSet: Set<string>;
 };
 
+const { t, locale } = useI18n();
+
 const TIMELINE_PREVIEW_EVENT_COUNT = 3;
 const CHARACTER_PREVIEW_COUNT = 6;
 
@@ -444,7 +446,7 @@ const { data: showData, pending: showPending, error: showError, refresh: refresh
   `show-data-${route.params.slug}`,
   async () => {
     const traktId = String(route.params.slug).split('-').pop();
-    if (!traktId) throw new Error('Invalid show slug.');
+    if (!traktId) throw new Error(t('Invalid show address.'));
     const response = await $fetch<{ show: ShowWithSeasons | null }>(`/api/shows/${traktId}`);
     return response.show as ShowWithSeasons | null;
   },
@@ -674,7 +676,7 @@ const knownCharacterProfiles = computed<TimelineCharacterProfile[]>(() => {
   }
 
   return [...profiles.values()].sort((a, b) => b.eventCount - a.eventCount
-    || a.name.localeCompare(b.name, 'fr'));
+    || a.name.localeCompare(b.name, locale.value));
 });
 const hasTvMazeDirectoryProfiles = computed(() => knownCharacterProfiles.value
   .some(profile => profile.imageProvider === 'tvmaze'));
@@ -689,25 +691,25 @@ const displayedCharacterProfiles = computed(() => areCharactersExpanded.value
   ? knownCharacterProfiles.value
   : knownCharacterProfiles.value.slice(0, CHARACTER_PREVIEW_COUNT));
 const progressScopeLabel = computed(() => {
-  if (revealAll.value) return 'Blocage levé : toute la série est visible, spoilers compris.';
-  if (!reachedSeasonNumber.value) return 'Toute la série est visible. Indiquez où vous en êtes pour masquer la suite.';
-  if (!reachedEpisode.value) return `À jour jusqu’au début de la saison ${reachedSeasonNumber.value} : rien de ce qui suit n’apparaît.`;
-  return `À jour jusqu’à S${reachedSeasonNumber.value}E${reachedEpisode.value} : rien de ce qui suit n’apparaît.`;
+  if (revealAll.value) return t('Protection off: the entire series is visible, including spoilers.');
+  if (!reachedSeasonNumber.value) return t('The entire series is visible. Set your progress to hide what comes next.');
+  if (!reachedEpisode.value) return t('Up to the start of season {number}: nothing after this point is shown.', { number: reachedSeasonNumber.value });
+  return t('Up to S{season}E{episode}: nothing after this point is shown.', { season: reachedSeasonNumber.value, episode: reachedEpisode.value });
 });
 const timelineSummary = computed(() => {
-  if (hubsPending.value) return 'Chargement des scènes…';
+  if (hubsPending.value) return t('Loading scenes…');
   const count = timelineEvents.value.length;
   const scope = reachedSeasonNumber.value && reachedEpisode.value && !revealAll.value
-    ? `jusqu’à S${reachedSeasonNumber.value}E${reachedEpisode.value}`
-    : revealAll.value ? 'sur toute la série' : 'déjà vues';
-  return `${count} scène${count > 1 ? 's' : ''} ${scope}, avec leurs sources`;
+    ? t('up to S{season}E{episode}', { season: reachedSeasonNumber.value, episode: reachedEpisode.value })
+    : revealAll.value ? t('across the entire series') : t('seen so far');
+  return count > 1 ? t('{count} scenes {scope}, with their sources', { count, scope }) : t('{count} scene {scope}, with its sources', { count, scope });
 });
 // Placeholders until these views can be built from sources without invention.
-const universeItems = [
-  { title: 'Arbre généalogique', description: 'Les familles et leurs liens, à mesure qu’ils sont révélés.', icon: UserGroupIcon },
-  { title: 'Carte des lieux', description: 'Les lieux de la série et les scènes qui s’y déroulent.', icon: MapIcon },
-  { title: 'Relations', description: 'Qui sait quoi, qui ment à qui, épisode après épisode.', icon: ShareIcon },
-];
+const universeItems = computed(() => [
+  { title: t('Family tree'), description: t('Families and their connections, as they are revealed.'), icon: UserGroupIcon },
+  { title: t('Location map'), description: t('Locations from the series and the scenes that take place there.'), icon: MapIcon },
+  { title: t('Relationships'), description: t('Who knows what and who lies to whom, episode by episode.'), icon: ShareIcon },
+]);
 type DiscussionTab = 'theories' | 'episode';
 const discussionTab = ref<DiscussionTab>('theories');
 const discussionEpisode = ref<{ season: number; episode: number } | null>(null);
@@ -716,9 +718,9 @@ const lastSeenEpisode = computed(() => reachedSeasonNumber.value && reachedEpiso
   : null);
 const activeDiscussionEpisode = computed(() => discussionEpisode.value ?? lastSeenEpisode.value);
 const discussionTabs = computed(() => [
-  { id: 'theories' as const, label: 'Théories' },
+  { id: 'theories' as const, label: t('Theories') },
   ...(activeDiscussionEpisode.value
-    ? [{ id: 'episode' as const, label: `Épisode ${activeDiscussionEpisode.value.episode}` }]
+    ? [{ id: 'episode' as const, label: t('Episode {number}', { number: activeDiscussionEpisode.value.episode }) }]
     : []),
 ]);
 watch(lastSeenEpisode, (episode) => {
@@ -884,18 +886,18 @@ const { generations: recapGenerations, start: startRecapGeneration } = useRecapG
   async onCompleted(_seasonId, recapId) {
     await Promise.all([refreshShow(), refreshHubs()]);
     // Several seasons may be generating: offer the recap instead of leaving the page.
-    toast.success('Le récap est prêt.', recapId
-      ? { action: { label: 'Voir', onClick: () => goToRecap(recapId) } }
+    toast.success(t('The recap is ready.'), recapId
+      ? { action: { label: t('View'), onClick: () => goToRecap(recapId) } }
       : undefined);
   },
   onFailed(_seasonId, message) {
-    toast.error('Impossible de générer ce récap.', { description: message });
+    toast.error(t('Could not generate this recap.'), { description: t(message) });
   },
 });
 
 async function generateRecap(seasonId: string) {
   if (!user.value) {
-    toast.info('Connectez-vous pour demander ce récap.');
+    toast.info(t('Sign in to request this recap.'));
     await navigateTo('/login');
     return;
   }
@@ -925,12 +927,26 @@ async function openCorrection(
   throughEpisode: number,
 ) {
   if (!user.value) {
-    toast.info('Connectez-vous pour proposer une correction.');
+    toast.info(t('Sign in to suggest a correction.'));
     await navigateTo('/login');
     return;
   }
   Object.assign(correctionForm, { seasonNumber, targetType, targetKey, field, currentValue, proposedValue: currentValue, reason: '', sourceUrl: '', revealEpisode, throughEpisode });
   correctionOpen.value = true;
+}
+
+function correctionFieldLabel(field: string) {
+  const labels: Record<string, string> = {
+    description: t('Description'),
+    name: t('Name'),
+    title: t('Title'),
+    status: t('Status'),
+    role: t('Role'),
+    label: t('Label'),
+    detail: t('Details'),
+    summary: t('Summary'),
+  };
+  return labels[field] ?? field;
 }
 
 async function submitCorrection() {
@@ -940,10 +956,10 @@ async function submitCorrection() {
       method: 'POST', body: correctionForm,
     });
     correctionOpen.value = false;
-    toast.success('Votre correction a été proposée.');
+    toast.success(t('Your correction has been submitted.'));
     await refreshHubs();
   } catch (cause: any) {
-    toast.error('Impossible d’envoyer la correction.', { description: cause.data?.statusMessage || cause.message });
+    toast.error(t('Could not submit the correction.'), { description: cause.data?.statusMessage || cause.message });
   } finally {
     correctionSubmitting.value = false;
   }
@@ -951,7 +967,7 @@ async function submitCorrection() {
 
 async function vote(correctionId: string, value: -1 | 1, throughEpisode: number) {
   if (!user.value) {
-    toast.info('Connectez-vous pour voter.');
+    toast.info(t('Sign in to vote.'));
     await navigateTo('/login');
     return;
   }
@@ -959,14 +975,14 @@ async function vote(correctionId: string, value: -1 | 1, throughEpisode: number)
     await $fetch(`/api/corrections/${correctionId}/vote`, { method: 'POST', body: { value, throughEpisode } });
     await refreshHubs();
   } catch (cause: any) {
-    toast.error('Impossible d’enregistrer ce vote.', { description: cause.data?.statusMessage || cause.message });
+    toast.error(t('Could not save this vote.'), { description: cause.data?.statusMessage || cause.message });
   }
 }
 
 useHead(() => {
-  const description = showSummary.value.slice(0, 155) || 'Récaps et informations de série sans spoilers.';
+  const description = showSummary.value.slice(0, 155) || t('Spoiler-free show recaps and information.');
   return {
-    title: showData.value ? `${showData.value.name} — Synupsis` : 'Série — Synupsis',
+    title: showData.value ? `${showData.value.name} — Synupsis` : t('Show — Synupsis'),
     meta: [
       { name: 'description', content: description },
       { property: 'og:image', content: useImageUrl(showData.value?.image) ?? '/svg/logo.svg' },

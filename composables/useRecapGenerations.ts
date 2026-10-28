@@ -3,7 +3,6 @@ import {
   RECAP_GENERATION_TERMINAL_STATUSES,
   estimateRecapGenerationProgress,
   getRecapGenerationProgress,
-  getRecapGenerationStage,
   getRecapGenerationStageKey,
 } from '~/lib/recap-generation-progress';
 import { useStoryViewer } from '~/composables/useStoryViewer';
@@ -78,7 +77,7 @@ export function useRecapGenerations(options: {
     });
     generations.value[seasonId] = {
       jobId: null,
-      label: getRecapGenerationStage('gathering').label,
+      label: generationStageLabel('gathering'),
       progress: 0,
       pending: true,
       error: null,
@@ -95,7 +94,7 @@ export function useRecapGenerations(options: {
         await openStory(generation.recapId);
         return;
       }
-      if (!generation.jobId) throw new Error('La génération n’a pas retourné de tâche.');
+      if (!generation.jobId) throw new Error('Generation did not return a job.');
       generations.value[seasonId] = { ...generations.value[seasonId]!, jobId: generation.jobId };
       void follow(seasonId, generation.jobId);
     } catch (cause) {
@@ -137,7 +136,7 @@ export function useRecapGenerations(options: {
             return;
           }
           if (RECAP_GENERATION_TERMINAL_STATUSES.includes(job.status)) {
-            fail(seasonId, job.errorMessage || 'La génération a échoué.');
+            fail(seasonId, job.errorMessage || 'Generation failed.');
             return;
           }
         } catch (cause: any) {
@@ -169,7 +168,7 @@ export function useRecapGenerations(options: {
     const current = generations.value[seasonId];
     generations.value[seasonId] = {
       jobId: job.id,
-      label: job.status === 'completed' ? 'Prêt' : getRecapGenerationStage(job.status, job.phase).label,
+      label: job.status === 'completed' ? 'Ready' : generationStageLabel(job.status, job.phase),
       // A resumed job shows its estimate at once instead of climbing from zero.
       progress: current?.progress ?? estimate(clock),
       pending: true,
@@ -191,7 +190,7 @@ export function useRecapGenerations(options: {
     const current = generations.value[seasonId];
     generations.value[seasonId] = {
       jobId: current?.jobId ?? null,
-      label: 'Échec',
+      label: 'Failed',
       progress: current?.progress ?? 0,
       pending: false,
       error: message,
@@ -256,9 +255,27 @@ function estimate(clock: StageClock) {
 }
 
 function describeError(cause: any): string {
-  return cause?.data?.statusMessage || cause?.statusMessage || cause?.message || 'La génération a échoué.';
+  return cause?.data?.statusMessage || cause?.statusMessage || cause?.message || 'Generation failed.';
 }
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Keep source messages in state so the UI can translate them reactively.
+function generationStageLabel(status: string, phase?: string | null): string {
+  const labels = {
+    "queued": "Queued",
+    "gathering": "Sources",
+    "extracting_events": "Scenes",
+    "critiquing_events": "Checking",
+    "recovering_events": "Checking",
+    "linking_events": "Connections",
+    "preparing_story": "Writing",
+    "writing_story": "Writing",
+    "verifying_story": "Reviewing",
+    "validating": "Publishing",
+    "rendering": "Publishing"
+};
+  return labels[getRecapGenerationStageKey(status, phase)];
 }

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { t } = useI18n();
 import type { WithClassAsProps } from './interface'
 import { ArrowLeft } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
@@ -25,7 +26,7 @@ const { orientation, canScrollPrev, scrollPrev } = useCarousel()
   >
     <slot>
       <ArrowLeft class="h-4 w-4 text-current" />
-      <span class="sr-only">Previous Slide</span>
+      <span class="sr-only">{{ t('Previous Slide') }}</span>
     </slot>
   </Button>
 </template>

@@ -11,10 +11,10 @@
         display-text
         size="md"
         :play-on-home-arrival="animateLogoOnArrival"
-        aria-label="Synupsis home"
+        :aria-label="t('Synupsis home')"
       />
 
-      <nav aria-label="Account" class="flex shrink-0 items-center">
+      <nav :aria-label="t('Account')" class="flex shrink-0 items-center">
         <slot name="account">
           <UserAuthStatus />
         </slot>
@@ -24,6 +24,7 @@
 </template>
 
 <script setup lang="ts">
+const { t } = useI18n();
 withDefaults(defineProps<{
   compact?: boolean;
   contained?: boolean;

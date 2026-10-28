@@ -2,39 +2,39 @@
   <div class="w-full h-screen flex flex-col items-center justify-center p-4 bg-background">
     <div class="w-full max-w-md">
       <div class="flex justify-center mb-8">
-        <Logo display-text size="md" aria-label="Synupsis home" />
+        <Logo display-text size="md" :aria-label="t('Synupsis home')" />
       </div>
       <Card>
         <CardHeader class="text-center">
-          <CardTitle>Create a New Password</CardTitle>
+          <CardTitle>{{ t('Create a New Password') }}</CardTitle>
           <CardDescription v-if="!passwordUpdated">
-            Choose a new password for your account. Make sure it's at least 8 characters long.
+            {{ t('Choose a new password for your account. Make sure it\'s at least 8 characters long.') }}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div v-if="passwordUpdated" class="text-center space-y-4">
             <CircleCheckIcon class="h-16 w-16 text-green-500 mx-auto" />
-            <p class="text-lg font-semibold">Password Updated!</p>
-            <p class="text-sm text-muted-foreground">You can now log in with your new password.</p>
+            <p class="text-lg font-semibold">{{ t('Password Updated!') }}</p>
+            <p class="text-sm text-muted-foreground">{{ t('You can now log in with your new password.') }}</p>
           </div>
           <form v-else class="space-y-4" @submit.prevent="updatePassword">
             <div>
-              <label for="password" class="font-semibold">New Password</label>
+              <label for="password" class="font-semibold">{{ t('New Password') }}</label>
               <Input
                 id="password"
                 v-model="password"
                 type="password"
-                placeholder="Enter your new password"
+                :placeholder="t('Enter your new password')"
                 required
               />
             </div>
             <div>
-              <label for="confirmPassword" class="font-semibold">Confirm New Password</label>
+              <label for="confirmPassword" class="font-semibold">{{ t('Confirm New Password') }}</label>
               <Input
                 id="confirmPassword"
                 v-model="confirmPassword"
                 type="password"
-                placeholder="Confirm your new password"
+                :placeholder="t('Confirm your new password')"
                 required
               />
             </div>
@@ -48,10 +48,10 @@
             @click="updatePassword"
           >
             <SpinLoader v-if="isLoading" class="h-4 w-4 mr-2" />
-            Update Password
+            {{ t('Update Password') }}
           </Button>
           <Button v-else class="w-full" as-child>
-            <router-link to="/login">Go to Login</router-link>
+            <router-link to="/login">{{ t('Go to Login') }}</router-link>
           </Button>
         </CardFooter>
       </Card>
@@ -60,6 +60,7 @@
 </template>
 
 <script lang="ts" setup>
+const { t } = useI18n();
 import { ref } from 'vue';
 import { toast } from 'vue-sonner';
 import { Button } from '~/components/shadcn/button';
@@ -84,12 +85,12 @@ const passwordUpdated = ref(false);
 
 const updatePassword = async () => {
   if (password.value !== confirmPassword.value) {
-    toast.error('Passwords do not match.');
+    toast.error(t('Passwords do not match.'));
     return;
   }
   if (password.value.length < 8) {
-    toast.error('Password is too short.', {
-      description: 'Please use at least 8 characters.',
+    toast.error(t('Password is too short.'), {
+      description: t('Please use at least 8 characters.'),
     });
     return;
   }
@@ -99,12 +100,12 @@ const updatePassword = async () => {
     const { error } = await supabase.auth.updateUser({ password: password.value });
 
     if (error) {
-      toast.error('Error updating password', { description: error.message });
+      toast.error(t('Error updating password'), { description: t(error.message) });
     } else {
       passwordUpdated.value = true;
     }
   } catch (e: any) {
-    toast.error('An unexpected error occurred', { description: e.message });
+    toast.error(t('An unexpected error occurred'), { description: t('Please try again.') });
   } finally {
     isLoading.value = false;
   }

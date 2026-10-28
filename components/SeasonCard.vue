@@ -9,7 +9,7 @@
   >
     <div class="relative w-full aspect-[2/3]">
       <!-- Image -->
-      <CachedImage v-if="season.image" :src="season.image" :alt="`Poster for Season ${season.number}`" class="w-full h-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105" />
+      <CachedImage v-if="season.image" :src="season.image" :alt="t('Poster for Season {number}', { number: season.number })" class="w-full h-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105" />
       <!-- Placeholder Gradient -->
       <div v-else class="w-full h-full bg-gradient-to-t from-black via-gray-800 to-gray-900" />
       
@@ -17,23 +17,23 @@
       <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
       
       <!-- Latest Badge -->
-      <Badge v-if="isLatest" class="absolute top-2 right-2">Latest</Badge>
+      <Badge v-if="isLatest" class="absolute top-2 right-2">{{ t('Latest') }}</Badge>
       <Badge v-if="spoilerLocked" variant="secondary" class="absolute left-2 top-2 gap-1 bg-black/70 text-white">
         <LockClosedIcon class="h-3.5 w-3.5" />
-        Anti-spoiler
+        {{ t('Spoiler protection') }}
       </Badge>
 
       <!-- Content Overlay -->
       <div class="absolute inset-0 flex flex-col justify-end p-4 text-white">
         <div class="flex items-center justify-between">
-          <CardTitle class="text-lg font-bold">{{ season.name || `Season ${season.number}` }} <span v-if="season.first_aired" class="text-muted-foreground font-normal text-base ml-1">{{ new Date(season.first_aired).getFullYear() }}</span></CardTitle>
-          <Badge v-if="isDraft" variant="secondary" class="text-xs">Draft</Badge>
+          <CardTitle class="text-lg font-bold">{{ season.name || t('Season {number}', { number: season.number }) }} <span v-if="season.first_aired" class="text-muted-foreground font-normal text-base ml-1">{{ new Date(season.first_aired).getFullYear() }}</span></CardTitle>
+          <Badge v-if="isDraft" variant="secondary" class="text-xs">{{ t('Draft') }}</Badge>
         </div>
         
         <div class="mt-4 flex items-center gap-4">
           <Button v-if="spoilerLocked" variant="secondary" size="sm" class="flex-grow" disabled>
             <LockClosedIcon class="mr-2 h-4 w-4" />
-            Récap verrouillé
+            {{ t('Recap locked') }}
           </Button>
 
           <Button
@@ -44,7 +44,7 @@
             @click="emit('view', publishedRecap.id)"
           >
             <EyeIcon class="mr-2 h-4 w-4" />
-            View
+            {{ t('View') }}
           </Button>
 
           <ClientOnly v-if="!spoilerLocked">
@@ -64,7 +64,7 @@
                 @click="emit('create', season.id)"
               >
                 <SquaresPlusIcon class="mr-2 h-4 w-4" />
-                Create
+                {{ t('Create') }}
               </Button>
             </template>
           </ClientOnly>
@@ -80,7 +80,7 @@
             <SparklesIcon v-if="!isGenerating" class="mr-2 h-4 w-4" />
             <SpinLoader v-else class="mr-2 h-4 w-4" />
             <template v-if="isGenerating">{{ generationProgress }}%</template>
-            <template v-else>{{ user ? 'Generate' : 'Sign in to generate' }}</template>
+            <template v-else>{{ user ? t('Generate') : t('Sign in to generate') }}</template>
           </Button>
         </div>
       </div>
@@ -96,6 +96,8 @@ import { Badge } from '~/components/shadcn/badge';
 import { EyeIcon, LockClosedIcon, PencilIcon, SparklesIcon, SquaresPlusIcon } from '@heroicons/vue/24/outline';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import CachedImage from '~/components/CachedImage.vue';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   season: any;

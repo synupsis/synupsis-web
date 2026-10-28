@@ -15,6 +15,8 @@ import {
   TableRow,
 } from '~/components/shadcn/table'
 
+const { t } = useI18n();
+
 const props = defineProps<{
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
@@ -58,7 +60,7 @@ const table = useVueTable({
         <template v-else>
           <TableRow>
             <TableCell :colspan="columns.length" class="h-24 text-center">
-              No results.
+              {{ t('No results.') }}
             </TableCell>
           </TableRow>
         </template>

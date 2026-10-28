@@ -5,9 +5,9 @@
 
     <main class="relative mx-auto max-w-7xl px-5 pb-20 sm:px-8">
       <div class="mx-auto max-w-3xl pb-10 pt-10 text-center sm:pb-14 sm:pt-16">
-        <h1 class="text-4xl font-extrabold tracking-tight sm:text-6xl">Never lose track again.</h1>
+        <h1 class="text-4xl font-extrabold tracking-tight sm:text-6xl">{{ t('Never lose track again.') }}</h1>
         <p class="mx-auto mt-4 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-          Find your show. Refresh your memory.<br class="sm:hidden" /> Get back to the story.
+          {{ t('Find your show. Refresh your memory.') }}<br class="sm:hidden" /> {{ t('Get back to the story.') }}
         </p>
 
         <div class="mx-auto mt-8 max-w-2xl sm:mt-10">
@@ -15,22 +15,22 @@
             ref="searchInput"
             v-model="searchQuery"
             :loading="isSearching"
-            :placeholders="['Search a show, e.g. Breaking Bad']"
+            :placeholders="[t('Search a show, e.g. Breaking Bad')]"
             controls="show-results"
             @submit="submitSearch"
             @browse="focusResults"
           />
 
           <div v-if="!hasQuery" class="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs sm:text-sm">
-            <span class="mr-1 text-muted-foreground">Try</span>
+            <span class="mr-1 text-muted-foreground">{{ t('Try') }}</span>
             <button v-for="title in suggestions" :key="title" type="button" class="rounded-full border border-border px-3 py-1.5 text-muted-foreground transition hover:border-violet-400/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400" @click="chooseQuery(title)">
               {{ title }}
             </button>
           </div>
           <div v-if="recentSearches.length && !hasQuery" class="mt-5 text-left">
             <div class="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-              <span class="flex items-center gap-1.5"><History class="size-3.5" aria-hidden="true" /> Recent searches</span>
-              <button type="button" class="rounded px-2 py-1 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400" @click="clearHistory">Clear history</button>
+              <span class="flex items-center gap-1.5"><History class="size-3.5" aria-hidden="true" /> {{ t('Recent searches') }}</span>
+              <button type="button" class="rounded px-2 py-1 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400" @click="clearHistory">{{ t('Clear history') }}</button>
             </div>
             <div class="flex flex-wrap gap-2">
               <button v-for="query in recentSearches" :key="query" type="button" class="max-w-full truncate rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400" @click="chooseQuery(query)">{{ query }}</button>
@@ -44,10 +44,10 @@
         <template v-if="hasQuery">
           <div class="mb-6 flex flex-wrap items-end justify-between gap-3 border-t border-border pt-8">
             <div class="min-w-0">
-              <p v-if="isSearching" class="mb-1 text-xs text-muted-foreground">Searching the catalogue…</p>
-              <h2 id="results-heading" class="break-words text-xl font-semibold tracking-tight sm:text-2xl">Results for “{{ normalizedQuery }}”</h2>
+              <p v-if="isSearching" class="mb-1 text-xs text-muted-foreground">{{ t('Searching the catalogue…') }}</p>
+              <h2 id="results-heading" class="break-words text-xl font-semibold tracking-tight sm:text-2xl">{{ t('Results for “{query}”', { query: normalizedQuery }) }}</h2>
             </div>
-            <span v-if="!isSearching && !searchError" class="text-sm text-muted-foreground">{{ searchResults.length }} {{ searchResults.length === 1 ? 'show' : 'shows' }}</span>
+            <span v-if="!isSearching && !searchError" class="text-sm text-muted-foreground">{{ t(searchResults.length === 1 ? '{count} show' : '{count} shows', { count: searchResults.length }) }}</span>
           </div>
 
           <div v-if="isSearching" aria-hidden="true" class="space-y-8 motion-safe:animate-pulse">
@@ -61,14 +61,14 @@
           </div>
           <div v-else-if="searchError" class="rounded-2xl border border-border bg-muted/20 px-6 py-14 text-center">
             <WifiOff class="mx-auto mb-4 size-8 text-muted-foreground" aria-hidden="true" />
-            <h3 class="text-lg font-semibold">Search is taking a break</h3>
-            <p class="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">{{ searchError }}</p>
-            <button type="button" class="mt-6 inline-flex items-center gap-2 rounded-xl bg-foreground px-5 py-3 text-sm font-medium text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400" @click="searchNow"><RefreshCw class="size-4" aria-hidden="true" /> Try again</button>
+            <h3 class="text-lg font-semibold">{{ t('Search is taking a break') }}</h3>
+            <p class="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">{{ t(searchError) }}</p>
+            <button type="button" class="mt-6 inline-flex items-center gap-2 rounded-xl bg-foreground px-5 py-3 text-sm font-medium text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400" @click="searchNow"><RefreshCw class="size-4" aria-hidden="true" /> {{ t('Try again') }}</button>
           </div>
           <div v-else-if="searchResults.length" class="space-y-8">
             <ShowSearchCard :show="searchResults[0]!" featured data-show-result @click="rememberSearch" />
             <div v-if="searchResults.length > 1">
-              <h3 class="mb-5 text-sm font-medium text-muted-foreground">More matches</h3>
+              <h3 class="mb-5 text-sm font-medium text-muted-foreground">{{ t('More matches') }}</h3>
               <div class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-6">
                 <ShowSearchCard v-for="show in searchResults.slice(1)" :key="show.traktId" :show="show" data-show-result @click="rememberSearch" />
               </div>
@@ -76,27 +76,27 @@
           </div>
           <div v-else class="rounded-2xl border border-dashed border-border bg-muted/10 px-6 py-14 text-center">
             <SearchX class="mx-auto mb-4 size-9 text-muted-foreground" aria-hidden="true" />
-            <h3 class="text-lg font-semibold">No shows found yet</h3>
-            <p class="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">Try a shorter title, check the spelling, or search with the show's original title.</p>
-            <button type="button" class="mt-6 rounded-xl border border-border px-5 py-3 text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400" @click="clearSearch">Clear search</button>
+            <h3 class="text-lg font-semibold">{{ t('No shows found yet') }}</h3>
+            <p class="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">{{ t('Try a shorter title, check the spelling, or search with the show\'s original title.') }}</p>
+            <button type="button" class="mt-6 rounded-xl border border-border px-5 py-3 text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400" @click="clearSearch">{{ t('Clear search') }}</button>
           </div>
         </template>
 
         <template v-else>
           <div class="mb-6 flex items-center justify-between gap-4 border-t border-border pt-8">
             <div>
-              <h2 id="results-heading" class="flex items-center gap-2 text-xl font-semibold tracking-tight sm:text-2xl"><TrendingUp class="size-5 text-violet-500 dark:text-violet-300" aria-hidden="true" /> Trending now</h2>
+              <h2 id="results-heading" class="flex items-center gap-2 text-xl font-semibold tracking-tight sm:text-2xl"><TrendingUp class="size-5 text-violet-500 dark:text-violet-300" aria-hidden="true" /> {{ t('Trending now') }}</h2>
             </div>
           </div>
-          <div v-if="trendingStatus === 'pending'" aria-label="Loading trending shows" class="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-5">
+          <div v-if="trendingStatus === 'pending'" :aria-label="t('Loading trending shows')" class="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-5">
             <div v-for="i in 5" :key="i" class="aspect-[2/3] rounded-xl bg-muted motion-safe:animate-pulse" />
           </div>
           <div v-else-if="featuredShows?.length" class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-5">
             <ShowSearchCard v-for="show in featuredShows" :key="show.traktId" :show="show" data-show-result />
           </div>
           <div v-else class="rounded-2xl border border-border px-6 py-10 text-center text-sm text-muted-foreground">
-            <p>Trending shows are unavailable right now. You can still search for your favorites above.</p>
-            <button type="button" class="mt-4 rounded-lg border border-border px-4 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400" @click="refreshTrending()">Retry trending shows</button>
+            <p>{{ t('Trending shows are unavailable right now. You can still search for your favorites above.') }}</p>
+            <button type="button" class="mt-4 rounded-lg border border-border px-4 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400" @click="refreshTrending()">{{ t('Retry trending shows') }}</button>
           </div>
         </template>
       </section>
@@ -105,6 +105,7 @@
 </template>
 
 <script setup lang="ts">
+const { t } = useI18n();
 import { History, RefreshCw, SearchX, TrendingUp, WifiOff } from 'lucide-vue-next';
 import { useEventListener } from '@vueuse/core';
 import SearchInput from '~/components/ui/SearchInput.vue';
@@ -125,9 +126,9 @@ const { data: featuredShows, status: trendingStatus, refresh: refreshTrending } 
 
 const searchAnnouncement = computed(() => {
   if (!hasQuery.value) return '';
-  if (isSearching.value) return `Searching for ${normalizedQuery.value}.`;
-  if (searchError.value) return searchError.value;
-  return `${searchResults.value.length} ${searchResults.value.length === 1 ? 'show' : 'shows'} found for ${normalizedQuery.value}.`;
+  if (isSearching.value) return t('Searching for {query}.', { query: normalizedQuery.value });
+  if (searchError.value) return t(searchError.value);
+  return t(searchResults.value.length === 1 ? '{count} show found for {query}.' : '{count} shows found for {query}.', { count: searchResults.value.length, query: normalizedQuery.value });
 });
 
 // Keep the search shareable and restore it when returning from a show page.

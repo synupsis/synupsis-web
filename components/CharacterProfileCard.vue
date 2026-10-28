@@ -2,7 +2,7 @@
   <button
     type="button"
     class="group flex w-full items-center gap-4 rounded-xl border border-white/10 p-4 text-left transition-colors hover:border-white/20 hover:bg-white/[0.025] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-    :aria-label="`Afficher les scènes de ${profile.name} dans la timeline`"
+    :aria-label="t('Show {name}’s scenes in the timeline', { name: profile.name })"
     @click="$emit('select')"
   >
     <span class="relative grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full bg-primary/15 text-lg font-bold text-primary">
@@ -28,6 +28,8 @@
 import { computed, ref, watch } from 'vue';
 import { useImageUrl } from '~/composables/useUtils';
 import type { TimelineCharacterProfile } from '~/types/show-character.types';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   profile: TimelineCharacterProfile;
@@ -55,8 +57,9 @@ const imageSrc = computed(() => {
 const lastSeenLabel = computed(() => {
   const lastSeen = props.profile.lastSeen;
   if (!lastSeen) return '';
-  const scenes = `${props.profile.eventCount} scène${props.profile.eventCount > 1 ? 's' : ''}`;
-  return `${scenes} · vu en S${lastSeen.seasonNumber}E${lastSeen.episodeNumber}`;
+  const scenes = t('{count} scene', { count: props.profile.eventCount });
+  const sceneLabel = props.profile.eventCount > 1 ? t('{count} scenes', { count: props.profile.eventCount }) : scenes;
+  return t('{scenes} · seen in S{season}E{episode}', { scenes: sceneLabel, season: lastSeen.seasonNumber, episode: lastSeen.episodeNumber });
 });
 
 watch(() => props.profile.imageUrl, () => {

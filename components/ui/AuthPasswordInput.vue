@@ -10,14 +10,14 @@
       :required="required"
       :disabled="disabled"
       :aria-describedby="describedBy"
-      :placeholder="placeholder"
+      :placeholder="placeholder ?? t('Enter your password')"
       autocapitalize="off"
       :spellcheck="false"
       class="h-12 w-full rounded-xl border border-border bg-muted/20 py-2 pl-4 pr-12 text-base text-foreground shadow-none transition placeholder:text-muted-foreground focus:border-violet-400/70 focus:outline-none focus:ring-4 focus:ring-violet-400/10 disabled:cursor-not-allowed disabled:opacity-50"
     />
     <button
       type="button"
-      :aria-label="visible ? 'Hide password' : 'Show password'"
+      :aria-label="t(visible ? 'Hide password' : 'Show password')"
       :aria-controls="id"
       :disabled="disabled"
       class="absolute right-1 top-1 flex size-10 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 disabled:cursor-not-allowed disabled:opacity-50"
@@ -30,6 +30,7 @@
 </template>
 
 <script setup lang="ts">
+const { t } = useI18n();
 import { Eye, EyeOff } from 'lucide-vue-next';
 
 withDefaults(defineProps<{
@@ -45,7 +46,7 @@ withDefaults(defineProps<{
   describedBy: undefined,
   disabled: false,
   required: true,
-  placeholder: 'Enter your password',
+  placeholder: undefined,
 });
 
 const password = defineModel<string>({ default: '' });

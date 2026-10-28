@@ -39,7 +39,7 @@
                   type="button"
                   @click="closeModal"
                 >
-                  <span class="sr-only">Close</span>
+                  <span class="sr-only">{{ t('Close') }}</span>
 
                   <XMarkIcon class="h-6 w-6"></XMarkIcon>
                 </button>
@@ -54,6 +54,7 @@
 </template>
 
 <script setup>
+const { t } = useI18n();
 import { XMarkIcon } from '@heroicons/vue/24/outline';
 
 defineProps({

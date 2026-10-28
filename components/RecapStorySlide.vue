@@ -67,7 +67,7 @@
             {{ content.title }}
           </h2>
           <p class="mt-5 flex flex-wrap items-center justify-center gap-x-2 text-[15px] font-medium text-white/80">
-            <span>Saison {{ seasonNumber }}</span>
+            <span>{{ t('Season {number}', { number: seasonNumber }) }}</span>
             <span aria-hidden="true">·</span>
             <span>{{ episodeCountLabel }}</span>
             <template v-if="content.year">
@@ -90,7 +90,7 @@
             {{ String(content.episodeNumber).padStart(2, '0') }}
           </p>
           <p class="mt-5 text-sm font-semibold" :style="{ color: accentColor }">
-            Épisode {{ content.episodeNumber }}<template v-if="content.episodeTitle"> · {{ content.episodeTitle }}</template>
+            {{ t('Episode {number}', { number: content.episodeNumber }) }}<template v-if="content.episodeTitle"> · {{ content.episodeTitle }}</template>
           </p>
           <h2 class="recap-chapter-title mt-3 font-bold tracking-[-0.035em]">
             {{ content.headline }}
@@ -102,10 +102,10 @@
         <div class="relative mt-auto">
           <div class="flex items-center gap-2.5">
             <span class="rounded-full border border-amber-500/50 bg-amber-500/15 px-2.5 py-1 text-xs font-semibold text-amber-300">
-              Décisif
+              {{ t('Turning point') }}
             </span>
             <span class="text-[13px] text-white/65">
-              Épisode {{ content.episodeNumber }}<template v-if="content.location"> · {{ content.location }}</template>
+              {{ t('Episode {number}', { number: content.episodeNumber }) }}<template v-if="content.location"> · {{ content.location }}</template>
             </span>
           </div>
           <h2 class="recap-moment-title mt-4 font-bold tracking-[-0.03em]">
@@ -115,7 +115,7 @@
             <span class="mt-[0.6em] h-1.5 w-1.5 shrink-0 rounded-full" :style="{ backgroundColor: accentColor }" aria-hidden="true" />
             <span>{{ content.detail }}</span>
           </p>
-          <ul v-if="content.characters.length" class="mt-5 flex flex-wrap gap-x-4 gap-y-2.5" aria-label="Dans la scène">
+          <ul v-if="content.characters.length" class="mt-5 flex flex-wrap gap-x-4 gap-y-2.5" :aria-label="t('In this scene')">
             <li v-for="character in content.characters" :key="character.name" class="flex items-center gap-2">
               <RecapCharacterAvatar :character="character" class="h-9 w-9 bg-white/15 text-xs" />
               <span class="text-[15px] font-medium text-white/90">{{ character.name }}</span>
@@ -127,7 +127,7 @@
       <template v-else-if="content.kind === 'moment-group'">
         <div class="relative flex min-h-0 flex-col" :class="{ 'flex-1': imageLayout !== 'band' }">
           <p class="text-sm font-semibold" :style="{ color: accentColor }">
-            Épisode {{ content.episodeNumber }} · {{ content.heading }}
+            {{ t('Episode {number}', { number: content.episodeNumber }) }} · {{ content.heading }}
           </p>
           <ul class="flex flex-col divide-y divide-white/10" :class="imageLayout === 'band' ? 'mt-3' : 'mt-auto'">
             <li v-for="(item, index) in content.items" :key="index" class="py-4 first:pt-2 last:pb-0">
@@ -151,15 +151,15 @@
       <template v-else-if="content.kind === 'changes'">
         <div class="relative flex min-h-0 flex-col" :class="{ 'flex-1': imageLayout !== 'band' }">
           <p class="text-sm font-semibold" :style="{ color: accentColor }">
-            Épisode {{ content.episodeNumber }} · Bilan
+            {{ t('Episode {number}', { number: content.episodeNumber }) }} · {{ t('Outcome') }}
           </p>
-          <h2 class="recap-heading mt-3 font-bold leading-[1.05] tracking-[-0.03em]">Ce qui a changé</h2>
+          <h2 class="recap-heading mt-3 font-bold leading-[1.05] tracking-[-0.03em]">{{ t('What changed') }}</h2>
           <div class="flex flex-col gap-5" :class="imageLayout === 'band' ? 'mt-5' : 'mt-auto'">
             <ul v-if="content.deaths.length || content.situations.length" class="flex flex-col divide-y divide-white/10">
               <li v-for="(death, index) in content.deaths" :key="`death-${index}`" class="recap-row flex items-start gap-3.5">
                 <RecapCharacterAvatar :character="death.character" muted class="recap-avatar mt-0.5 border border-dashed border-white/20 bg-zinc-700/60 text-xs text-zinc-300" />
                 <span class="min-w-0">
-                  <span class="block text-sm font-semibold text-white/55">Mort</span>
+                  <span class="block text-sm font-semibold text-white/55">{{ t('Death') }}</span>
                   <span class="recap-line mt-0.5 block text-white/90"><span v-if="needsName(death)" class="font-semibold text-white">{{ death.character?.name }} · </span>{{ death.text }}</span>
                 </span>
               </li>
@@ -169,7 +169,7 @@
               </li>
             </ul>
             <div v-for="(question, index) in content.questions" :key="`question-${index}`">
-              <p class="text-sm font-semibold" :style="{ color: accentColor }">Question ouverte</p>
+              <p class="text-sm font-semibold" :style="{ color: accentColor }">{{ t('Open question') }}</p>
               <p class="recap-question mt-1.5 font-semibold">{{ question }}</p>
             </div>
           </div>
@@ -178,8 +178,8 @@
 
       <template v-else-if="content.kind === 'ending-status'">
         <div class="relative flex min-h-0 flex-col" :class="{ 'flex-1': imageLayout !== 'band' }">
-          <p class="text-sm font-semibold" :style="{ color: accentColor }">Fin de la saison {{ seasonNumber }}</p>
-          <h2 class="recap-heading mt-3 font-bold leading-[1.05] tracking-[-0.03em]">Où en est-on</h2>
+          <p class="text-sm font-semibold" :style="{ color: accentColor }">{{ t('End of season {number}', { number: seasonNumber }) }}</p>
+          <h2 class="recap-heading mt-3 font-bold leading-[1.05] tracking-[-0.03em]">{{ t('Where things stand') }}</h2>
           <ul class="flex flex-col divide-y divide-white/10" :class="imageLayout === 'band' ? 'mt-5' : 'mt-auto'">
             <li v-for="(line, index) in content.characters" :key="index" class="recap-row recap-row-loose flex items-start gap-3.5">
               <RecapCharacterAvatar :character="line.character" class="recap-avatar recap-avatar-lg mt-0.5 bg-white/15 text-xs" />
@@ -194,14 +194,14 @@
 
       <template v-else-if="content.kind === 'ending-deaths'">
         <div class="relative flex min-h-0 flex-col" :class="{ 'flex-1': imageLayout !== 'band' }">
-          <p class="text-sm font-semibold" :style="{ color: accentColor }">Fin de la saison {{ seasonNumber }}</p>
-          <h2 class="recap-heading mt-3 font-bold leading-[1.05] tracking-[-0.03em]">Morts cette saison</h2>
+          <p class="text-sm font-semibold" :style="{ color: accentColor }">{{ t('End of season {number}', { number: seasonNumber }) }}</p>
+          <h2 class="recap-heading mt-3 font-bold leading-[1.05] tracking-[-0.03em]">{{ t('Deaths this season') }}</h2>
           <ul class="recap-deaths grid grid-cols-2 gap-x-4" :class="imageLayout === 'band' ? 'mt-5' : 'mt-auto'">
             <li v-for="death in content.deaths" :key="death.character.name" class="flex min-w-0 items-center gap-3">
               <RecapCharacterAvatar :character="death.character" muted class="recap-avatar recap-avatar-lg border border-dashed border-white/20 bg-zinc-700/60 text-xs text-zinc-300" />
               <span class="recap-death-name min-w-0 font-medium leading-tight text-white/90">
                 {{ death.character.name }}
-                <span class="recap-death-episode mt-0.5 block font-normal text-white/60 tabular-nums">Épisode {{ death.episodeNumber }}</span>
+                <span class="recap-death-episode mt-0.5 block font-normal text-white/60 tabular-nums">{{ t('Episode {number}', { number: death.episodeNumber }) }}</span>
               </span>
             </li>
           </ul>
@@ -210,13 +210,13 @@
 
       <template v-else-if="content.kind === 'ending-questions'">
         <div class="relative flex min-h-0 flex-col" :class="{ 'flex-1': imageLayout !== 'band' }">
-          <p class="text-sm font-semibold" :style="{ color: accentColor }">Fin de la saison {{ seasonNumber }}</p>
-          <h2 class="recap-heading mt-3 font-bold leading-[1.05] tracking-[-0.03em]">Questions ouvertes</h2>
+          <p class="text-sm font-semibold" :style="{ color: accentColor }">{{ t('End of season {number}', { number: seasonNumber }) }}</p>
+          <h2 class="recap-heading mt-3 font-bold leading-[1.05] tracking-[-0.03em]">{{ t('Open questions') }}</h2>
           <ul class="flex flex-col divide-y divide-white/10" :class="imageLayout === 'band' ? 'mt-5' : 'mt-auto'">
             <li v-for="(question, index) in content.questions" :key="index" class="py-4 first:pt-0 last:pb-0">
               <p class="recap-question font-semibold">{{ question.text }}</p>
               <p v-if="question.episodeNumbers.length" class="mt-1.5 text-[13px] text-white/60 tabular-nums">
-                {{ question.episodeNumbers.length > 1 ? 'Épisodes' : 'Épisode' }} {{ question.episodeNumbers.join(' · ') }}
+                {{ question.episodeNumbers.length > 1 ? t('Episodes {numbers}', { numbers: question.episodeNumbers.join(' · ') }) : t('Episode {number}', { number: question.episodeNumbers[0] ?? '' }) }}
               </p>
             </li>
           </ul>
@@ -239,7 +239,7 @@
           <div class="mb-4 flex items-center gap-3">
             <span class="h-1.5 w-1.5 rounded-full" :style="{ backgroundColor: accentColor }" />
             <p class="text-[13px] font-semibold" :style="{ color: accentColor }">
-              Épisode par épisode
+              {{ t('Episode by episode') }}
             </p>
           </div>
 
@@ -279,6 +279,7 @@
 </template>
 
 <script setup lang="ts">
+const { t } = useI18n();
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import RecapCharacterAvatar from '~/components/RecapCharacterAvatar.vue';
 import type { RecapChangeItem, RecapStorySlideContent } from '~/types/recap-story.types';
@@ -375,7 +376,7 @@ const imageLayout = computed<'full' | 'band'>(() => (
 const episodeCountLabel = computed(() => {
   if (props.content.kind !== 'cover') return '';
   const count = props.content.episodeCount;
-  return `${count} épisode${count > 1 ? 's' : ''}`;
+  return count === 1 ? t('{count} episode', { count }) : t('{count} episodes', { count });
 });
 
 const isLogoBroken = ref(false);
@@ -393,18 +394,18 @@ const displayLogline = computed(() => {
 });
 
 const displayTag = computed(() => {
-  if (props.content.kind !== 'beat' || looksArtificiallyTruncated(props.content.tag)) return 'Moment clé';
-  return props.content.tag || 'Moment clé';
+  if (props.content.kind !== 'beat' || looksArtificiallyTruncated(props.content.tag)) return t("Key moment");
+  return props.content.tag || t("Key moment");
 });
 
 const episodeLabel = computed(() => {
   if (props.content.kind === 'episode') {
     const { episodeNumber, part, partCount } = props.content;
-    return partCount && partCount > 1 ? `Épisode ${episodeNumber} · ${part}/${partCount}` : `Épisode ${episodeNumber}`;
+    return partCount && partCount > 1 ? t("Episode {number} · {part}/{count}", { number: episodeNumber, part: part ?? 1, count: partCount }) : t("Episode {number}", { number: episodeNumber });
   }
   if (props.content.kind !== 'beat') return '';
   const numbers = props.content.episodeNumbers;
-  return numbers.length === 1 ? `Épisode ${numbers[0]}` : `Épisodes ${numbers.join(' · ')}`;
+  return numbers.length === 1 ? t("Episode {number}", { number: numbers[0] ?? '' }) : t("Episodes {numbers}", { numbers: numbers.join(' · ') });
 });
 
 const paddedSlideNumber = computed(() => String(props.slideNumber).padStart(2, '0'));

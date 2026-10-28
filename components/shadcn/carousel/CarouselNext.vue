@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { t } = useI18n();
 import type { WithClassAsProps } from './interface'
 import { ArrowRight } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
@@ -25,7 +26,7 @@ const { orientation, canScrollNext, scrollNext } = useCarousel()
   >
     <slot>
       <ArrowRight class="h-4 w-4 text-current" />
-      <span class="sr-only">Next Slide</span>
+      <span class="sr-only">{{ t('Next Slide') }}</span>
     </slot>
   </Button>
 </template>

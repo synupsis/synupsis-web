@@ -6,17 +6,17 @@
     <Transition name="tracker-swap" mode="out-in">
       <div v-if="mode === 'undecided'" key="undecided" class="flex flex-col gap-4">
         <div class="flex flex-col gap-2">
-          <h2 class="text-xl font-extrabold tracking-tight">Vous regardez {{ showName }} ?</h2>
-          <p class="text-sm leading-6 text-white/70">Suivez votre avancement : récaps, personnages et discussions s’arrêtent à l’épisode où vous en êtes, sans rien révéler de la suite.</p>
+          <h2 class="text-xl font-extrabold tracking-tight">{{ t('Are you watching {name}?', { name: showName }) }}</h2>
+          <p class="text-sm leading-6 text-white/70">{{ t('Track your progress: recaps, characters and discussions stop at your current episode, without spoiling what comes next.') }}</p>
         </div>
         <div class="grid gap-2">
           <Button type="button" size="lg" class="w-full rounded-full" @click="emit('start')">
             <PlayIcon class="mr-2 h-4 w-4" aria-hidden="true" />
-            Je commence la série
+            {{ t('Start watching') }}
           </Button>
           <Button type="button" variant="outline" size="lg" class="w-full rounded-full" @click="openPicker('set')">
             <ForwardIcon class="mr-2 h-4 w-4" aria-hidden="true" />
-            J’en suis déjà à…
+            {{ t('I am already at…') }}
           </Button>
         </div>
       </div>
@@ -26,7 +26,7 @@
         <button
           type="button"
           class="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/15 bg-white/[0.025] text-primary transition-colors hover:border-white/25 hover:bg-white/[0.05] disabled:pointer-events-none disabled:opacity-50"
-          aria-label="Épisode précédent"
+          :aria-label="t('Previous episode')"
           :disabled="!hasPrevious"
           @click="goPrevious"
         >
@@ -36,7 +36,7 @@
           type="button"
           class="group min-w-0 flex-1 rounded-xl px-2 py-1 text-center transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           aria-haspopup="dialog"
-          :aria-label="`Saison ${viewSeason}, épisode ${viewEpisode} : choisir un autre épisode`"
+          :aria-label="t('Season {season}, episode {episode}: choose another episode', { season: viewSeason, episode: viewEpisode })"
           @click="openPicker('view')"
         >
           <span class="flex items-center justify-center gap-1 text-[28px] font-extrabold leading-9 tracking-tight tabular-nums" aria-live="polite">
@@ -44,12 +44,12 @@
             <ChevronDownIcon class="h-4 w-4 text-muted-foreground transition-colors group-hover:text-white" aria-hidden="true" />
           </span>
           <span v-if="catalogs[viewSeason] === undefined" class="mx-auto mt-1 block h-4 w-28 animate-pulse rounded bg-white/10" aria-hidden="true" />
-          <span v-else class="block truncate text-[13px] text-muted-foreground">{{ viewedEpisode?.title || `Épisode ${viewEpisode}` }}</span>
+          <span v-else class="block truncate text-[13px] text-muted-foreground">{{ viewedEpisode?.title || t('Episode {number}', { number: viewEpisode }) }}</span>
         </button>
         <button
           type="button"
           class="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/15 bg-white/[0.025] text-primary transition-colors hover:border-white/25 hover:bg-white/[0.05] disabled:pointer-events-none disabled:opacity-50"
-          aria-label="Épisode suivant"
+          :aria-label="t('Next episode')"
           :disabled="!hasNext"
           @click="goNext"
         >
@@ -76,7 +76,7 @@
               :key="`${viewSeason}-${episode.number}`"
               type="button"
               class="group relative flex h-5 flex-1 items-center focus-visible:outline-none"
-              :aria-label="`Épisode ${episode.number}${episode.title ? ` · ${episode.title}` : ''}`"
+              :aria-label="t('Episode {number}', { number: episode.number }) + (episode.title ? ` · ${episode.title}` : '')"
               :aria-current="episode.number === viewEpisode ? 'step' : undefined"
               @click="viewEpisode = episode.number"
             >
@@ -93,7 +93,7 @@
           </div>
         </div>
         <p class="text-center text-xs tabular-nums text-muted-foreground">
-          Saison {{ viewSeason }} · {{ seenInViewSeason }} / {{ viewEpisodes.length }} vus
+          {{ t('Season {season} · {seen} / {total} watched', { season: viewSeason, seen: seenInViewSeason, total: viewEpisodes.length }) }}
         </p>
       </div>
       <!-- Same height as the rail, so the card does not jump once the episodes arrive. -->
@@ -108,21 +108,21 @@
         <template v-if="isSeen">
           <Button type="button" variant="secondary" size="lg" class="w-full rounded-full" @click="unmark">
             <CheckCircleIcon class="mr-2 h-4 w-4 text-emerald-400" aria-hidden="true" />
-            Vu · retirer
+            {{ t('Watched · undo') }}
           </Button>
           <Button type="button" variant="outline" size="lg" class="w-full rounded-full" @click="emit('discuss', { season: viewSeason, episode: viewEpisode })">
             <ChatBubbleLeftRightIcon class="mr-2 h-4 w-4" aria-hidden="true" />
-            Commentaires
+            {{ t('Comments') }}
           </Button>
         </template>
         <template v-else>
           <Button type="button" size="lg" class="w-full rounded-full" :disabled="!viewedEpisode" @click="mark">
             <CheckCircleIcon class="mr-2 h-4 w-4" aria-hidden="true" />
-            Marquer comme vu
+            {{ t('Mark as watched') }}
           </Button>
           <Button type="button" variant="outline" size="lg" class="w-full rounded-full" disabled>
             <LockClosedIcon class="mr-2 h-4 w-4" aria-hidden="true" />
-            Commentaires
+            {{ t('Comments') }}
           </Button>
         </template>
         </div>
@@ -135,7 +135,7 @@
         >
           <EyeSlashIcon v-if="revealed" class="h-3.5 w-3.5" aria-hidden="true" />
           <EyeIcon v-else class="h-3.5 w-3.5" aria-hidden="true" />
-          {{ revealed ? 'Spoilers visibles · masquer la suite' : 'Afficher toute la série' }}
+          {{ revealed ? t('Spoilers visible · hide what comes next') : t('Show the entire series') }}
         </button>
       </div>
     </Transition>
@@ -143,13 +143,13 @@
     <Dialog v-model:open="pickerOpen">
       <DialogContent class="flex max-h-[85vh] flex-col gap-5 sm:max-w-lg sm:rounded-2xl">
         <DialogHeader>
-          <DialogTitle>{{ pickerMode === 'set' ? 'Où en êtes-vous ?' : 'Choisir un épisode' }}</DialogTitle>
+          <DialogTitle>{{ pickerMode === 'set' ? t('Where are you up to?') : t('Choose an episode') }}</DialogTitle>
           <DialogDescription :class="pickerMode === 'set' ? '' : 'sr-only'">
-            {{ pickerMode === 'set' ? 'Choisissez le dernier épisode que vous avez vu.' : 'Choisissez la saison puis l’épisode à afficher.' }}
+            {{ pickerMode === 'set' ? t('Choose the last episode you watched.') : t('Choose a season, then an episode to display.') }}
           </DialogDescription>
         </DialogHeader>
 
-        <div class="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="group" aria-label="Saisons">
+        <div class="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="group" :aria-label="t('Seasons')">
           <button
             v-for="season in seasons"
             :key="season"
@@ -160,7 +160,7 @@
             @click="selectPickerSeason(season)"
           >
             <CheckCircleIcon v-if="isSeasonComplete(season)" class="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" />
-            Saison {{ season }}
+            {{ t('Season {number}', { number: season }) }}
             <span v-if="!isSeasonComplete(season) && season === reachedSeason && reachedEpisode" class="tabular-nums text-emerald-200">{{ reachedEpisode }}/{{ catalogs[season]?.length || '?' }}</span>
           </button>
         </div>
@@ -168,7 +168,7 @@
         <div class="-mx-2 min-h-0 flex-1 overflow-y-auto px-2">
           <div v-if="!catalogs[pickerSeason] && catalogPending" class="grid h-40 place-items-center"><SpinLoader class="h-5 w-5" /></div>
           <p v-else-if="!(catalogs[pickerSeason]?.length)" class="rounded-xl border border-dashed border-white/15 p-6 text-center text-sm text-muted-foreground">
-            Les épisodes de cette saison sont indisponibles.
+            {{ t('Episodes for this season are unavailable.') }}
           </p>
           <ol v-else :key="pickerSeason" class="flex flex-col gap-1">
             <li
@@ -190,8 +190,8 @@
                 >
                   {{ episode.number }}
                 </span>
-                <span class="min-w-0 flex-1 truncate text-sm font-medium">{{ episode.title || `Épisode ${episode.number}` }}</span>
-                <CheckCircleIcon v-if="isEpisodeSeen(pickerSeason, episode.number)" class="h-4 w-4 shrink-0 text-emerald-400" aria-label="Vu" />
+                <span class="min-w-0 flex-1 truncate text-sm font-medium">{{ episode.title || t('Episode {number}', { number: episode.number }) }}</span>
+                <CheckCircleIcon v-if="isEpisodeSeen(pickerSeason, episode.number)" class="h-4 w-4 shrink-0 text-emerald-400" :aria-label="t('Watched')" />
               </button>
             </li>
           </ol>
@@ -199,7 +199,7 @@
 
         <div v-if="reachedSeason" class="flex justify-start border-t border-white/10 pt-4">
           <Button type="button" variant="ghost" size="sm" class="text-muted-foreground" @click="resetProgress">
-            Réinitialiser mon avancement
+            {{ t('Reset my progress') }}
           </Button>
         </div>
       </DialogContent>
@@ -219,6 +219,8 @@ import SpinLoader from '~/components/ui/SpinLoader.vue';
 
 type CatalogEpisode = { number: number; title: string; firstAired: string | null };
 type EpisodePosition = { season: number; episode: number };
+
+const { t } = useI18n();
 
 const props = defineProps<{
   slug: string;

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { t, locale } = useI18n();
 import { ref, onMounted, computed } from 'vue'
 import type { Prompt, Recap } from '~/types/database.types'
 import { toast } from 'vue-sonner'
@@ -55,13 +56,13 @@ async function fetchPrompts() {
     }
   } catch (error) {
     console.error('Error fetching prompts:', error)
-    toast.error('Could not fetch prompts.')
+    toast.error(t('Could not fetch prompts.'))
   }
 }
 
 async function saveActivePrompt() {
   if (!activePromptId.value) {
-    toast.error('No active prompt to save.')
+    toast.error(t('No active prompt to save.'))
     return
   }
   try {
@@ -69,11 +70,11 @@ async function saveActivePrompt() {
       method: 'PUT',
       body: { content: activePromptContent.value },
     })
-    toast.success('Active prompt updated successfully.')
+    toast.success(t('Active prompt updated successfully.'))
     await fetchPrompts()
   } catch (error) {
     console.error('Error saving active prompt:', error)
-    toast.error('Could not save active prompt.')
+    toast.error(t('Could not save active prompt.'))
   }
 }
 
@@ -83,11 +84,11 @@ async function saveNewVersion() {
       method: 'POST',
       body: { content: activePromptContent.value, is_active: true },
     })
-    toast.success('New prompt version created and set as active.')
+    toast.success(t('New prompt version created and set as active.'))
     await fetchPrompts()
   } catch (error) {
     console.error('Error creating new version:', error)
-    toast.error('Could not create new prompt version.')
+    toast.error(t('Could not create new prompt version.'))
   }
 }
 
@@ -96,11 +97,11 @@ async function activatePrompt(id: string) {
     await $fetch(`/api/admin/prompts/activate/${id}`, {
       method: 'POST',
     })
-    toast.success('Prompt activated successfully.')
+    toast.success(t('Prompt activated successfully.'))
     await fetchPrompts()
   } catch (error) {
     console.error('Error activating prompt:', error)
-    toast.error('Could not activate prompt.')
+    toast.error(t('Could not activate prompt.'))
   }
 }
 
@@ -115,7 +116,7 @@ async function viewRecaps(promptId: string) {
     isRecapsModalOpen.value = true
   } catch (error) {
     console.error('Error fetching recaps:', error)
-    toast.error('Could not fetch recaps.')
+    toast.error(t('Could not fetch recaps.'))
   }
 }
 
@@ -126,7 +127,7 @@ async function fetchPromptSettings() {
     useDefaultPrompt.value = enabled
   } catch (error) {
     console.error('Error fetching prompt settings:', error)
-    toast.error('Could not fetch prompt settings.')
+    toast.error(t('Could not fetch prompt settings.'))
   } finally {
     isLoadingPromptSettings.value = false
   }
@@ -143,14 +144,14 @@ async function handleUseDefaultChange(checked: boolean) {
       method: 'PUT',
       body: { enabled: checked },
     })
-    toast.success(checked ? 'Default prompt enabled.' : 'Custom prompt editing re-enabled.')
+    toast.success(t(checked ? 'Default prompt enabled.' : 'Custom prompt editing re-enabled.'))
     if (!checked) {
       await fetchPrompts()
     }
   } catch (error) {
     console.error('Error updating default prompt setting:', error)
     useDefaultPrompt.value = previousValue
-    toast.error('Could not update default prompt setting.')
+    toast.error(t('Could not update default prompt setting.'))
   } finally {
     isUpdatingDefaultPrompt.value = false
   }
@@ -175,18 +176,18 @@ onMounted(async () => {
   <SidebarProvider>
     <Sidebar>
       <SidebarHeader class="h-20 shrink-0 justify-center border-b border-sidebar-border px-5 py-0">
-        <Logo display-text size="md" aria-label="Synupsis home" />
+        <Logo display-text size="md" :aria-label="t('Synupsis home')" />
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
           <SidebarMenuItem to="/admin">
-            Dashboard
+            {{ t('Dashboard') }}
           </SidebarMenuItem>
           <SidebarMenuItem to="/admin/prompts">
-            Prompts
+            {{ t('Prompts') }}
           </SidebarMenuItem>
           <SidebarMenuItem to="/admin/corrections">
-            Corrections
+            {{ t('Corrections') }}
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
@@ -194,17 +195,17 @@ onMounted(async () => {
     <div class="flex min-w-0 flex-1 flex-col">
       <header class="flex h-20 w-full shrink-0 items-center justify-between gap-3 border-b border-border px-5 sm:px-8">
         <SidebarTrigger class="size-10 rounded-xl text-muted-foreground hover:text-foreground focus-visible:ring-violet-400" />
-        <nav aria-label="Account" class="ml-auto flex shrink-0 items-center">
+        <nav :aria-label="t('Account')" class="ml-auto flex shrink-0 items-center">
           <UserAuthStatus />
         </nav>
       </header>
       <main class="px-5 py-8 sm:px-8">
-        <h1 class="text-2xl font-bold mb-4">Prompts Management</h1>
+        <h1 class="text-2xl font-bold mb-4">{{ t('Prompts Management') }}</h1>
 
         <div v-if="!isLoadingPromptSettings" class="mb-8">
-          <h2 class="text-xl font-semibold mb-2">Active Prompt</h2>
+          <h2 class="text-xl font-semibold mb-2">{{ t('Active Prompt') }}</h2>
           <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
-            You can use variables in your prompt with the syntax <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">&#123;&#123;variable&#125;&#125;</code>.
+            {{ t('You can use variables in your prompt with the syntax') }} <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">&#123;&#123;variable&#125;&#125;</code>.
           </p>
           <div class="flex items-center gap-3 mb-4">
             <Switch
@@ -214,13 +215,13 @@ onMounted(async () => {
               @update:modelValue="handleUseDefaultChange"
             />
             <label for="use-default-prompt" class="text-sm font-medium select-none">
-              Use default prompt
+              {{ t('Use default prompt') }}
             </label>
           </div>
 
           <div v-if="useDefaultPrompt" class="space-y-2">
             <p class="text-sm text-muted-foreground">
-              The hard-coded default prompt is currently in use. It is read-only and listed below for reference.
+              {{ t('The hard-coded default prompt is currently in use. It is read-only and listed below for reference.') }}
             </p>
             <div class="p-4 border rounded-md bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 overflow-auto max-h-[60vh]">
               <pre class="whitespace-pre-wrap text-sm leading-relaxed"><code v-html="highlightedDefaultPrompt"></code></pre>
@@ -231,39 +232,38 @@ onMounted(async () => {
               v-if="missingPromptVariables.length"
               class="mb-4 rounded-md border border-amber-500/50 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100"
             >
-              Ce prompt n'est pas compatible avec le pipeline recap v2 et le prompt par défaut sera utilisé.
-              Variables manquantes : <code>{{ missingPromptVariables.join(', ') }}</code>.
+              {{ t('This prompt is incompatible with the recap v2 pipeline. The default prompt will be used. Missing variables:') }} <code>{{ missingPromptVariables.join(', ') }}</code>.
             </div>
             <Textarea v-model="activePromptContent" rows="10" class="w-full mb-4" />
             <div class="flex gap-2">
-              <Button @click="saveActivePrompt">Save Prompt</Button>
-              <Button @click="saveNewVersion" variant="outline">Save This Version</Button>
+              <Button @click="saveActivePrompt">{{ t('Save Prompt') }}</Button>
+              <Button @click="saveNewVersion" variant="outline">{{ t('Save This Version') }}</Button>
             </div>
           </div>
         </div>
 
         <div>
-          <h2 class="text-xl font-semibold mb-2">Prompt Versions</h2>
+          <h2 class="text-xl font-semibold mb-2">{{ t('Prompt Versions') }}</h2>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Created At</TableHead>
-                <TableHead>Active</TableHead>
-                <TableHead>Recaps Generated</TableHead>
-                <TableHead class="text-right">Actions</TableHead>
+                <TableHead>{{ t('ID') }}</TableHead>
+                <TableHead>{{ t('Created At') }}</TableHead>
+                <TableHead>{{ t('Active') }}</TableHead>
+                <TableHead>{{ t('Recaps Generated') }}</TableHead>
+                <TableHead class="text-right">{{ t('Actions') }}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               <TableRow v-for="prompt in promptVersions" :key="prompt.id">
                 <TableCell class="font-medium">{{ prompt.id.substring(0, 8) }}...</TableCell>
-                <TableCell>{{ new Date(prompt.created_at).toLocaleString() }}</TableCell>
-                <TableCell>{{ prompt.is_active ? 'Yes' : 'No' }}</TableCell>
+                <TableCell>{{ new Date(prompt.created_at).toLocaleString(locale) }}</TableCell>
+                <TableCell>{{ t(prompt.is_active ? 'Yes' : 'No') }}</TableCell>
                 <TableCell>{{ prompt.recaps_count?.[0]?.count ?? 0 }}</TableCell>
                 <TableCell class="text-right">
-                  <Button variant="outline" size="sm" @click="viewPrompt(prompt.content)" class="mr-2">View</Button>
-                  <Button variant="outline" size="sm" @click="viewRecaps(prompt.id)" class="mr-2">View Recaps</Button>
-                  <Button v-if="!prompt.is_active" variant="outline" size="sm" @click="activatePrompt(prompt.id)">Activate</Button>
+                  <Button variant="outline" size="sm" @click="viewPrompt(prompt.content)" class="mr-2">{{ t('View') }}</Button>
+                  <Button variant="outline" size="sm" @click="viewRecaps(prompt.id)" class="mr-2">{{ t('View Recaps') }}</Button>
+                  <Button v-if="!prompt.is_active" variant="outline" size="sm" @click="activatePrompt(prompt.id)">{{ t('Activate') }}</Button>
                 </TableCell>
               </TableRow>
             </TableBody>
@@ -273,8 +273,8 @@ onMounted(async () => {
         <Dialog :open="isViewModalOpen" @update:open="isViewModalOpen = $event">
           <DialogContent class="sm:max-w-[800px]">
             <DialogHeader>
-              <DialogTitle>Prompt Content</DialogTitle>
-              <DialogDescription>Read-only view of the prompt content.</DialogDescription>
+              <DialogTitle>{{ t('Prompt Content') }}</DialogTitle>
+              <DialogDescription>{{ t('Read-only view of the prompt content.') }}</DialogDescription>
             </DialogHeader>
             <div class="whitespace-pre-wrap p-4 border rounded-md bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 overflow-auto max-h-[60vh]" v-html="highlightedPromptContent">
             </div>
@@ -284,18 +284,18 @@ onMounted(async () => {
         <Dialog :open="isRecapsModalOpen" @update:open="isRecapsModalOpen = $event">
           <DialogContent class="sm:max-w-[800px]">
             <DialogHeader>
-              <DialogTitle>Recaps for this Prompt</DialogTitle>
-              <DialogDescription>List of recaps generated using this prompt version.</DialogDescription>
+              <DialogTitle>{{ t('Recaps for this Prompt') }}</DialogTitle>
+              <DialogDescription>{{ t('List of recaps generated using this prompt version.') }}</DialogDescription>
             </DialogHeader>
             <div class="overflow-auto max-h-[60vh]">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Show ID</TableHead>
-                    <TableHead>Season ID</TableHead>
-                    <TableHead>Created At</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>{{ t('ID') }}</TableHead>
+                    <TableHead>{{ t('Show ID') }}</TableHead>
+                    <TableHead>{{ t('Season ID') }}</TableHead>
+                    <TableHead>{{ t('Created At') }}</TableHead>
+                    <TableHead>{{ t('Status') }}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -303,11 +303,11 @@ onMounted(async () => {
                     <TableCell class="font-medium">{{ recap.id.substring(0, 8) }}...</TableCell>
                     <TableCell>{{ recap.show_id.substring(0, 8) }}...</TableCell>
                     <TableCell>{{ recap.season_id.substring(0, 8) }}...</TableCell>
-                    <TableCell>{{ new Date(recap.created_at).toLocaleString() }}</TableCell>
-                    <TableCell>{{ recap.status }}</TableCell>
+                    <TableCell>{{ new Date(recap.created_at).toLocaleString(locale) }}</TableCell>
+                    <TableCell>{{ t(recap.status === 'published' ? 'Published' : 'Draft') }}</TableCell>
                   </TableRow>
                   <TableRow v-if="recapsList.length === 0">
-                    <TableCell colspan="5" class="text-center">No recaps found for this prompt.</TableCell>
+                    <TableCell colspan="5" class="text-center">{{ t('No recaps found for this prompt.') }}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>

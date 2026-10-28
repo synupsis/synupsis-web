@@ -16,12 +16,23 @@ import { Toaster } from '~/components/shadcn/sonner'
 import 'vue-sonner/style.css'
 import Footer from '~/components/Footer.vue'
 import RecapStoryOverlay from '~/components/RecapStoryOverlay.vue'
+import { getBrowserLocale } from '~/lib/i18n/locale'
+
+const { locale, browserLocale } = useI18n();
+const updateBrowserLocale = () => {
+  browserLocale.value = getBrowserLocale(navigator.languages?.length ? navigator.languages : [navigator.language]);
+};
+onMounted(() => {
+  updateBrowserLocale();
+  window.addEventListener('languagechange', updateBrowserLocale);
+});
+onUnmounted(() => window.removeEventListener('languagechange', updateBrowserLocale));
 
 const route = useRoute();
 const showFooter = computed(() => !route.path.startsWith('/recap'));
 const compactFooter = computed(() => ['login', 'signup', 'pwdforgot', 'password-reset', 'email-confirmation'].includes(String(route.name)));
 
-useHead({
+useHead(() => ({
   link: [
     {
       rel: 'stylesheet',
@@ -29,9 +40,10 @@ useHead({
     }
   ],
   htmlAttrs: {
+    lang: locale.value,
     'data-theme': 'night',
     class: 'dark'
   }
-});
+}));
 provideHeadlessUseId(() => useId());
 </script>

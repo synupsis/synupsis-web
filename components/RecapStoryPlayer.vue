@@ -51,18 +51,17 @@
             class="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-2xl"
           >
           <div v-if="loadError" class="relative flex flex-col items-center gap-3 px-8 text-center">
-            <p class="font-semibold">Impossible de charger le récap.</p>
-            <p v-if="errorMessage" class="text-sm text-white/70">{{ errorMessage }}</p>
-            <Button variant="secondary" class="mt-2" @click="requestClose">Fermer</Button>
+            <p class="font-semibold">{{ t('Unable to load the recap.') }}</p>
+            <Button variant="secondary" class="mt-2" @click="requestClose">{{ t('Close') }}</Button>
           </div>
           <div v-else role="status" class="relative">
             <SpinLoader class="h-10 w-10" aria-hidden="true" />
-            <span class="sr-only">Chargement du récap</span>
+            <span class="sr-only">{{ t('Loading recap') }}</span>
           </div>
           <Button
             variant="ghost"
             size="icon"
-            aria-label="Fermer le recap"
+            :aria-label="t('Close recap')"
             class="absolute right-2 top-[calc(env(safe-area-inset-top)_+_1.1rem)] h-10 w-10 rounded-full text-white hover:bg-white/10 hover:text-white"
             @click="requestClose"
           >
@@ -71,8 +70,8 @@
         </div>
 
         <div v-else-if="!currentSlide" class="absolute inset-0 flex flex-col items-center justify-center gap-4 px-8 text-center">
-          <p class="text-white/70">Ce récap n’a pas encore de contenu.</p>
-          <Button variant="secondary" @click="requestClose">Fermer</Button>
+          <p class="text-white/70">{{ t('This recap has no content yet.') }}</p>
+          <Button variant="secondary" @click="requestClose">{{ t('Close') }}</Button>
         </div>
 
         <template v-else>
@@ -124,7 +123,7 @@
                 variant="ghost"
                 size="icon"
                 class="h-10 w-10 rounded-full text-white hover:bg-white/10 hover:text-white"
-                aria-label="Voir les sources"
+                :aria-label="t('View sources')"
                 @click.stop="openSources"
               >
                 <InformationCircleIcon class="h-6 w-6 drop-shadow" />
@@ -132,7 +131,7 @@
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label="Fermer le recap"
+                :aria-label="t('Close recap')"
                 class="h-10 w-10 rounded-full text-white hover:bg-white/10 hover:text-white"
                 @click="requestClose"
               >
@@ -176,7 +175,7 @@
               <!-- A scroller clips both axes: its padding, taken back by negative margins, leaves room for the halo. -->
               <nav
                 ref="railElement"
-                aria-label="Épisodes"
+                :aria-label="t('Episodes')"
                 class="-my-4 min-w-0 flex-1 overflow-x-auto px-5 py-4 [scrollbar-width:none]"
                 :class="{ 'recap-rail-fade-start': railOverflows && railHasBefore, 'recap-rail-fade-end': railOverflows && railHasAfter }"
                 @scroll.passive="updateRailEdges"
@@ -214,7 +213,7 @@
                           class="inline-block overflow-hidden transition-[max-width,opacity]"
                           :class="chapter.state === 'current' ? 'max-w-8 opacity-100' : 'max-w-0 opacity-0'"
                           :style="railNodeTiming(railIndex)"
-                        >Ép.&nbsp;</span>{{ chapter.label }}
+                        >{{ t('Ep.') }}&nbsp;</span>{{ chapter.label }}
                       </span>
                     </button>
                   </template>
@@ -256,23 +255,23 @@
       <section class="max-h-[70dvh] w-full overflow-y-auto rounded-2xl bg-background p-5 text-foreground shadow-2xl sm:max-w-md">
         <div class="mb-4 flex items-start justify-between gap-4">
           <div>
-            <h2 class="text-lg font-semibold">Sources de cette slide</h2>
+            <h2 class="text-lg font-semibold">{{ t('Sources for this slide') }}</h2>
             <p class="mt-1 text-sm text-muted-foreground">
-              Le texte généré reformule uniquement les fragments référencés ci-dessous.
+              {{ t('The generated text only paraphrases the excerpts referenced below.') }}
             </p>
           </div>
-          <Button variant="ghost" size="icon" aria-label="Fermer les sources" @click="closeSources">
+          <Button variant="ghost" size="icon" :aria-label="t('Close sources')" @click="closeSources">
             <XMarkIcon class="h-5 w-5" />
           </Button>
         </div>
 
         <div v-if="currentEvents.length" class="mb-4 rounded-xl border bg-muted/40 p-3">
-          <p class="text-sm font-medium">Événements utilisés</p>
+          <p class="text-sm font-medium">{{ t('Events used') }}</p>
           <ul class="mt-2 space-y-2">
             <li v-for="storyEvent in currentEvents" :key="storyEvent.id" class="text-sm">
               <span>{{ storyEvent.title }}</span>
               <span class="ml-2 text-xs text-muted-foreground">
-                confiance {{ Math.round(storyEvent.confidence * 100) }} %
+                {{ t('confidence {percent}%', { percent: Math.round(storyEvent.confidence * 100) }) }}
               </span>
             </li>
           </ul>
@@ -282,7 +281,7 @@
           <li v-for="source in currentSources" :key="source.key" class="rounded-xl border p-3">
             <p class="font-medium">{{ source.provider }}</p>
             <p v-if="source.episodeNumber" class="text-sm text-muted-foreground">
-              Épisode {{ source.episodeNumber }} · {{ source.locale.toUpperCase() }}
+              {{ t('Episode {number}', { number: source.episodeNumber }) }} · {{ source.locale.toUpperCase() }}
             </p>
             <a
               v-if="source.sourceUrl"
@@ -291,13 +290,13 @@
               rel="noreferrer"
               class="mt-2 inline-block text-sm text-primary underline underline-offset-4"
             >
-              Consulter la source
+              {{ t('View source') }}
             </a>
             <p v-if="source.revisionId" class="mt-2 text-xs text-muted-foreground">
-              Révision {{ source.revisionId }}
+              {{ t('Revision {revision}', { revision: source.revisionId }) }}
             </p>
             <p class="mt-2 text-xs text-muted-foreground">
-              Licence :
+              {{ t('License:') }}
               <a
                 v-if="source.licenseUrl"
                 :href="source.licenseUrl"
@@ -311,14 +310,13 @@
             </p>
           </li>
         </ul>
-        <p v-else class="text-sm text-muted-foreground">Aucune source publique n'est liée à cette slide.</p>
+        <p v-else class="text-sm text-muted-foreground">{{ t('No public source is linked to this slide.') }}</p>
 
         <p v-if="isChapterStory" class="mt-4 text-xs text-muted-foreground">
-          Images : Trakt et TMDB. Portraits et casting enrichis par TVMaze (CC BY-SA).
+          {{ t('Images: Trakt and TMDB. Portraits and cast enriched by TVMaze (CC BY-SA).') }}
         </p>
         <p v-if="data.sourceRights?.warnings?.length" class="mt-4 text-xs text-muted-foreground">
-          Certaines sources restent soumises aux conditions de leur fournisseur. Leur statut est suivi dans le
-          registre de droits Synupsis.
+          {{ t('Some sources remain subject to their provider’s terms. Their status is tracked in the Synupsis rights registry.') }}
         </p>
       </section>
     </div>
@@ -326,6 +324,7 @@
 </template>
 
 <script lang="ts" setup>
+const { t } = useI18n();
 import { ref, shallowRef, onMounted, onUnmounted, computed } from 'vue';
 import { Button } from '~/components/shadcn/button';
 import { ForwardIcon, InformationCircleIcon, XMarkIcon } from '@heroicons/vue/24/outline';
@@ -364,13 +363,8 @@ const isSourcesOpen = ref(false);
 const isPosterBroken = ref(false);
 let timer: ReturnType<typeof setInterval> | null = null;
 
-const errorMessage = computed(() => {
-  const cause = loadError.value as { data?: { message?: string; statusMessage?: string }; message?: string } | null;
-  return cause?.data?.message ?? cause?.data?.statusMessage ?? cause?.message ?? '';
-});
-
 const dialogLabel = computed(() => (
-  data.value ? `Récap de ${data.value.show.name}, saison ${data.value.season.number}` : 'Récap'
+  data.value ? t("Recap of {show}, season {number}", { show: data.value.show.name, number: data.value.season.number }) : t("Recap")
 ));
 
 const currentSlide = computed(() => {
@@ -386,12 +380,12 @@ const CHAPTER_KINDS = new Set(['chapter', 'moment', 'moment-group', 'changes', '
 type Chapter = { key: string; label: string; ariaLabel: string; indexes: number[] };
 
 function chapterOf(content: SlideContent | null): { key: string; label: string; ariaLabel: string } {
-  if (!content || content.kind === 'cover') return { key: 'cover', label: '', ariaLabel: 'Couverture' };
+  if (!content || content.kind === 'cover') return { key: 'cover', label: '', ariaLabel: t("Cover") };
   if (content.kind === 'ending-status' || content.kind === 'ending-deaths' || content.kind === 'ending-questions') {
-    return { key: 'end', label: 'Fin', ariaLabel: 'Fin de saison' };
+    return { key: 'end', label: t("End"), ariaLabel: t("Season ending") };
   }
-  if (content.kind === 'beat') return { key: 'beats', label: '', ariaLabel: 'L’essentiel' };
-  return { key: `episode-${content.episodeNumber}`, label: String(content.episodeNumber), ariaLabel: `Épisode ${content.episodeNumber}` };
+  if (content.kind === 'beat') return { key: 'beats', label: '', ariaLabel: t("The essentials") };
+  return { key: `episode-${content.episodeNumber}`, label: String(content.episodeNumber), ariaLabel: t("Episode {number}", { number: content.episodeNumber }) };
 }
 
 const isChapterStory = computed(() => (data.value?.slides || []).some(slide => slide.content && CHAPTER_KINDS.has(slide.content.kind)));
@@ -419,14 +413,14 @@ const progressIndexes = computed(() => (
 const progressLabel = computed(() => {
   const position = progressIndexes.value.indexOf(currentSlideIndex.value) + 1;
   const label = isChapterStory.value && currentChapter.value?.key !== 'cover' ? `${currentChapter.value?.ariaLabel} · ` : '';
-  return `${label}Slide ${position} sur ${progressIndexes.value.length}`;
+  return t("{chapter}Slide {number} of {count}", { chapter: label, number: position, count: progressIndexes.value.length });
 });
 
 // Under the show name: the season, and the chapter the top bar is counting.
 const headerContext = computed(() => {
-  const season = `Saison ${data.value?.season.number ?? ''}`;
+  const season = t("Season {number}", { number: data.value?.season.number ?? '' });
   const key = isChapterStory.value ? currentChapter.value?.key : null;
-  if (key === 'end') return `${season} · Fin de saison`;
+  if (key === 'end') return `${season} · ${t("Season ending")}`;
   if (key?.startsWith('episode-')) return `${season} · ${currentChapter.value?.ariaLabel}`;
   return season;
 });
@@ -576,9 +570,9 @@ const jumpTo = (index: number) => {
 // Skipping leads from the cover to the first episode, through an episode to its
 // bilan, and from the bilan to the next episode.
 const skipLabel = computed(() => {
-  if (currentChapter.value?.key === 'cover') return 'Commencer au premier épisode';
+  if (currentChapter.value?.key === 'cover') return t("Start at the first episode");
   if (!currentChapter.value?.key.startsWith('episode-')) return '';
-  return currentSlide.value?.content?.kind === 'changes' ? 'Épisode suivant' : 'Je m’en souviens : passer au bilan';
+  return currentSlide.value?.content?.kind === 'changes' ? t("Next episode") : t("I remember: skip to the outcome");
 });
 
 const skipChapter = () => {

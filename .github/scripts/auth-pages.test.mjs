@@ -33,6 +33,7 @@ function createPage(name) {
   runInNewContext(compiledPage(name), {
     module,
     exports: module.exports,
+    useI18n: () => ({ t: message => message, locale: vue.ref('en') }),
     Error,
     ref: vue.ref,
     useHead: () => {},

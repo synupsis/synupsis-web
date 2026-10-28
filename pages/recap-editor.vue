@@ -7,45 +7,45 @@
         <div class="min-w-0">
           <div>
             <div class="flex flex-wrap items-center gap-2">
-              <h1 class="text-lg font-semibold">Recap Editor</h1>
+              <h1 class="text-lg font-semibold">{{ t('Recap Editor') }}</h1>
               <Badge v-if="recapStatus" :variant="recapStatus === 'published' ? 'default' : 'secondary'">
-                {{ recapStatus }}
+                {{ recapStatus === 'published' ? t('Published') : t('Draft') }}
               </Badge>
-              <Badge v-if="isCanonical" variant="outline">Canonical</Badge>
-              <Badge v-if="isVerificationStale" variant="destructive">Verification outdated</Badge>
+              <Badge v-if="isCanonical" variant="outline">{{ t('Canonical') }}</Badge>
+              <Badge v-if="isVerificationStale" variant="destructive">{{ t('Verification outdated') }}</Badge>
             </div>
             <p v-if="!loading" class="break-words text-sm text-muted-foreground">
-              {{ showName }} - Season {{ seasonNumber }}
+              {{ showName }} - {{ t('Season {number}', { number: seasonNumber ?? '' }) }}
             </p>
             <div v-else class="h-4 bg-muted-foreground/20 rounded-md w-48 animate-pulse" />
           </div>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-          <Button variant="ghost" class="min-w-[90px]" @click="goBack">Cancel</Button>
+          <Button variant="ghost" class="min-w-[90px]" @click="goBack">{{ t('Cancel') }}</Button>
           <Button variant="outline" class="min-w-[130px]" :disabled="loading || isSaving || !isDirty" @click="saveDraft">
             <span v-if="isSaving" class="loading loading-spinner h-4 w-4" />
             <CheckCircleIcon v-else-if="!isDirty" class="h-4 w-4 text-green-500 mr-2" />
             <DocumentArrowDownIcon v-else class="h-4 w-4 mr-2" />
             <span>
-              <template v-if="isSaving">Saving...</template>
-              <template v-else-if="!isDirty">Saved</template>
-              <template v-else>{{ recapStatus === 'published' ? 'Save' : 'Save Draft' }}</template>
+              <template v-if="isSaving">{{ t('Saving...') }}</template>
+              <template v-else-if="!isDirty">{{ t('Saved') }}</template>
+              <template v-else>{{ recapStatus === 'published' ? t('Save') : t('Save Draft') }}</template>
             </span>
           </Button>
           <Button v-if="recapStatus !== 'published'" class="min-w-[130px]" :disabled="loading || isPublishing" @click="publishRecap">
             <span v-if="isPublishing" class="loading loading-spinner h-4 w-4" />
             <ArrowUpCircleIcon v-else class="h-4 w-4 mr-2" />
-            <span>{{ isPublishing ? 'Publishing...' : 'Publish' }}</span>
+            <span>{{ isPublishing ? t('Publishing...') : t('Publish') }}</span>
           </Button>
           <Button v-if="recapStatus === 'published' && existingRecapId" variant="outline" as-child>
             <router-link :to="`/recap/${existingRecapId}`">
               <EyeIcon class="h-4 w-4 mr-2" />
-              View
+              {{ t('View') }}
             </router-link>
           </Button>
           <Button variant="outline" @click="copyJsonToClipboard">
             <DocumentDuplicateIcon class="h-4 w-4 mr-2" />
-            Copy JSON
+            {{ t('Copy JSON') }}
           </Button>
         </div>
       </div>
@@ -54,7 +54,7 @@
       <div v-if="!loading" class="flex flex-1 overflow-hidden">
         <!-- Slides Sorter (Left) -->
         <aside class="w-64 p-4 border-r border-border flex flex-col gap-4 overflow-y-auto">
-          <h2 class="text-xl font-semibold tracking-tight">Slides</h2>
+          <h2 class="text-xl font-semibold tracking-tight">{{ t('Slides') }}</h2>
           <draggable v-model="slides" item-key="id" class="space-y-2" :disabled="hasSemanticStory">
             <template #item="{ element: slide, index }">
               <div
@@ -71,7 +71,7 @@
                 >
                   <p class="truncate font-bold">{{ getSlideLabel(index) }}</p>
                   <p class="mt-1 text-xs text-muted-foreground">
-                    {{ index === 0 && hasSemanticStory ? 'Couverture' : `Slide ${index + 1}` }}
+                    {{ index === 0 && hasSemanticStory ? t('Cover') : t('Slide {number}', { number: index + 1 }) }}
                   </p>
                 </button>
                 <button
@@ -85,33 +85,32 @@
             </template>
           </draggable>
           <div v-if="hasSemanticStory" class="rounded-xl border border-primary/15 bg-primary/5 p-3 text-xs leading-relaxed text-muted-foreground">
-            La structure générée est verrouillée pour garder les textes, les sources et les images synchronisés.
+            {{ t('The generated structure is locked to keep text, sources and images in sync.') }}
           </div>
           <div class="mt-auto space-y-2">
             <Button v-if="!hasSemanticStory" variant="outline" class="w-full" @click="addSlide">
               <SquaresPlusIcon class="h-4 w-4 mr-2" />
-              Add Slide
+              {{ t('Add Slide') }}
             </Button>
             <AlertDialog>
               <AlertDialogTrigger as-child>
                 <Button v-if="existingRecapId" variant="destructive" class="w-full">
                   <TrashIcon class="h-4 w-4 mr-2" />
-                  Delete Recap
+                  {{ t('Delete Recap') }}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogTitle>{{ t('Are you absolutely sure?') }}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete your recap
-                    and remove your data from our servers.
+                    {{ t('This action cannot be undone. This will permanently delete your recap and remove your data from our servers.') }}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogCancel>{{ t('Cancel') }}</AlertDialogCancel>
                   <AlertDialogAction @click="deleteRecap">
                     <span v-if="isDeleting" class="loading loading-spinner h-4 w-4" />
-                    <span v-else>Continue</span>
+                    <span v-else>{{ t('Continue') }}</span>
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -122,8 +121,8 @@
         <!-- Main Preview (Center) -->
         <main class="flex min-w-0 flex-1 flex-col overflow-hidden bg-muted/20 p-4 sm:p-6">
           <div v-if="error" class="text-destructive">
-            <p>{{ error.message }}</p>
-            <Button class="mt-2" @click="goBack">Go Back</Button>
+            <p>{{ t('Could not load the recap editor.') }}</p>
+            <Button class="mt-2" @click="goBack">{{ t('Go Back') }}</Button>
           </div>
           <template v-else>
             <div v-if="hasSemanticStory" class="mb-4 flex items-center justify-center gap-1 rounded-xl border bg-background/80 p-1 shadow-sm self-center">
@@ -133,7 +132,7 @@
                 @click="editorMode = 'story'"
               >
                 <DocumentTextIcon class="mr-2 h-4 w-4" />
-                Story preview
+                {{ t('Story preview') }}
               </Button>
               <Button
                 size="sm"
@@ -141,7 +140,7 @@
                 @click="editorMode = 'visual'"
               >
                 <PhotoIcon class="mr-2 h-4 w-4" />
-                Image
+                {{ t('Image') }}
               </Button>
             </div>
 
@@ -170,7 +169,7 @@
             </div>
 
             <p v-if="hasSemanticStory && editorMode === 'visual'" class="mt-3 text-center text-xs text-muted-foreground">
-              Ici, seule l’image de fond est éditée. Les textes se modifient dans « Story preview ».
+              {{ t('Only the background image is edited here. Edit text in “Story preview”.') }}
             </p>
           </template>
         </main>
@@ -238,6 +237,7 @@
 </template>
 
 <script lang="ts" setup>
+const { t } = useI18n();
 import { ref, computed, watch } from 'vue';
 import {
   ArrowUpCircleIcon,
@@ -540,14 +540,14 @@ const handleUpdateStoryContent = (content: RecapStorySlideContent) => {
 };
 
 const getSlideLabel = (index: number) => {
-  if (!storyData.value) return `Slide ${index + 1}`;
-  if (index === 0) return storyData.value.cover.title || 'Couverture';
+  if (!storyData.value) return t("Slide {number}", { number: index + 1 });
+  if (index === 0) return storyData.value.cover.title || t("Cover");
   const beat = storyData.value.beats[index - 1];
-  if (beat) return beat.headline || `Moment clé ${index}`;
+  if (beat) return beat.headline || t("Key moment {number}", { number: index });
   const episode = storyData.value.episodes?.[index - 1 - storyData.value.beats.length];
-  if (!episode) return `Slide ${index + 1}`;
+  if (!episode) return t("Slide {number}", { number: index + 1 });
   const part = episode.partCount && episode.partCount > 1 ? ` (${episode.part}/${episode.partCount})` : '';
-  return `Épisode ${episode.episodeNumber}${part} · ${episode.headline}`;
+  return t("Episode {number}{part} · {headline}", { number: episode.episodeNumber, part, headline: episode.headline });
 };
 
 
@@ -636,16 +636,16 @@ const saveDraft = async () => {
     existingRecapId.value = result.recapId;
     recapStatus.value = result.status as 'draft' | 'published';
     if (result.storyVerificationStale) markLocalVerificationStale();
-    toast.success('Success', {
+    toast.success(t("Success"), {
       description: recapStatus.value === 'published'
-        ? 'Recap updated successfully.'
-        : 'Draft saved successfully.'
+        ? t("Recap updated successfully.")
+        : t("Draft saved successfully.")
     })
     initialEditorState.value = createEditorSnapshot();
     isDirty.value = false;
   } catch (e: any) {
-    toast.error('Error', {
-      description: e.data?.message || 'Failed to save draft.'
+    toast.error(t("Error"), {
+      description: t("Failed to save draft.")
     })
   } finally {
     isSaving.value = false;
@@ -670,8 +670,8 @@ const publishRecap = async () => {
         storyData: storyData.value,
       }
     });
-    toast.success('Success', {
-      description: 'Recap published successfully!'
+    toast.success(t("Success"), {
+      description: t("Recap published successfully!")
     })
     existingRecapId.value = result.recapId;
     recapStatus.value = 'published';
@@ -679,8 +679,8 @@ const publishRecap = async () => {
     initialEditorState.value = createEditorSnapshot();
     isDirty.value = false;
   } catch (e: any) {
-    toast.error('Error', {
-      description: e.data?.message || 'Failed to publish recap.'
+    toast.error(t("Error"), {
+      description: t("Failed to publish recap.")
     })
   } finally {
     isPublishing.value = false;
@@ -696,13 +696,13 @@ const deleteRecap = async () => {
       method: 'POST',
       body: { recapId: existingRecapId.value }
     });
-    toast.success('Success', {
-      description: 'Recap deleted successfully.'
+    toast.success(t("Success"), {
+      description: t("Recap deleted successfully.")
     });
     goBack();
   } catch (e: any) {
-    toast.error('Error', {
-      description: e.data?.message || 'Failed to delete recap.'
+    toast.error(t("Error"), {
+      description: t("Failed to delete recap.")
     });
   } finally {
     isDeleting.value = false;
@@ -717,13 +717,13 @@ const copyJsonToClipboard = async () => {
     }));
     const jsonToCopy = JSON.stringify({ storyData: storyData.value, slides: slidesData }, null, 2);
     await navigator.clipboard.writeText(jsonToCopy);
-    toast.success('Success', {
-      description: 'JSON copied to clipboard!'
+    toast.success(t("Success"), {
+      description: t("JSON copied to clipboard!")
     });
   } catch (e) {
     console.error("Failed to copy JSON to clipboard", e);
-    toast.error('Error', {
-      description: 'Failed to copy JSON to clipboard.'
+    toast.error(t("Error"), {
+      description: t("Failed to copy JSON to clipboard.")
     });
   }
 };

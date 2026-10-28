@@ -4,7 +4,7 @@
       <button
         type="button"
         class="group inline-flex max-w-full items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] p-1 pr-3 text-left transition-colors hover:border-primary/30 hover:bg-primary/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
-        :aria-label="`En savoir plus sur ${name}`"
+        :aria-label="t('Learn more about {name}', { name })"
         :aria-expanded="isOpen"
         @click="isOpen = !isOpen"
       >
@@ -45,23 +45,23 @@
             <p class="truncate font-semibold text-white">{{ name }}</p>
             <p v-if="profile?.actorName" class="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
               <MicrophoneIcon v-if="profile.isVoice" class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              <span class="truncate">{{ profile.isVoice ? 'Voix de' : 'Interprété par' }} {{ profile.actorName }}</span>
+              <span class="truncate">{{ profile.isVoice ? t('Voiced by') : t('Played by') }} {{ profile.actorName }}</span>
             </p>
             <p v-if="profile?.imageKind === 'actor'" class="mt-1 text-[10px] text-amber-200/70">
-              Portrait du personnage indisponible
+              {{ t('Character portrait unavailable') }}
             </p>
           </div>
         </div>
 
         <div v-if="profile?.eventCount || profile?.lastSeen" class="mt-4 grid grid-cols-2 gap-2">
           <div v-if="profile.eventCount" class="rounded-xl bg-white/[0.045] px-3 py-2">
-            <p class="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Timeline</p>
+            <p class="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{{ t('Timeline') }}</p>
             <p class="mt-0.5 text-sm font-semibold text-white">
-              {{ profile.eventCount }} événement{{ profile.eventCount > 1 ? 's' : '' }}
+              {{ profile.eventCount > 1 ? t('{count} events', { count: profile.eventCount }) : t('{count} event', { count: profile.eventCount }) }}
             </p>
           </div>
           <div v-if="profile.lastSeen" class="rounded-xl bg-white/[0.045] px-3 py-2">
-            <p class="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Dernier repère</p>
+            <p class="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{{ t('Last seen') }}</p>
             <p class="mt-0.5 text-sm font-semibold text-white">
               S{{ profile.lastSeen.seasonNumber }}E{{ profile.lastSeen.episodeNumber }}
             </p>
@@ -69,7 +69,7 @@
         </div>
 
         <div v-if="profile?.arcs.length" class="mt-4">
-          <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Intrigues déjà vues</p>
+          <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{{ t('Storylines seen so far') }}</p>
           <div class="mt-2 flex flex-wrap gap-1.5">
             <span
               v-for="arc in profile.arcs.slice(0, 3)"
@@ -82,7 +82,7 @@
         </div>
 
         <div v-if="profile?.keyEvents.length" class="mt-4">
-          <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">À retenir</p>
+          <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{{ t('Key moments') }}</p>
           <ul class="mt-2 space-y-2">
             <li v-for="event in profile.keyEvents" :key="`${event.seasonNumber}-${event.id}`" class="flex gap-2 text-xs leading-5 text-white/75">
               <span class="mt-0.5 shrink-0 font-semibold text-primary">S{{ event.seasonNumber }}E{{ event.episodeNumber }}</span>
@@ -92,7 +92,7 @@
         </div>
 
         <p v-if="!hasTimelineDetails" class="mt-4 text-xs leading-5 text-muted-foreground">
-          Aucun autre repère n’est disponible dans les épisodes déjà affichés.
+          {{ t('No further details are available in the episodes shown so far.') }}
         </p>
 
         <a
@@ -102,7 +102,7 @@
           rel="noopener noreferrer"
           class="mt-4 inline-flex items-center gap-1 text-[10px] text-muted-foreground transition-colors hover:text-primary"
         >
-          Portrait et casting via TVMaze
+          {{ t('Portrait and cast via TVMaze') }}
           <ArrowTopRightOnSquareIcon class="h-3 w-3" aria-hidden="true" />
         </a>
       </HoverCardContent>
@@ -121,6 +121,8 @@ import {
 } from 'reka-ui';
 import { useImageUrl } from '~/composables/useUtils';
 import type { TimelineCharacterProfile } from '~/types/show-character.types';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   name: string;

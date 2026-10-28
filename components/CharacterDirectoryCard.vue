@@ -2,7 +2,7 @@
   <button
     type="button"
     class="group flex w-20 shrink-0 flex-col items-center gap-2 text-center focus-visible:outline-none"
-    :aria-label="`Afficher les événements de ${profile.name} dans la timeline`"
+    :aria-label="t('Show {name}’s events in the timeline', { name: profile.name })"
     @click="$emit('select')"
   >
     <span class="rounded-full border border-white/10 p-1 transition-colors group-hover:border-primary/50 group-focus-visible:border-primary group-focus-visible:ring-2 group-focus-visible:ring-primary/40">
@@ -28,6 +28,8 @@
 import { computed, ref, watch } from 'vue';
 import { useImageUrl } from '~/composables/useUtils';
 import type { TimelineCharacterProfile } from '~/types/show-character.types';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   profile: TimelineCharacterProfile;

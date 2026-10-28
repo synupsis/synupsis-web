@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { t } = useI18n();
 import type { HTMLAttributes } from 'vue'
 import { PanelLeft } from 'lucide-vue-next'
 import { cn } from '~/lib/utils'
@@ -20,6 +21,6 @@ const { toggleSidebar } = useSidebar()
     @click="toggleSidebar"
   >
     <PanelLeft />
-    <span class="sr-only">Toggle Sidebar</span>
+    <span class="sr-only">{{ t('Toggle Sidebar') }}</span>
   </Button>
 </template>

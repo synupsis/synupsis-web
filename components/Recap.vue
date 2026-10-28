@@ -39,12 +39,12 @@
                   type="button"
                   @click="closeModal"
                 >
-                  <span class="sr-only">Close</span>
+                  <span class="sr-only">{{ t('Close') }}</span>
 
                   <XMarkIcon class="h-6 w-6"></XMarkIcon>
                 </button>
               </div>
-              <div class="text-black">Recap will be here</div>
+              <div class="text-black">{{ t('Recap will be here') }}</div>
             </div>
           </HeadlessTransitionChild>
         </div>
@@ -54,6 +54,7 @@
 </template>
 
 <script setup>
+const { t } = useI18n();
 import { XMarkIcon } from '@heroicons/vue/24/outline';
 
 defineProps({

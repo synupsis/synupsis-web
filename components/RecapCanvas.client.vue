@@ -41,19 +41,19 @@
       <Button v-if="!visualOnly" class="py-2 px-4" variant="outline" @click="addTextbox">
         <span class="flex items-center gap-2">
           <PlusCircleIcon class="h-5 w-5" />
-          Add text
+          {{ t('Add text') }}
         </span>
       </Button>
       <Button class="py-2 px-4" variant="outline" @click="openBackgroundModal">
         <span class="flex items-center gap-2">
           <PhotoIcon class="h-5 w-5" />
-          {{ visualOnly ? 'Change image' : 'Add Image' }}
+          {{ visualOnly ? t('Change image') : t('Add Image') }}
         </span>
       </Button>
       <Button v-if="!visualOnly" class="py-2 px-4" variant="outline" @click="clearSlide">
         <span class="flex items-center gap-2">
           <ArrowPathRoundedSquareIcon class="h-5 w-5" />
-          Reset slide
+          {{ t('Reset slide') }}
         </span>
       </Button>
       <Button
@@ -64,7 +64,7 @@
       >
         <span class="flex items-center gap-2">
           <TrashIcon class="h-5 w-5" />
-          Delete
+          {{ t('Delete') }}
         </span>
       </Button>
     </div>
@@ -79,6 +79,7 @@
 </template>
 
 <script lang="ts" setup>
+const { t } = useI18n();
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import Konva from 'konva';
 import {
@@ -278,7 +279,7 @@ function loadImage(item: ImageCanvasItem, revision: number) {
     },
     () => {
       if (revision !== imageLoadRevision || props.readOnly) return;
-      toast.error('The image could not be loaded.');
+      toast.error(t("The image could not be loaded."));
     },
   );
 }
@@ -385,13 +386,13 @@ function addImageToCanvas(imageUrl: string) {
   }
   loadImage(item, imageLoadRevision);
   nextTick(emitUpdate);
-  toast.success(existingCoverIndex === -1 ? 'Image added to canvas!' : 'Image updated!');
+  toast.success(existingCoverIndex === -1 ? t("Image added to canvas!") : t("Image updated!"));
 }
 
 function addTextbox() {
   const key = `group-${Date.now()}`;
   const textConfig = {
-    text: 'Votre texte ici',
+    text: t("Your text here"),
     fontSize: 32,
     fontFamily: 'Inter, sans-serif',
     fill: hexToRgb('#000'),
@@ -419,7 +420,7 @@ function clearSlide() {
   selectedShapeName.value = '';
   updateTransformer();
   nextTick(emitUpdate);
-  toast.info('Slide has been cleared.');
+  toast.info(t("Slide has been cleared."));
 }
 
 function deleteSelectedObject() {

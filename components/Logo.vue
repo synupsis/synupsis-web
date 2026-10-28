@@ -2,7 +2,7 @@
   <RouterLink v-slot="{ href, navigate, isExactActive }" to="/" custom>
     <a
       :href="href"
-      aria-label="Synupsis home"
+      :aria-label="t('Synupsis home')"
       :aria-current="isExactActive ? 'page' : undefined"
       v-bind="$attrs"
       :class="[
@@ -93,6 +93,7 @@
 </template>
 
 <script setup lang="ts">
+const { t } = useI18n();
 import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue';
 import { isNavigationFailure, NavigationFailureType, RouterLink, type UseLinkReturn } from 'vue-router';
 import {

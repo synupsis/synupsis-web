@@ -2,20 +2,20 @@
   <Dialog :open="isOpen" @update:open="$emit('update:isOpen', $event)">
     <DialogContent>
       <DialogHeader>
-        <DialogTitle>Upload new avatar</DialogTitle>
+        <DialogTitle>{{ t("Upload new avatar") }}</DialogTitle>
         <DialogDescription>
-          Select an image from your device. It will be cropped to a square.
+          {{ t("Select an image from your device. It will be cropped to a square.") }}
         </DialogDescription>
       </DialogHeader>
       <div class="py-4">
         <input type="file" @change="onFileChange" accept="image/*" class="w-full" />
-        <p v-if="error" class="text-destructive text-sm mt-2">{{ error }}</p>
+        <p v-if="error" class="text-destructive text-sm mt-2">{{ t(error) }}</p>
       </div>
       <DialogFooter>
-        <Button variant="ghost" @click="$emit('update:isOpen', false)">Cancel</Button>
+        <Button variant="ghost" @click="$emit('update:isOpen', false)">{{ t("Cancel") }}</Button>
         <Button @click="uploadAvatar" :disabled="!selectedFile || isLoading">
           <SpinLoader v-if="isLoading" class="h-4 w-4 mr-2" />
-          Upload
+          {{ t("Upload") }}
         </Button>
       </DialogFooter>
     </DialogContent>
@@ -40,6 +40,8 @@ defineProps<{
   isOpen: boolean;
 }>();
 const emit = defineEmits(['update:isOpen', 'upload-success']);
+
+const { t } = useI18n();
 
 const selectedFile = ref<File | null>(null);
 const isLoading = ref(false);
@@ -67,13 +69,13 @@ const uploadAvatar = async () => {
       method: 'POST',
       body: formData,
     });
-    toast.success('Avatar updated successfully!');
+    toast.success(t('Avatar updated successfully!'));
     emit('upload-success', avatarUrl);
     emit('update:isOpen', false);
   } catch (e: any) {
-    const message = e.data?.message || 'An error occurred during upload.';
+    const message = 'An error occurred during upload.';
     error.value = message;
-    toast.error('Upload failed', { description: message });
+    toast.error(t('Upload failed'), { description: t(message) });
   } finally {
     isLoading.value = false;
   }

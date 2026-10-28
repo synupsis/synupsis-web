@@ -2,9 +2,9 @@
   <AlertDialog :open="isOpen" @update:open="emit('update:isOpen', $event)">
     <AlertDialogContent class="max-w-3xl">
       <AlertDialogHeader>
-        <DialogTitle>Select Image</DialogTitle>
+        <DialogTitle>{{ t('Select Image') }}</DialogTitle>
         <AlertDialogDescription>
-          Select a background for your slide from the episode images below.
+          {{ t('Select a background for your slide from the episode images below.') }}
         </AlertDialogDescription>
       </AlertDialogHeader>
 
@@ -12,7 +12,7 @@
         <div class="loading loading-spinner" />
       </div>
       <div v-else-if="error" class="text-destructive">
-        <p>Failed to load images. Please try again later.</p>
+        <p>{{ t('Failed to load images. Please try again later.') }}</p>
       </div>
       <div v-else class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 max-h-[60vh] overflow-y-auto p-1">
         <div
@@ -25,25 +25,26 @@
             v-if="image?.medium"
             :src="image.medium"
             class="w-full h-full object-cover"
-            alt="Episode image"
+            :alt="t('Episode image')"
           />
           <div v-else class="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
-            No Image
+            {{ t('No Image') }}
           </div>
           <div class="absolute bottom-1 right-1 bg-background/80 text-foreground text-xs px-1.5 py-0.5 rounded-sm">
-            Ep. {{ image.episode }}
+            {{ t('Ep. {number}', { number: image.episode }) }}
           </div>
         </div>
       </div>
 
       <AlertDialogFooter>
-        <AlertDialogCancel>Cancel</AlertDialogCancel>
+        <AlertDialogCancel>{{ t('Cancel') }}</AlertDialogCancel>
       </AlertDialogFooter>
     </AlertDialogContent>
   </AlertDialog>
 </template>
 
 <script lang="ts" setup>
+const { t } = useI18n();
 import { ref, watch } from 'vue';
 import {
   AlertDialog,

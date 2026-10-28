@@ -2,29 +2,29 @@
   <div class="w-full h-screen flex flex-col items-center justify-center p-4 bg-background">
     <div class="w-full max-w-md">
       <div class="flex justify-center mb-8">
-        <Logo display-text size="md" aria-label="Synupsis home" />
+        <Logo display-text size="md" :aria-label="t('Synupsis home')" />
       </div>
       <Card>
         <CardHeader class="text-center">
-          <CardTitle>Forgot Your Password?</CardTitle>
+          <CardTitle>{{ t('Forgot Your Password?') }}</CardTitle>
           <CardDescription v-if="!emailSent">
-            No problem. Enter your email address and we'll send you a link to reset it.
+            {{ t('No problem. Enter your email address and we\'ll send you a link to reset it.') }}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div v-if="emailSent" class="text-center space-y-4">
             <CircleCheckIcon class="h-16 w-16 text-green-500 mx-auto" />
-            <p>A password reset link has been sent to <span class="font-bold">{{ email }}</span>.</p>
-            <p class="text-sm text-muted-foreground">Please check your inbox and follow the instructions.</p>
+            <p>{{ t('A password reset link has been sent to {email}.', { email }) }}</p>
+            <p class="text-sm text-muted-foreground">{{ t('Please check your inbox and follow the instructions.') }}</p>
           </div>
           <form v-else @submit.prevent="sendResetInstructions">
             <div class="space-y-2">
-              <label for="email" class="font-semibold">Email Address</label>
+              <label for="email" class="font-semibold">{{ t('Email Address') }}</label>
               <Input
                 id="email"
                 v-model="email"
                 type="email"
-                placeholder="you@example.com"
+                :placeholder="t('you@example.com')"
                 required
               />
             </div>
@@ -38,10 +38,10 @@
             @click="sendResetInstructions"
           >
             <SpinLoader v-if="isLoading" class="h-4 w-4 mr-2" />
-            Send Reset Instructions
+            {{ t('Send Reset Instructions') }}
           </Button>
           <Button variant="link" class="w-full" as-child>
-            <router-link to="/login">Back to Login</router-link>
+            <router-link to="/login">{{ t('Back to Login') }}</router-link>
           </Button>
         </CardFooter>
       </Card>
@@ -50,6 +50,7 @@
 </template>
 
 <script lang="ts" setup>
+const { t } = useI18n();
 import { ref } from 'vue';
 import { toast } from 'vue-sonner'
 import { Button } from '~/components/shadcn/button'
@@ -79,12 +80,12 @@ const sendResetInstructions = async () => {
     });
 
     if (error) {
-      toast.error('Error', { description: error.message });
+      toast.error(t('Error'), { description: t(error.message) });
     } else {
       emailSent.value = true;
     }
   } catch (e: any) {
-    toast.error('An unexpected error occurred', { description: e.message });
+    toast.error(t('An unexpected error occurred'), { description: t('Please try again.') });
   } finally {
     isLoading.value = false;
   }

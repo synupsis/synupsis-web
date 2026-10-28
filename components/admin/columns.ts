@@ -1,4 +1,6 @@
-'use client'
+import type { useI18n } from '~/composables/useI18n'
+
+type Translate = ReturnType<typeof useI18n>['t']
 
 import type { ColumnDef } from '@tanstack/vue-table'
 import { h } from 'vue'
@@ -14,40 +16,41 @@ export interface User {
   email: string
 }
 
-async function updateUserRole(userId: string, newRole: 'admin' | 'user', refresh: () => void) {
+async function updateUserRole(userId: string, newRole: 'admin' | 'user', refresh: () => void, t: Translate) {
   try {
     await $fetch('/api/admin/user/update-role', {
       method: 'POST',
       body: { userId, newRole },
     })
-    toast.success(`User role updated to ${newRole}.`)
+    toast.success(t('User role updated to {role}.', { role: t(newRole === 'admin' ? 'Administrator' : 'User') }))
     refresh()
   } catch (e: any) {
-    toast.error('Failed to update role', { description: e.data?.message })
+    toast.error(t('Failed to update role'), { description: t('Please try again.') })
   }
 }
 
-async function deleteUser(userId: string, refresh: () => void) {
+async function deleteUser(userId: string, refresh: () => void, t: Translate) {
   try {
     await $fetch('/api/admin/user/delete', {
       method: 'POST',
       body: { userId },
     })
-    toast.success('User deleted successfully.')
+    toast.success(t('User deleted successfully.'))
     refresh()
   } catch (e: any) {
-    toast.error('Failed to delete user', { description: e.data?.message })
+    toast.error(t('Failed to delete user'), { description: t('Please try again.') })
   }
 }
 
-export const columns: ColumnDef<User>[] = [
+export const createUserColumns = (t: Translate): ColumnDef<User>[] => [
   {
     accessorKey: 'email',
-    header: 'Email',
+    header: t('Email'),
   },
   {
     accessorKey: 'role',
-    header: 'Role',
+    header: t('Role'),
+    cell: ({ row }) => t(row.original.role === 'admin' ? 'Administrator' : 'User'),
   },
   {
     id: 'actions',
@@ -57,25 +60,25 @@ export const columns: ColumnDef<User>[] = [
 
       return h(DropdownMenu, null, () => [
         h(DropdownMenuTrigger, { asChild: true }, () =>
-          h(Button, { variant: 'ghost', class: 'w-8 h-8 p-0' }, () =>
+          h(Button, { variant: 'ghost', class: 'w-8 h-8 p-0', 'aria-label': t('User actions') }, () =>
             h(MoreHorizontalIcon, { class: 'w-4 h-4' })
           )
         ),
         h(DropdownMenuContent, { align: 'end' }, () => [
-          h(DropdownMenuLabel, null, () => 'Actions'),
-          h(DropdownMenuItem, { onClick: () => navigator.clipboard.writeText(user.user_id) }, () => 'Copy User ID'),
+          h(DropdownMenuLabel, null, () => t('Actions')),
+          h(DropdownMenuItem, { onClick: () => navigator.clipboard.writeText(user.user_id) }, () => t('Copy User ID')),
           h(DropdownMenuSeparator),
           h(DropdownMenuItem, {
-            onClick: () => updateUserRole(user.user_id, user.role === 'admin' ? 'user' : 'admin', refresh),
-          }, () => `Set as ${user.role === 'admin' ? 'user' : 'admin'}`),
+            onClick: () => updateUserRole(user.user_id, user.role === 'admin' ? 'user' : 'admin', refresh, t),
+          }, () => t(user.role === 'admin' ? 'Set as user' : 'Set as administrator')),
           h(DropdownMenuItem, {
             class: 'text-destructive',
             onClick: () => {
-              if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-                deleteUser(user.user_id, refresh)
+              if (confirm(t('Are you sure you want to delete this user? This action cannot be undone.'))) {
+                deleteUser(user.user_id, refresh, t)
               }
             },
-          }, () => 'Delete User'),
+          }, () => t('Delete User')),
         ])
       ])
     },

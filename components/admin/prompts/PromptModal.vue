@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { t } = useI18n();
 import { ref, watch } from 'vue'
 import { Button } from '@/components/shadcn/button'
 import {
@@ -62,27 +63,27 @@ async function save() {
   <Dialog :open="open" @update:open="$emit('update:open', $event)">
     <DialogContent class="sm:max-w-[425px]">
       <DialogHeader>
-        <DialogTitle>{{ prompt ? 'Edit' : 'Create' }} Prompt</DialogTitle>
+        <DialogTitle>{{ t(prompt ? 'Edit Prompt' : 'Create Prompt') }}</DialogTitle>
         <DialogDescription>
-          {{ prompt ? 'Edit the details of your prompt.' : 'Create a new prompt from scratch.' }}
+          {{ t(prompt ? 'Edit the details of your prompt.' : 'Create a new prompt from scratch.') }}
         </DialogDescription>
       </DialogHeader>
       <div class="grid gap-4 py-4">
         <div class="grid grid-cols-4 items-center gap-4">
-          <label for="name" class="text-right">Name</label>
+          <label for="name" class="text-right">{{ t('Name') }}</label>
           <Input id="name" v-model="name" class="col-span-3" />
         </div>
         <div class="grid grid-cols-4 items-center gap-4">
-          <label for="content" class="text-right">Content</label>
+          <label for="content" class="text-right">{{ t('Content') }}</label>
           <Textarea id="content" v-model="content" class="col-span-3" />
         </div>
         <div class="grid grid-cols-4 items-center gap-4">
-          <label for="is_active" class="text-right">Active</label>
+          <label for="is_active" class="text-right">{{ t('Active') }}</label>
           <Checkbox id="is_active" v-model:checked="isActive" />
         </div>
       </div>
       <DialogFooter>
-        <Button type="submit" @click="save">Save changes</Button>
+        <Button type="submit" @click="save">{{ t('Save changes') }}</Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>

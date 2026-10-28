@@ -1,13 +1,13 @@
 <template>
-  <AuthPageShell title="Welcome back" alternate-label="Sign up" alternate-to="/signup">
+  <AuthPageShell :title="t('Welcome back')" :alternate-label="t('Sign up')" alternate-to="/signup">
     <form class="space-y-5" :aria-busy="isLoading" @submit.prevent="login">
       <div class="space-y-2">
-        <label class="text-sm font-medium" for="email">Email</label>
+        <label class="text-sm font-medium" for="email">{{ t('Email') }}</label>
         <Input
           id="email"
           v-model="email"
           name="email"
-          placeholder="you@example.com"
+          :placeholder="t('you@example.com')"
           type="email"
           autocomplete="email"
           autocapitalize="off"
@@ -19,13 +19,13 @@
       </div>
       <div class="space-y-2">
         <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <label class="text-sm font-medium" for="password">Password</label>
-          <NuxtLink to="/pwdforgot" class="rounded text-xs text-muted-foreground transition hover:text-violet-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background">Forgot password?</NuxtLink>
+          <label class="text-sm font-medium" for="password">{{ t('Password') }}</label>
+          <NuxtLink to="/pwdforgot" class="rounded text-xs text-muted-foreground transition hover:text-violet-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background">{{ t('Forgot password?') }}</NuxtLink>
         </div>
         <AuthPasswordInput id="password" v-model="password" autocomplete="current-password" :disabled="isLoading" />
       </div>
 
-      <p v-if="errorMessage" role="alert" class="rounded-xl border border-red-400/20 bg-red-400/5 px-4 py-3 text-sm leading-relaxed text-red-400">{{ errorMessage }}</p>
+      <p v-if="errorMessage" role="alert" class="rounded-xl border border-red-400/20 bg-red-400/5 px-4 py-3 text-sm leading-relaxed text-red-400">{{ t(errorMessage) }}</p>
 
       <Button
         :disabled="!email.trim() || !password || isLoading"
@@ -33,25 +33,26 @@
         type="submit"
       >
         <LoaderCircle v-if="isLoading" class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-        <span>{{ isLoading ? 'Logging in…' : 'Log in' }}</span>
+        <span>{{ t(isLoading ? 'Logging in…' : 'Log in') }}</span>
         <ArrowRight v-if="!isLoading" class="size-4" aria-hidden="true" />
       </Button>
       <p class="border-t border-border pt-5 text-center text-sm text-muted-foreground">
-        No account yet?
-        <NuxtLink class="ml-1 inline-block rounded font-medium text-violet-400 transition hover:text-violet-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background" to="/signup">Sign up</NuxtLink>
+        {{ t('No account yet?') }}
+        <NuxtLink class="ml-1 inline-block rounded font-medium text-violet-400 transition hover:text-violet-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background" to="/signup">{{ t('Sign up') }}</NuxtLink>
       </p>
     </form>
   </AuthPageShell>
 </template>
 
 <script lang="ts" setup>
+const { t } = useI18n();
 import { ArrowRight, LoaderCircle } from 'lucide-vue-next';
 import AuthPageShell from '~/components/AuthPageShell.vue';
 import AuthPasswordInput from '~/components/ui/AuthPasswordInput.vue';
 import { Input } from '~/components/shadcn/input';
 import { Button } from '~/components/shadcn/button';
 
-useHead({ title: 'Log in — Synupsis' });
+useHead(() => ({ title: t('Log in — Synupsis') }));
 
 const supabase = useSupabaseClient();
 const email = ref('');

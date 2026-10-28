@@ -322,6 +322,7 @@ function createEnvironment(t, { path = '/profile', reducedMotion = false } = {})
     runInNewContext(compiledLogo, {
       module,
       exports: module.exports,
+      useI18n: () => ({ t: message => message, locale: vue.ref('en') }),
       Error,
       window: {
         matchMedia: () => ({ matches: environment.reducedMotion }),
