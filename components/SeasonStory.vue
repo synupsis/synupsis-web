@@ -50,7 +50,7 @@
                 v-if="season.image"
                 :src="season.image"
                 :alt="`Affiche de la saison ${season.number}`"
-                class="h-full w-full object-cover transition duration-300"
+                class="h-full w-full object-cover object-[50%_25%] transition duration-300"
                 :class="{ 'group-hover:scale-105': !primaryDisabled, 'grayscale-[35%]': spoilerLocked }"
               />
               <span v-else class="block h-full w-full bg-gradient-to-br from-white/10 via-primary/10 to-black" />
