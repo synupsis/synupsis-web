@@ -14,6 +14,7 @@ ENV NUXT_PUBLIC_SUPABASE_URL=$NUXT_PUBLIC_SUPABASE_URL \
     NUXT_TELEMETRY_DISABLED=1
 
 COPY package.json yarn.lock ./
+COPY .github/vendor/rollup-defaults-clone ./.github/vendor/rollup-defaults-clone
 # No dependency needs an install script; skipping them also skips the Supabase
 # CLI download. `nuxt build` prepares the project itself.
 RUN yarn install --frozen-lockfile --ignore-scripts --network-timeout 600000

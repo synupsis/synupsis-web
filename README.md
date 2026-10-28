@@ -71,6 +71,12 @@ The targeted `minimatch` resolution in `package.json` updates the vulnerable
 version. Remove this resolution when upgrading to a TypeScript ESLint version
 that already uses a corrected dependency.
 
+Rollup's `deepmerge` dependency has no published fix for GHSA-gcqx-w48m-w2h4.
+A scoped resolution replaces its sole use (cloning internal default options)
+with a native clone. See [.github/vendor/rollup-defaults-clone](.github/vendor/rollup-defaults-clone/README.md)
+for the contract, regression tests and removal criteria. The vulnerable registry
+package is no longer installed; the audit has no advisory exceptions.
+
 ## Deployment
 
 The app runs as one long-lived Node server built from the `Dockerfile`: Dokploy (published through Pangolin) for development and Render for production. Recap generation does not work on serverless hosting. See [docs/deployment.md](docs/deployment.md).

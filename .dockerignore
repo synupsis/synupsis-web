@@ -3,7 +3,8 @@
 .env.*
 !.env.example
 .git
-.github
+.github/*
+!.github/vendor/
 .claude
 .idea
 .orchestrator-scaffold

@@ -1,0 +1,10 @@
+{
+  "name": "@synupsis/rollup-defaults-clone",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Scoped replacement for Rollup node-resolve's default-options clone",
+  "main": "index.cjs",
+  "engines": {
+    "node": ">=24.15 <25"
+  }
+}
