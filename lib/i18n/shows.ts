@@ -21,8 +21,6 @@ export const showMessages: Record<string, string> = {
   "Deactivate spoiler shield": "Désactiver le bouclier anti-spoil",
   "Enabled": "Activé",
   "Disabled": "Désactivé",
-  "The whole page follows your progress.": "Toute la page respecte votre avancement.",
-  "All spoilers are visible. Your progress is unchanged.": "Tous les spoilers sont visibles. Votre avancement reste inchangé.",
   "Could not save your spoiler shield setting.": "Impossible d’enregistrer le réglage de votre bouclier anti-spoil.",
   "Where are you up to?": "Où en êtes-vous ?",
   "Choose an episode": "Choisir un épisode",

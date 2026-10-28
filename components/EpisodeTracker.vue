@@ -187,7 +187,6 @@
             :class="spoilerShieldEnabled ? 'text-emerald-300 hover:text-emerald-200' : 'text-amber-300 hover:text-amber-200'"
             :aria-checked="spoilerShieldEnabled"
             :aria-label="t('Spoiler shield')"
-            :aria-describedby="spoilerShieldHintId"
             :aria-busy="spoilerShieldSaving"
             :title="spoilerShieldEnabled ? t('Deactivate spoiler shield') : t('Activate spoiler shield')"
             :disabled="spoilerShieldSaving"
@@ -205,11 +204,6 @@
               <span class="h-4 w-4 rounded-full bg-current transition-transform motion-reduce:transition-none" :class="spoilerShieldEnabled ? 'translate-x-4' : 'translate-x-0'" />
             </span>
           </button>
-          <p :id="spoilerShieldHintId" class="text-xs leading-5 text-muted-foreground">
-            {{ spoilerShieldEnabled
-              ? t('The whole page follows your progress.')
-              : t('All spoilers are visible. Your progress is unchanged.') }}
-          </p>
         </div>
       </div>
     </Transition>
@@ -283,7 +277,7 @@
 
 <script setup lang="ts">
 import { BookmarkCheckIcon, BookmarkIcon, BookmarkXIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, CircleCheckIcon, CircleStopIcon, EllipsisIcon, FastForwardIcon, LockIcon, MessagesSquareIcon, PlayIcon, ShieldCheckIcon, ShieldOffIcon } from 'lucide-vue-next';
-import { computed, onMounted, reactive, ref, useId, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { Button } from '~/components/shadcn/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '~/components/shadcn/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '~/components/shadcn/dropdown-menu';
@@ -293,7 +287,6 @@ type CatalogEpisode = { number: number; title: string; firstAired: string | null
 type EpisodePosition = { season: number; episode: number };
 
 const { t } = useI18n();
-const spoilerShieldHintId = useId();
 
 const props = defineProps<{
   slug: string;
