@@ -38,6 +38,9 @@
             @mark="markEpisodeSeen"
             @discuss="openEpisodeDiscussion"
             @reset="resetProgress"
+            :saved="!!libraryEntry"
+            @save="saveToLibrary"
+            @unsave="removeFromLibrary"
           />
         </div>
       </section>
@@ -411,6 +414,7 @@ import { CalendarIcon, CheckIcon, ChevronDownIcon, LockIcon, MapIcon, MapPinIcon
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import type { ShowWithSeasons } from '~/types/database.types';
+import type { LibraryEntry } from '~/types/library.types';
 import type { SeasonHubCorrection, SeasonHubCorrectionTarget, SeasonHubEvent, SeasonHubResponse } from '~/types/season-hub.types';
 import type {
   ShowCharacterProfile,
@@ -509,7 +513,21 @@ const mediaCharacterProfiles = computed(() => {
   return profiles;
 });
 
-// A cookie, so the server renders the page at the right progress instead of jumping once the browser reads it.
+const showTraktId = String(route.params.slug).split('-').pop();
+const requestFetch = useRequestFetch();
+// The library holds the viewer's progress; the server reads it so the page renders at the right episode.
+const { data: libraryEntry } = await useAsyncData(
+  `library-entry-${route.params.slug}`,
+  async () => {
+    if (!user.value || !showData.value) return null;
+    try {
+      return (await requestFetch<{ entry: LibraryEntry | null }>(`/api/library/${showTraktId}`)).entry;
+    } catch {
+      return null;
+    }
+  },
+);
+// Progress from before accounts were required; it moves into the library at the first signed-in visit.
 const progressCookie = useCookie<{ season?: number; episode?: number } | null>(
   `synupsis-progress-${route.params.slug}`,
   { maxAge: 60 * 60 * 24 * 365, sameSite: 'lax', default: () => null },
@@ -517,13 +535,16 @@ const progressCookie = useCookie<{ season?: number; episode?: number } | null>(
 const progressStorageKey = `synupsis:series-progress:${route.params.slug}`;
 const savedProgress = route.query.season != null
   ? { season: route.query.season, episode: route.query.episode }
-  : progressCookie.value;
+  : libraryEntry.value?.season ? libraryEntry.value : progressCookie.value;
 const requestedSeason = Number(savedProgress?.season ?? 0);
 const requestedEpisode = Number(savedProgress?.episode ?? 0);
 const reachedSeasonNumber = ref(sortedSeasons.value.some(season => season.number === requestedSeason) ? requestedSeason : 0);
 const reachedEpisode = ref(Number.isInteger(requestedEpisode) && requestedEpisode > 0 ? requestedEpisode : 0);
 // Until someone tracks the series, all of it is visible.
-const trackingMode = computed<'undecided' | 'tracking'>(() => reachedSeasonNumber.value ? 'tracking' : 'undecided');
+const trackingMode = computed<'undecided' | 'library' | 'tracking'>(() => {
+  if (reachedSeasonNumber.value) return 'tracking';
+  return libraryEntry.value ? 'library' : 'undecided';
+});
 // Lifts the spoiler block for a quick check without losing progress; a reload hides the rest again.
 const revealAll = ref(false);
 
@@ -867,23 +888,40 @@ watch(progressEpisodeTotal, (totalEpisodes) => {
   persistProgress();
 });
 
-// Progress saved before the cookie existed moves over once.
+// Progress kept in the browser before accounts were required: shown as it was,
+// and moved into the library once the viewer signs in.
 onMounted(() => {
-  if (route.query.season != null || progressCookie.value) return;
-  try {
-    const saved = JSON.parse(localStorage.getItem(progressStorageKey) || '{}');
-    const hasSavedSeason = sortedSeasons.value.some(season => season.number === Number(saved.season));
-    if (hasSavedSeason && saved.enabled !== false) {
-      reachedSeasonNumber.value = Number(saved.season);
-      reachedEpisode.value = Number.isInteger(Number(saved.episode)) ? Math.max(0, Number(saved.episode)) : 0;
-      persistProgress();
+  if (route.query.season == null && !progressCookie.value) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(progressStorageKey) || '{}');
+      const hasSavedSeason = sortedSeasons.value.some(season => season.number === Number(saved.season));
+      if (hasSavedSeason && saved.enabled !== false && !libraryEntry.value) {
+        reachedSeasonNumber.value = Number(saved.season);
+        reachedEpisode.value = Number.isInteger(Number(saved.episode)) ? Math.max(0, Number(saved.episode)) : 0;
+      }
+    } catch {
+      // A malformed local preference simply falls back to the spoiler-safe state.
     }
-  } catch {
-    // A malformed local preference simply falls back to the spoiler-safe state.
   }
+  if (!user.value) return;
+  const hasLegacyProgress = progressCookie.value || localStorage.getItem(progressStorageKey);
+  if (hasLegacyProgress && route.query.season == null && !libraryEntry.value && reachedSeasonNumber.value) persistProgress();
+  progressCookie.value = null;
+  localStorage.removeItem(progressStorageKey);
 });
 
+// Saving and tracking need an account: the viewer comes back to this page once signed in.
+function requireAccount() {
+  if (user.value) return true;
+  navigateTo({ path: '/login', query: { redirect: route.fullPath } });
+  return false;
+}
+
 function resetProgress() {
+  if (!user.value) {
+    progressCookie.value = null;
+    localStorage.removeItem(progressStorageKey);
+  }
   revealAll.value = false;
   reachedSeasonNumber.value = 0;
   reachedEpisode.value = 0;
@@ -896,10 +934,38 @@ function startTracking() {
 }
 
 function markEpisodeSeen(position: { season: number; episode: number }) {
+  if (!requireAccount()) return;
   reachedSeasonNumber.value = position.season;
   reachedEpisode.value = Math.max(0, position.episode);
   discussionEpisode.value = null;
   persistProgress();
+}
+
+function saveToLibrary() {
+  if (!requireAccount()) return;
+  persistProgress();
+  toast.success(t('Added to your library'), {
+    action: { label: t('View'), onClick: () => navigateTo('/library') },
+  });
+}
+
+async function removeFromLibrary() {
+  revealAll.value = false;
+  reachedSeasonNumber.value = 0;
+  reachedEpisode.value = 0;
+  discussionEpisode.value = null;
+  const previous = libraryEntry.value;
+  libraryEntry.value = null;
+  syncProgressQuery();
+  librarySync = librarySync.then(async () => {
+    try {
+      await $fetch(`/api/library/${showTraktId}`, { method: 'DELETE' });
+    } catch {
+      libraryEntry.value = previous;
+      toast.error(t('Could not update your library.'));
+    }
+  });
+  await librarySync;
 }
 
 function openEpisodeDiscussion(position: { season: number; episode: number }) {
@@ -917,15 +983,35 @@ function isRecapUnlocked(seasonNumber: number) {
   return progressEpisodeTotal.value > 0 && reachedEpisode.value >= progressEpisodeTotal.value;
 }
 
-function persistProgress() {
-  progressCookie.value = reachedSeasonNumber.value
-    ? { season: reachedSeasonNumber.value, episode: reachedEpisode.value }
-    : null;
+function syncProgressQuery() {
   router.replace({ query: {
     ...route.query,
     season: reachedSeasonNumber.value || undefined,
     episode: reachedEpisode.value || undefined,
   } });
+}
+
+// Saves run one after the other, so quick clicks reach the library in order.
+let librarySync = Promise.resolve();
+
+function persistProgress() {
+  syncProgressQuery();
+  if (!user.value) return;
+  const body = {
+    slug: String(route.params.slug),
+    season: reachedSeasonNumber.value || null,
+    episode: reachedEpisode.value,
+  };
+  // The card follows at once; the saved row replaces it when it comes back.
+  libraryEntry.value = { ...body, updatedAt: new Date().toISOString() };
+  librarySync = librarySync.then(async () => {
+    try {
+      const response = await $fetch<{ entry: LibraryEntry }>(`/api/library/${showTraktId}`, { method: 'PUT', body });
+      libraryEntry.value = response.entry;
+    } catch {
+      toast.error(t('Could not save your library.'));
+    }
+  });
 }
 
 const { generations: recapGenerations, start: startRecapGeneration } = useRecapGenerations({

@@ -52,6 +52,44 @@ export type Database = {
         }
         Relationships: []
       }
+      library_entry: {
+        Row: {
+          created_at: string
+          episode: number
+          season: number | null
+          show_id: string
+          slug: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          episode?: number
+          season?: number | null
+          show_id: string
+          slug: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          episode?: number
+          season?: number | null
+          show_id?: string
+          slug?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_entry_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: false
+            referencedRelation: "show"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile: {
         Row: {
           created_at: string

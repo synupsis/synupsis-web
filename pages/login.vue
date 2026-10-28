@@ -59,6 +59,12 @@ const email = ref('');
 const password = ref('');
 const isLoading = ref(false);
 const errorMessage = ref('');
+const route = useRoute();
+// Only paths on this site: an absolute or protocol-relative address would send the viewer away.
+const redirectPath = computed(() => {
+  const redirect = route.query.redirect;
+  return typeof redirect === 'string' && /^\/(?![/\\])/.test(redirect) ? redirect : '/';
+});
 
 async function login() {
   if (isLoading.value || !email.value.trim() || !password.value) return;
@@ -73,7 +79,7 @@ async function login() {
       errorMessage.value = error.message;
       return;
     }
-    await navigateTo('/');
+    await navigateTo(redirectPath.value);
   } catch {
     errorMessage.value = 'Unable to log in right now. Please try again.';
   } finally {

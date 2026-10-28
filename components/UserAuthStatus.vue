@@ -31,6 +31,12 @@
               {{ t('Profile') }}
             </NuxtLink>
           </DropdownMenuItem>
+          <DropdownMenuItem as-child class="min-h-10 cursor-pointer rounded-lg px-3 py-2.5">
+            <NuxtLink to="/library">
+              <LibraryBig class="text-muted-foreground" aria-hidden="true" />
+              {{ t('Library') }}
+            </NuxtLink>
+          </DropdownMenuItem>
           <DropdownMenuItem v-if="isAdmin" as-child class="min-h-10 cursor-pointer rounded-lg px-3 py-2.5">
             <NuxtLink to="/admin">
               <ShieldCheck class="text-muted-foreground" aria-hidden="true" />
@@ -84,7 +90,7 @@ import {
   DropdownMenuTrigger,
 } from '~/components/shadcn/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/shadcn/avatar'
-import { ChevronDown, LogOut, ShieldCheck, UserRound } from 'lucide-vue-next';
+import { ChevronDown, LibraryBig, LogOut, ShieldCheck, UserRound } from 'lucide-vue-next';
 
 const user = useSupabaseUser();
 const supabase = useSupabaseClient();

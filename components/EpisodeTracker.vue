@@ -4,10 +4,35 @@
     :class="revealed ? 'border-amber-500/40' : 'border-white/15'"
   >
     <Transition name="tracker-swap" mode="out-in">
-      <div v-if="mode === 'undecided'" key="undecided" class="flex flex-col gap-4">
+      <div v-if="mode !== 'tracking'" :key="mode" class="flex flex-col gap-4">
+        <div v-if="mode === 'library'" class="flex items-center justify-between gap-2">
+          <span class="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-300">
+            <BookmarkCheckIcon class="h-3.5 w-3.5" aria-hidden="true" />
+            {{ t('In your library') }}
+          </span>
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <button type="button" class="grid h-8 w-8 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-white/[0.05] hover:text-white" :aria-label="t('Library options')">
+                <EllipsisIcon class="h-4 w-4" aria-hidden="true" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" class="w-56 rounded-xl">
+              <DropdownMenuItem class="cursor-pointer" @click="emit('unsave')">
+                <BookmarkXIcon aria-hidden="true" />
+                {{ t('Remove from my library') }}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
         <div class="flex flex-col gap-2">
-          <h2 class="text-xl font-extrabold tracking-tight">{{ t('Are you watching {name}?', { name: showName }) }}</h2>
-          <p class="text-sm leading-6 text-white/70">{{ t('Track your progress: recaps, characters and discussions stop at your current episode, without spoiling what comes next.') }}</p>
+          <h2 class="text-xl font-extrabold tracking-tight">
+            {{ mode === 'library' ? t('Track {name} episode by episode', { name: showName }) : t('Are you watching {name}?', { name: showName }) }}
+          </h2>
+          <p class="text-sm leading-6 text-white/70">
+            {{ mode === 'library'
+              ? t('The entire series is visible. Set your episode so recaps, characters and discussions stop there.')
+              : t('Save it to your library, or track your progress: recaps, characters and discussions stop at your current episode, without spoiling what comes next.') }}
+          </p>
         </div>
         <div class="grid gap-2">
           <Button type="button" size="lg" class="w-full rounded-full" @click="emit('start')">
@@ -18,10 +43,38 @@
             <FastForwardIcon class="mr-2 h-4 w-4" aria-hidden="true" />
             {{ t('I am already at…') }}
           </Button>
+          <Button v-if="mode === 'undecided'" type="button" variant="ghost" size="lg" class="w-full rounded-full" @click="emit('save')">
+            <BookmarkIcon class="mr-2 h-4 w-4" aria-hidden="true" />
+            {{ t('Add to my library') }}
+          </Button>
         </div>
       </div>
 
       <div v-else key="tracking" class="flex flex-col gap-4">
+      <div class="-mb-2 flex items-center justify-between gap-2">
+        <span v-if="!saved" />
+        <span v-else class="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-300">
+          <BookmarkCheckIcon class="h-3.5 w-3.5" aria-hidden="true" />
+          {{ t('In your library') }}
+        </span>
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <button type="button" class="grid h-8 w-8 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-white/[0.05] hover:text-white" :aria-label="t('Library options')">
+              <EllipsisIcon class="h-4 w-4" aria-hidden="true" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" class="w-56 rounded-xl">
+            <DropdownMenuItem class="cursor-pointer" @click="emit('reset')">
+              <CircleStopIcon aria-hidden="true" />
+              {{ t('Stop tracking') }}
+            </DropdownMenuItem>
+            <DropdownMenuItem v-if="saved" class="cursor-pointer" @click="emit('unsave')">
+              <BookmarkXIcon aria-hidden="true" />
+              {{ t('Remove from my library') }}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       <div class="flex items-center gap-3">
         <button
           type="button"
@@ -208,10 +261,11 @@
 </template>
 
 <script setup lang="ts">
-import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, CircleCheckIcon, EyeIcon, EyeOffIcon, FastForwardIcon, LockIcon, MessagesSquareIcon, PlayIcon } from 'lucide-vue-next';
+import { BookmarkCheckIcon, BookmarkIcon, BookmarkXIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, CircleCheckIcon, CircleStopIcon, EllipsisIcon, EyeIcon, EyeOffIcon, FastForwardIcon, LockIcon, MessagesSquareIcon, PlayIcon } from 'lucide-vue-next';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { Button } from '~/components/shadcn/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '~/components/shadcn/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '~/components/shadcn/dropdown-menu';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 
 type CatalogEpisode = { number: number; title: string; firstAired: string | null };
@@ -225,8 +279,10 @@ const props = defineProps<{
   seasons: number[];
   reachedSeason: number;
   reachedEpisode: number;
-  // undecided: the series is not tracked yet, and all of it is visible.
-  mode: 'undecided' | 'tracking';
+  // undecided: not in the library. library: saved without tracking. Both show the entire series.
+  mode: 'undecided' | 'library' | 'tracking';
+  // In the viewer's library; progress kept in the browser before accounts is not.
+  saved?: boolean;
   // Progress is kept, but the page temporarily shows everything.
   revealed: boolean;
   showName: string;
@@ -239,7 +295,10 @@ const emit = defineEmits<{
   discuss: [position: EpisodePosition];
   start: [];
   'toggle-reveal': [];
+  // Stops tracking; the series stays in the library.
   reset: [];
+  save: [];
+  unsave: [];
 }>();
 
 const catalogs = reactive<Record<number, CatalogEpisode[]>>({});
