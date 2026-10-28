@@ -1,7 +1,9 @@
 <template>
   <article
     class="relative isolate h-full w-full overflow-hidden bg-slate-950 text-white [container-type:inline-size]"
-    :class="densityClass"
+    :class="[densityClass, { 'recap-editable': editable }]"
+    @click="selectText"
+    @keydown.enter="selectText"
   >
     <template v-if="imageLayout === 'full'">
       <Transition name="story-image" mode="out-in">
@@ -75,11 +77,11 @@
               <span>{{ content.year }}</span>
             </template>
           </p>
-          <p v-if="displaySubtitle" class="recap-cover-subtitle mt-5 max-w-[24ch] font-semibold leading-snug text-white">
-            {{ displaySubtitle }}
+          <p v-if="displaySubtitle" class="recap-cover-subtitle mt-5 max-w-[24ch] font-semibold leading-snug text-white" v-bind="field('subtitle')">
+            {{ displaySubtitle }}<RecapSuggestionChip :path="'subtitle'" :count="countOf('subtitle')" />
           </p>
-          <p v-if="displayLogline" class="recap-cover-logline mt-3 max-w-[34ch] leading-relaxed text-white/75">
-            {{ displayLogline }}
+          <p v-if="displayLogline" class="recap-cover-logline mt-3 max-w-[34ch] leading-relaxed text-white/75" v-bind="field('logline')">
+            {{ displayLogline }}<RecapSuggestionChip :path="'logline'" :count="countOf('logline')" />
           </p>
         </div>
       </template>
@@ -92,8 +94,8 @@
           <p class="mt-5 text-sm font-semibold" :style="{ color: accentColor }">
             {{ t('Episode {number}', { number: content.episodeNumber }) }}<template v-if="content.episodeTitle"> · {{ content.episodeTitle }}</template>
           </p>
-          <h2 class="recap-chapter-title mt-3 font-bold tracking-[-0.035em]">
-            {{ content.headline }}
+          <h2 class="recap-chapter-title mt-3 font-bold tracking-[-0.035em]" v-bind="field('headline')">
+            {{ content.headline }}<RecapSuggestionChip :path="'headline'" :count="countOf('headline')" />
           </h2>
         </div>
       </template>
@@ -101,19 +103,19 @@
       <template v-else-if="content.kind === 'moment'">
         <div class="relative mt-auto">
           <div class="flex items-center gap-2.5">
-            <span class="rounded-full border border-amber-500/50 bg-amber-500/15 px-2.5 py-1 text-xs font-semibold text-amber-300">
+            <span class="shrink-0 whitespace-nowrap rounded-full border border-amber-500/50 bg-amber-500/15 px-2.5 py-1 text-xs font-semibold text-amber-300">
               {{ t('Turning point') }}
             </span>
             <span class="text-[13px] text-white/65">
-              {{ t('Episode {number}', { number: content.episodeNumber }) }}<template v-if="content.location"> · {{ content.location }}</template>
+              {{ t('Episode {number}', { number: content.episodeNumber }) }}<template v-if="content.location"> · <span v-bind="field('location')">{{ content.location }}<RecapSuggestionChip :path="'location'" :count="countOf('location')" /></span></template>
             </span>
           </div>
-          <h2 class="recap-moment-title mt-4 font-bold tracking-[-0.03em]">
-            {{ content.text }}
+          <h2 class="recap-moment-title mt-4 font-bold tracking-[-0.03em]" v-bind="field('text')">
+            {{ content.text }}<RecapSuggestionChip :path="'text'" :count="countOf('text')" />
           </h2>
           <p v-if="content.detail" class="recap-detail mt-4 flex gap-2.5 text-white/80">
             <span class="mt-[0.6em] h-1.5 w-1.5 shrink-0 rounded-full" :style="{ backgroundColor: accentColor }" aria-hidden="true" />
-            <span>{{ content.detail }}</span>
+            <span v-bind="field('detail')">{{ content.detail }}<RecapSuggestionChip :path="'detail'" :count="countOf('detail')" /></span>
           </p>
           <ul v-if="content.characters.length" class="mt-5 flex flex-wrap gap-x-4 gap-y-2.5" :aria-label="t('In this scene')">
             <li v-for="character in content.characters" :key="character.name" class="flex items-center gap-2">
@@ -132,7 +134,7 @@
           <ul class="flex flex-col divide-y divide-white/10" :class="imageLayout === 'band' ? 'mt-3' : 'mt-auto'">
             <li v-for="(item, index) in content.items" :key="index" class="py-4 first:pt-2 last:pb-0">
               <div v-if="item.location || item.characters.length" class="flex items-center justify-between gap-3">
-                <span class="text-sm font-semibold text-white/60">{{ item.location }}</span>
+                <span class="text-sm font-semibold text-white/60" v-bind="item.location ? field(`items.${index}.location`) : {}">{{ item.location }}<RecapSuggestionChip :path="`items.${index}.location`" :count="countOf(`items.${index}.location`)" /></span>
                 <span class="flex pl-1.5" :aria-label="item.characters.map(character => character.name).join(', ')">
                   <RecapCharacterAvatar
                     v-for="character in item.characters"
@@ -142,7 +144,7 @@
                   />
                 </span>
               </div>
-              <p class="recap-group-text mt-2 font-medium text-white/95">{{ item.text }}</p>
+              <p class="recap-group-text mt-2 font-medium text-white/95" v-bind="field(`items.${index}.text`)">{{ item.text }}<RecapSuggestionChip :path="`items.${index}.text`" :count="countOf(`items.${index}.text`)" /></p>
             </li>
           </ul>
         </div>
@@ -160,17 +162,17 @@
                 <RecapCharacterAvatar :character="death.character" muted class="recap-avatar mt-0.5 border border-dashed border-white/20 bg-zinc-700/60 text-xs text-zinc-300" />
                 <span class="min-w-0">
                   <span class="block text-sm font-semibold text-white/55">{{ t('Death') }}</span>
-                  <span class="recap-line mt-0.5 block text-white/90"><span v-if="needsName(death)" class="font-semibold text-white">{{ death.character?.name }} · </span>{{ death.text }}</span>
+                  <span class="recap-line mt-0.5 block text-white/90"><span v-if="needsName(death)" class="font-semibold text-white">{{ death.character?.name }} · </span><span v-bind="field(`deaths.${index}.text`)">{{ death.text }}<RecapSuggestionChip :path="`deaths.${index}.text`" :count="countOf(`deaths.${index}.text`)" /></span></span>
                 </span>
               </li>
               <li v-for="(situation, index) in content.situations" :key="`situation-${index}`" class="recap-row flex items-start gap-3.5">
                 <RecapCharacterAvatar :character="situation.character" class="recap-avatar mt-0.5 bg-white/15 text-xs" />
-                <span class="recap-line min-w-0 text-white/90"><span v-if="needsName(situation)" class="font-semibold text-white">{{ situation.character?.name }} · </span>{{ situation.text }}</span>
+                <span class="recap-line min-w-0 text-white/90"><span v-if="needsName(situation)" class="font-semibold text-white">{{ situation.character?.name }} · </span><span v-bind="field(`situations.${index}.text`)">{{ situation.text }}<RecapSuggestionChip :path="`situations.${index}.text`" :count="countOf(`situations.${index}.text`)" /></span></span>
               </li>
             </ul>
             <div v-for="(question, index) in content.questions" :key="`question-${index}`">
               <p class="text-sm font-semibold" :style="{ color: accentColor }">{{ t('Open question') }}</p>
-              <p class="recap-question mt-1.5 font-semibold">{{ question }}</p>
+              <p class="recap-question mt-1.5 font-semibold" v-bind="field(`questions.${index}`)">{{ question }}<RecapSuggestionChip :path="`questions.${index}`" :count="countOf(`questions.${index}`)" /></p>
             </div>
           </div>
         </div>
@@ -185,7 +187,7 @@
               <RecapCharacterAvatar :character="line.character" class="recap-avatar recap-avatar-lg mt-0.5 bg-white/15 text-xs" />
               <span class="min-w-0">
                 <span v-if="line.character" class="block text-[15px] font-semibold text-white">{{ line.character.name }}</span>
-                <span class="recap-line block text-white/85">{{ line.text }}</span>
+                <span class="recap-line block text-white/85" v-bind="field(`characters.${index}.text`)">{{ line.text }}<RecapSuggestionChip :path="`characters.${index}.text`" :count="countOf(`characters.${index}.text`)" /></span>
               </span>
             </li>
           </ul>
@@ -214,7 +216,7 @@
           <h2 class="recap-heading mt-3 font-bold leading-[1.05] tracking-[-0.03em]">{{ t('Open questions') }}</h2>
           <ul class="flex flex-col divide-y divide-white/10" :class="imageLayout === 'band' ? 'mt-5' : 'mt-auto'">
             <li v-for="(question, index) in content.questions" :key="index" class="py-4 first:pt-0 last:pb-0">
-              <p class="recap-question font-semibold">{{ question.text }}</p>
+              <p class="recap-question font-semibold" v-bind="field(`questions.${index}.text`)">{{ question.text }}<RecapSuggestionChip :path="`questions.${index}.text`" :count="countOf(`questions.${index}.text`)" /></p>
               <p v-if="question.episodeNumbers.length" class="mt-1.5 text-[13px] text-white/60 tabular-nums">
                 {{ question.episodeNumbers.length > 1 ? t('Episodes {numbers}', { numbers: question.episodeNumbers.join(' · ') }) : t('Episode {number}', { number: question.episodeNumbers[0] ?? '' }) }}
               </p>
@@ -243,14 +245,14 @@
             </p>
           </div>
 
-          <h2 class="recap-beat-title recap-episode-title max-w-[14ch] font-bold leading-[1.04] tracking-[-0.03em]">
-            {{ content.headline }}
+          <h2 class="recap-beat-title recap-episode-title max-w-[14ch] font-bold leading-[1.04] tracking-[-0.03em]" v-bind="field('headline')">
+            {{ content.headline }}<RecapSuggestionChip :path="'headline'" :count="countOf('headline')" />
           </h2>
 
           <ul class="mt-5 space-y-3 rounded-[22px] border border-white/[0.12] bg-black/45 p-5 shadow-2xl backdrop-blur-xl">
             <li v-for="(moment, index) in content.moments" :key="index" class="recap-moment flex gap-3 text-white/90">
               <span class="mt-[0.55em] h-1.5 w-1.5 shrink-0 rounded-full" :style="{ backgroundColor: accentColor }" aria-hidden="true" />
-              <span>{{ moment }}</span>
+              <span v-bind="field(`moments.${index}`)">{{ moment }}<RecapSuggestionChip :path="`moments.${index}`" :count="countOf(`moments.${index}`)" /></span>
             </li>
           </ul>
         </div>
@@ -263,13 +265,13 @@
             </p>
           </div>
 
-          <h2 class="recap-beat-title max-w-[11ch] font-bold leading-[1.02] tracking-[-0.03em]">
-            {{ content.headline }}
+          <h2 class="recap-beat-title max-w-[11ch] font-bold leading-[1.02] tracking-[-0.03em]" v-bind="field('headline')">
+            {{ content.headline }}<RecapSuggestionChip :path="'headline'" :count="countOf('headline')" />
           </h2>
 
           <div class="mt-5 rounded-[22px] border border-white/[0.12] bg-black/45 p-5 shadow-2xl backdrop-blur-xl">
-            <p class="recap-narration text-white/90">
-              {{ content.narration }}
+            <p class="recap-narration text-white/90" v-bind="field('narration')">
+              {{ content.narration }}<RecapSuggestionChip :path="'narration'" :count="countOf('narration')" />
             </p>
           </div>
         </div>
@@ -282,6 +284,8 @@
 const { t } = useI18n();
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import RecapCharacterAvatar from '~/components/RecapCharacterAvatar.vue';
+import RecapSuggestionChip from '~/components/RecapSuggestionChip.vue';
+import { editableSlideText } from '~/lib/recap-slide-text';
 import type { RecapChangeItem, RecapStorySlideContent } from '~/types/recap-story.types';
 
 const props = defineProps<{
@@ -295,7 +299,53 @@ const props = defineProps<{
   genres?: string[];
   // The player's episode rail covers the bottom of the slide.
   hasRail?: boolean;
+  // Suggestion mode: the texts open to corrections are outlined and can be picked.
+  editable?: boolean;
+  selectedPath?: string | null;
+  // How many suggestions each text already has, by path.
+  suggestionCounts?: Record<string, number>;
 }>();
+
+const emit = defineEmits<{
+  'select-text': [path: string];
+  'open-suggestions': [path: string];
+}>();
+
+// Every correctable text carries its path, so a long press can find it, and is
+// marked when it has suggestions; in suggestion mode it can also be picked.
+function field(path: string) {
+  // The same rule as the server: a text it would refuse is not offered.
+  if (editableSlideText(props.content, path) === null) return {};
+  const attributes = {
+    'data-edit-path': path,
+    'data-suggested': props.suggestionCounts?.[path] ? String(props.suggestionCounts[path]) : undefined,
+  };
+  if (!props.editable) return attributes;
+  return {
+    ...attributes,
+    'data-selected': props.selectedPath === path ? '' : undefined,
+    role: 'button',
+    tabindex: 0,
+    'aria-label': t('Suggest a correction for this text'),
+  };
+}
+
+const countOf = (path: string) => (editableSlideText(props.content, path) === null ? 0 : props.suggestionCounts?.[path] ?? 0);
+
+function selectText(event: MouseEvent | KeyboardEvent) {
+  // A suggestion chip lists what was already suggested for its text.
+  const chip = (event.target as HTMLElement | null)?.closest<HTMLElement>('[data-chip-path]');
+  if (chip?.dataset.chipPath) {
+    event.stopPropagation();
+    emit('open-suggestions', chip.dataset.chipPath);
+    return;
+  }
+  if (!props.editable) return;
+  const target = (event.target as HTMLElement | null)?.closest<HTMLElement>('[data-edit-path]');
+  if (!target?.dataset.editPath) return;
+  event.stopPropagation();
+  emit('select-text', target.dataset.editPath);
+}
 
 const accentColor = computed(() => {
   const genres = (props.genres || []).map(genre => genre.toLocaleLowerCase());
@@ -476,6 +526,21 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
 </script>
 
 <style scoped>
+/* Suggestion mode: each correctable text is outlined; one with suggestions in amber. */
+.recap-editable [data-edit-path] {
+  cursor: pointer;
+  border-radius: 4px;
+  outline: 1.5px dashed rgb(255 255 255 / 0.55);
+  outline-offset: 3px;
+  transition: background-color 150ms, outline-color 150ms;
+}
+.recap-editable [data-edit-path][data-suggested] { outline-color: rgb(251 191 36 / 0.9); }
+.recap-editable [data-edit-path]:hover,
+.recap-editable [data-edit-path]:focus-visible { background-color: rgb(255 255 255 / 0.12); outline-style: solid; }
+.recap-editable [data-edit-path][data-selected] {
+  background-color: rgb(255 255 255 / 0.18);
+  outline: 2px solid rgb(255 255 255);
+}
 /* --fit (1 down to 0.7) is set by fitContent when the slide runs out of height. */
 .recap-heading { font-size: calc(34px * var(--fit, 1)); }
 

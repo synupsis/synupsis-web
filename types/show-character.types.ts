@@ -10,21 +10,3 @@ export type ShowCharacterProfile = {
   isVoice: boolean;
   sourceUrl: string | null;
 };
-
-export type TimelineCharacterKeyEvent = {
-  id: string;
-  title: string;
-  seasonNumber: number;
-  episodeNumber: number;
-};
-
-export type TimelineCharacterProfile = ShowCharacterProfile & {
-  seasonNumbers: number[];
-  eventCount: number;
-  lastSeen: {
-    seasonNumber: number;
-    episodeNumber: number;
-  } | null;
-  arcs: string[];
-  keyEvents: TimelineCharacterKeyEvent[];
-};

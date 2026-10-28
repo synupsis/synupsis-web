@@ -397,6 +397,94 @@ export type Database = {
           },
         ]
       }
+      recap_slide_suggestion: {
+        Row: {
+          author_name: string | null
+          created_at: string
+          created_by: string
+          current_value: string | null
+          field_path: string | null
+          id: string
+          kind: string
+          message: string | null
+          proposed_value: string | null
+          recap_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          slide_context: Json
+          slide_order: number
+          status: string
+        }
+        Insert: {
+          author_name?: string | null
+          created_at?: string
+          created_by: string
+          current_value?: string | null
+          field_path?: string | null
+          id?: string
+          kind: string
+          message?: string | null
+          proposed_value?: string | null
+          recap_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          slide_context?: Json
+          slide_order: number
+          status?: string
+        }
+        Update: {
+          author_name?: string | null
+          created_at?: string
+          created_by?: string
+          current_value?: string | null
+          field_path?: string | null
+          id?: string
+          kind?: string
+          message?: string | null
+          proposed_value?: string | null
+          recap_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          slide_context?: Json
+          slide_order?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recap_slide_suggestion_recap_id_fkey"
+            columns: ["recap_id"]
+            isOneToOne: false
+            referencedRelation: "recap"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recap_slide_suggestion_like: {
+        Row: {
+          created_at: string
+          suggestion_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          suggestion_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          suggestion_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recap_slide_suggestion_like_suggestion_id_fkey"
+            columns: ["suggestion_id"]
+            isOneToOne: false
+            referencedRelation: "recap_slide_suggestion"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recap: {
         Row: {
           created_at: string

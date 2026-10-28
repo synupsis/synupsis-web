@@ -10,6 +10,7 @@
           <SidebarMenuItem to="/admin/prompts">{{ t('Prompts') }}</SidebarMenuItem>
           <SidebarMenuItem to="/admin/corrections">{{ t('Corrections') }}</SidebarMenuItem>
           <SidebarMenuItem to="/admin/comments">{{ t('Reported comments') }}</SidebarMenuItem>
+          <SidebarMenuItem to="/admin/slide-suggestions">{{ t('Slide suggestions') }}</SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
     </Sidebar>

@@ -1,16 +1,11 @@
 <template>
-  <button
-    type="button"
-    class="group flex w-full items-center gap-4 rounded-xl border border-white/10 p-4 text-left transition-colors hover:border-white/20 hover:bg-white/[0.025] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-    :aria-label="t('Show {name}’s scenes in the timeline', { name: profile.name })"
-    @click="$emit('select')"
-  >
+  <div class="flex w-full items-center gap-4 rounded-xl border border-white/10 p-4">
     <span class="relative grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full bg-primary/15 text-lg font-bold text-primary">
       <img
         v-if="imageSrc"
         :src="imageSrc"
         alt=""
-        class="absolute inset-0 h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+        class="absolute inset-0 h-full w-full object-cover"
         loading="lazy"
         @error="imageLoadFailed = true"
       >
@@ -19,37 +14,23 @@
     <span class="flex min-w-0 flex-col gap-1">
       <span class="truncate text-base font-semibold">{{ profile.name }}</span>
       <span v-if="profile.actorName" class="truncate text-[13px] text-muted-foreground">{{ profile.actorName }}</span>
-      <span v-if="lastSeenLabel" class="text-sm text-white/75">{{ lastSeenLabel }}</span>
     </span>
-  </button>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { proxiedImageUrl } from '~/lib/image-url';
 import { nameInitials } from '~/lib/utils';
-import type { TimelineCharacterProfile } from '~/types/show-character.types';
-
-const { t } = useI18n();
+import type { ShowCharacterProfile } from '~/types/show-character.types';
 
 const props = defineProps<{
-  profile: TimelineCharacterProfile;
-}>();
-
-defineEmits<{
-  select: [];
+  profile: ShowCharacterProfile;
 }>();
 
 const imageLoadFailed = ref(false);
 const initials = computed(() => nameInitials(props.profile.name));
 const imageSrc = computed(() => (imageLoadFailed.value ? '' : proxiedImageUrl(props.profile?.imageUrl)));
-const lastSeenLabel = computed(() => {
-  const lastSeen = props.profile.lastSeen;
-  if (!lastSeen) return '';
-  const scenes = t('{count} scene', { count: props.profile.eventCount });
-  const sceneLabel = props.profile.eventCount > 1 ? t('{count} scenes', { count: props.profile.eventCount }) : scenes;
-  return t('{scenes} · seen in S{season}E{episode}', { scenes: sceneLabel, season: lastSeen.seasonNumber, episode: lastSeen.episodeNumber });
-});
 
 watch(() => props.profile.imageUrl, () => {
   imageLoadFailed.value = false;

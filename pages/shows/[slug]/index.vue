@@ -134,7 +134,6 @@
                 v-for="profile in displayedCharacterProfiles"
                 :key="normalizeCharacterName(profile.name)"
                 :profile="profile"
-                @select="focusCharacterTimeline(profile)"
               />
             </div>
             <p v-if="hasTvMazeDirectoryProfiles" class="mt-3 text-[9px] text-muted-foreground">
@@ -204,185 +203,6 @@
         </div>
       </section>
 
-      <section id="timeline" class="scroll-mt-16 border-b border-white/10 py-6 sm:py-10">
-        <div class="mx-auto max-w-7xl px-5 lg:px-8">
-          <div class="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/10 px-6 py-5">
-            <div>
-              <h2 class="text-base font-semibold">{{ t('Timeline') }}</h2>
-              <p class="mt-1 text-[13px] text-muted-foreground">{{ timelineSummary }}</p>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              class="rounded-full"
-              :aria-expanded="isTimelineOpen"
-              aria-controls="timeline-content"
-              @click="isTimelineOpen = !isTimelineOpen"
-            >
-              {{ isTimelineOpen ? t('Close the timeline') : t('Open the timeline') }}
-              <ChevronDownIcon class="ml-2 h-4 w-4 transition-transform" :class="isTimelineOpen ? 'rotate-180' : ''" />
-            </Button>
-          </div>
-          <div v-if="isTimelineOpen" id="timeline-content" class="mt-10">
-            <div class="mb-8 flex justify-end">
-            <div
-              v-if="timelineFilterSeasons.length > 1 || timelineCharacterFilter"
-              class="-mx-1 flex max-w-full gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              role="group"
-              :aria-label="t('Timeline filters')"
-            >
-              <button
-                v-if="timelineFilterSeasons.length > 1"
-                type="button"
-                class="shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
-                :class="timelineSeasonFilter === 'all' ? 'border-primary/50 bg-primary/15 text-primary' : 'border-white/10 bg-white/[0.025] text-muted-foreground hover:border-white/20 hover:text-white'"
-                :aria-pressed="timelineSeasonFilter === 'all'"
-                @click="timelineSeasonFilter = 'all'"
-              >
-                {{ t('All seasons') }}
-              </button>
-              <template v-if="timelineFilterSeasons.length > 1">
-                <button
-                  v-for="seasonNumber in timelineFilterSeasons"
-                  :key="seasonNumber"
-                  type="button"
-                  class="shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
-                  :class="timelineSeasonFilter === seasonNumber ? 'border-primary/50 bg-primary/15 text-primary' : 'border-white/10 bg-white/[0.025] text-muted-foreground hover:border-white/20 hover:text-white'"
-                  :aria-pressed="timelineSeasonFilter === seasonNumber"
-                  @click="timelineSeasonFilter = seasonNumber"
-                >
-                  S{{ seasonNumber }}
-                </button>
-              </template>
-              <button
-                v-if="timelineCharacterFilter"
-                type="button"
-                class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-primary/40 bg-primary/15 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
-                :aria-label="t('Remove the {name} filter', { name: timelineCharacterFilter })"
-                @click="timelineCharacterFilter = null"
-              >
-                {{ timelineCharacterFilter }}
-                <XIcon class="h-3.5 w-3.5" aria-hidden="true" />
-              </button>
-            </div>
-            </div>
-          <div v-if="hubsPending" class="grid min-h-48 place-items-center"><SpinLoader class="h-7 w-7" /></div>
-          <div v-else-if="filteredTimelineEvents.length" class="mx-auto max-w-5xl">
-            <div id="timeline-event-list">
-              <section
-                v-for="(group, groupIndex) in displayedTimelineGroups"
-                :key="group.key"
-                class="grid grid-cols-[52px_1fr] gap-4"
-                :aria-label="t('Season {season}, episode {episode}', { season: group.seasonNumber, episode: group.episodeNumber })"
-              >
-                <div class="flex flex-col items-center">
-                  <div class="grid h-11 w-11 place-items-center rounded-full border border-primary/40 bg-primary/10 text-[11px] font-bold text-primary">S{{ group.seasonNumber }}E{{ group.episodeNumber }}</div>
-                  <div v-if="groupIndex < displayedTimelineGroups.length - 1" class="my-2 w-px flex-1 bg-gradient-to-b from-primary/40 to-white/10" />
-                </div>
-                <div class="mb-8 min-w-0">
-                  <h3 class="flex min-h-11 flex-wrap items-center gap-x-2 gap-y-1 text-base font-semibold">
-                    <span>{{ t('Episode {number}', { number: group.episodeNumber }) }}</span>
-                    <span v-if="group.title" class="font-normal text-muted-foreground">· {{ group.title }}</span>
-                    <span class="text-xs font-normal text-muted-foreground">{{ group.events.length > 1 ? t('{count} scenes', { count: group.events.length }) : t('{count} scene', { count: group.events.length }) }}</span>
-                  </h3>
-                  <div class="mt-3 space-y-4">
-                    <Card v-for="item in group.events" :key="`${item.seasonNumber}-${item.id}`" class="border-white/10">
-                      <CardHeader>
-                        <div class="flex items-start justify-between gap-4">
-                          <div class="min-w-0">
-                            <div v-if="item.location || item.arc || item.importance === 'critical' || item.episodeNumbers.length > 1" class="mb-2 flex flex-wrap gap-2">
-                              <Badge v-if="item.location" variant="outline" class="gap-1">
-                                <MapPinIcon class="h-3 w-3" aria-hidden="true" />
-                                {{ item.location }}
-                              </Badge>
-                              <Badge v-if="item.episodeNumbers.length > 1" variant="outline">{{ t('Episodes {numbers}', { numbers: item.episodeNumbers.join(', ') }) }}</Badge>
-                              <Badge v-if="item.arc" variant="secondary">{{ item.arc }}</Badge>
-                              <Badge v-if="item.importance === 'critical'" class="bg-amber-500/15 text-amber-300 hover:bg-amber-500/15">{{ t('Critical') }}</Badge>
-                            </div>
-                            <CardTitle class="text-xl">{{ item.title }}</CardTitle>
-                          </div>
-                          <Button variant="ghost" size="icon" :title="t('Suggest a correction')" @click="openCorrection(item.seasonNumber, 'event', item.id, 'description', item.description, Math.max(...item.episodeNumbers), item.throughEpisode)">
-                            <SquarePenIcon class="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <p
-                          class="leading-7 text-white/75"
-                          :class="timelineHasMoreEvents && !isTimelineExpanded ? 'line-clamp-2' : ''"
-                        >
-                          {{ item.description }}
-                        </p>
-                        <p
-                          v-if="item.detail && (isTimelineExpanded || !timelineHasMoreEvents)"
-                          class="mt-3 border-l-2 border-primary/50 pl-3 text-sm italic leading-6 text-white/70"
-                        >
-                          {{ item.detail }}
-                        </p>
-                        <div
-                          v-if="item.characters.length && (isTimelineExpanded || !timelineHasMoreEvents)"
-                          class="mt-4 flex flex-wrap gap-2"
-                        >
-                          <TimelineCharacterChip
-                            v-for="character in item.characters"
-                            :key="character"
-                            :name="character"
-                            :profile="timelineCharacterProfile(character)"
-                          />
-                        </div>
-                        <details
-                          v-if="item.sources.length && (isTimelineExpanded || !timelineHasMoreEvents)"
-                          class="mt-5 text-xs text-muted-foreground"
-                        >
-                          <summary class="cursor-pointer hover:text-white">{{ item.sources.length > 1 ? t('{count} verifiable sources', { count: item.sources.length }) : t('{count} verifiable source', { count: item.sources.length }) }}</summary>
-                          <ul class="mt-2 space-y-1 pl-4">
-                            <li v-for="source in item.sources" :key="source.id">
-                              <a v-if="source.sourceUrl" :href="source.sourceUrl" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">{{ source.label }}</a>
-                              <span v-else>{{ source.label }}</span>
-                              <span v-if="source.licenseName"> · {{ source.licenseName }}</span>
-                            </li>
-                          </ul>
-                        </details>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </div>
-              </section>
-            </div>
-
-            <div
-              v-if="timelineHasMoreEvents"
-              class="relative flex justify-center"
-              :class="isTimelineExpanded ? 'mt-2' : '-mt-10 pt-16'"
-            >
-              <div
-                v-if="!isTimelineExpanded"
-                class="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-transparent via-background/85 to-background"
-                aria-hidden="true"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                class="relative z-10 rounded-full border-white/15 bg-background/95 px-5 shadow-xl shadow-black/20 hover:border-primary/40 hover:bg-background"
-                :aria-expanded="isTimelineExpanded"
-                aria-controls="timeline-event-list"
-                @click="isTimelineExpanded = !isTimelineExpanded"
-              >
-                {{ isTimelineExpanded ? t('Show less') : t('View the full timeline · {count} scenes', { count: filteredTimelineEvents.length }) }}
-                <ChevronDownIcon class="ml-2 h-4 w-4 transition-transform" :class="isTimelineExpanded ? 'rotate-180' : ''" />
-              </Button>
-            </div>
-          </div>
-          <div v-else class="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-10 text-center">
-            <LockIcon class="mx-auto h-7 w-7 text-muted-foreground" />
-            <h3 class="mt-4 font-semibold">{{ t('The timeline is protected') }}</h3>
-            <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">{{ t('Set your progress to see all the events you have watched, without revealing what comes next.') }}</p>
-          </div>
-          </div>
-        </div>
-      </section>
-
       <section id="community" class="py-10 sm:py-16">
         <div class="mx-auto max-w-7xl px-5 lg:px-8">
           <div class="mb-8"><h2 class="text-2xl font-bold sm:text-3xl">{{ t('Community corrections') }}</h2><p class="mt-2 text-sm text-muted-foreground">{{ t('Visible suggestions also respect your spoiler limit.') }}</p></div>
@@ -413,45 +233,25 @@
       :episode="commentsEpisode.episode"
       :episode-title="commentsEpisode.title"
     />
-
-    <Dialog v-model:open="correctionOpen">
-      <DialogContent class="sm:max-w-xl">
-        <DialogHeader><DialogTitle>{{ t('Suggest a correction') }}</DialogTitle><DialogDescription>{{ t('The suggestion will be voted on and reviewed by the team before publication.') }}</DialogDescription></DialogHeader>
-        <form class="space-y-4" @submit.prevent="submitCorrection">
-          <div><label class="mb-1.5 block text-sm font-medium">{{ t('Current information') }}</label><div class="max-h-28 overflow-y-auto rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">{{ correctionForm.currentValue }}</div></div>
-          <div><label for="correction-value" class="mb-1.5 block text-sm font-medium">{{ t('Your correction') }}</label><Textarea id="correction-value" v-model="correctionForm.proposedValue" required :maxlength="3000" rows="4" /></div>
-          <div><label for="correction-reason" class="mb-1.5 block text-sm font-medium">{{ t('Why?') }}</label><Textarea id="correction-reason" v-model="correctionForm.reason" required minlength="10" maxlength="2000" rows="3" :placeholder="t('Explain the mistake and how to verify it…')" /></div>
-          <div><label for="correction-source" class="mb-1.5 block text-sm font-medium">{{ t('Verifiable source') }} <span class="font-normal text-muted-foreground">{{ t('(optional)') }}</span></label><Input id="correction-source" v-model="correctionForm.sourceUrl" type="url" placeholder="https://…" /></div>
-          <DialogFooter><Button type="button" variant="outline" @click="correctionOpen = false">{{ t('Cancel') }}</Button><Button type="submit" :disabled="correctionSubmitting">{{ correctionSubmitting ? t('Sending…') : t('Send suggestion') }}</Button></DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { CalendarIcon, CheckIcon, ChevronDownIcon, LockIcon, MapIcon, MapPinIcon, MessagesSquareIcon, Share2Icon, SquarePenIcon, StarIcon, ThumbsDownIcon, ThumbsUpIcon, UsersIcon, XIcon } from 'lucide-vue-next';
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
+import { CalendarIcon, CheckIcon, MapIcon, MessagesSquareIcon, Share2Icon, StarIcon, ThumbsDownIcon, ThumbsUpIcon, UsersIcon } from 'lucide-vue-next';
+import { computed, onMounted, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import type { ShowWithSeasons } from '~/types/database.types';
 import type { LibraryEntry } from '~/types/library.types';
-import type { SeasonHubCorrection, SeasonHubCorrectionTarget, SeasonHubEvent, SeasonHubResponse } from '~/types/season-hub.types';
-import type {
-  ShowCharacterProfile,
-  TimelineCharacterProfile,
-} from '~/types/show-character.types';
+import type { SeasonHubCorrection, SeasonHubResponse } from '~/types/season-hub.types';
+import type { ShowCharacterProfile } from '~/types/show-character.types';
 import { Badge } from '~/components/shadcn/badge';
 import { Button } from '~/components/shadcn/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/shadcn/card';
+import { Card, CardContent, CardHeader } from '~/components/shadcn/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '~/components/shadcn/dropdown-menu';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '~/components/shadcn/dialog';
-import { Input } from '~/components/shadcn/input';
-import { Textarea } from '~/components/shadcn/textarea';
 import CharacterProfileCard from '~/components/CharacterProfileCard.vue';
 import EpisodeComments from '~/components/EpisodeComments.vue';
 import EpisodeTracker from '~/components/EpisodeTracker.vue';
 import SeasonStory from '~/components/SeasonStory.vue';
-import TimelineCharacterChip from '~/components/TimelineCharacterChip.vue';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import { proxiedImageUrl } from '~/lib/image-url';
 import { recapGenerationKey, useRecapGenerations } from '~/composables/useRecapGenerations';
@@ -460,29 +260,10 @@ import { useStoryViewer } from '~/composables/useStoryViewer';
 import { isRegularSeasonReleased } from '~/lib/season-availability';
 import { toPlainText } from '~/lib/plain-text';
 
-type TimelineEvent = SeasonHubEvent & { seasonNumber: number; throughEpisode: number };
-type TimelineEpisodeGroup = {
-  key: string;
-  seasonNumber: number;
-  episodeNumber: number;
-  title: string | null;
-  events: TimelineEvent[];
-};
 type VisibleCorrection = SeasonHubCorrection & { seasonNumber: number; throughEpisode: number };
 type ProgressEpisode = { number: number; title: string; firstAired: string | null };
-type TimelineCharacterKnowledge = Pick<
-  TimelineCharacterProfile,
-  'seasonNumbers' | 'eventCount' | 'lastSeen' | 'arcs' | 'keyEvents'
->;
-type TimelineCharacterKnowledgeBuilder = TimelineCharacterKnowledge & {
-  seasonNumberSet: Set<number>;
-  arcSet: Set<string>;
-  keyEventSet: Set<string>;
-};
-
 const { t, locale } = useI18n();
 
-const TIMELINE_PREVIEW_EVENT_COUNT = 3;
 const CHARACTER_PREVIEW_COUNT = 6;
 
 const route = useRoute();
@@ -649,141 +430,37 @@ const progressEpisodeTotal = computed(() => progressEpisodeOptions.value.reduce(
   (maximum, episode) => Math.max(maximum, episode.number),
   0,
 ));
-const timelineEvents = computed<TimelineEvent[]>(() => visibleSeasonHubs.value
-  .flatMap(hub => hub.events.map(event => ({ ...event, seasonNumber: hub.season.number, throughEpisode: hub.progress.throughEpisode })))
-  .sort((a, b) => a.seasonNumber - b.seasonNumber
-    || Math.max(...a.episodeNumbers) - Math.max(...b.episodeNumbers)
-    || (a.sceneIndex ?? 0) - (b.sceneIndex ?? 0)));
-const timelineEpisodeTitles = computed(() => new Map<string, string>(visibleSeasonHubs.value
-  .flatMap(hub => hub.episodes.map(episode => [`${hub.season.number}-${episode.number}`, episode.title]))));
-const timelineCharacterKnowledge = computed(() => {
-  const builders = new Map<string, TimelineCharacterKnowledgeBuilder>();
+// Only characters seen in the scenes before the viewer's spoiler limit, with their actor.
+const knownCharacterProfiles = computed<ShowCharacterProfile[]>(() => {
+  const profiles = new Map<string, { profile: ShowCharacterProfile; eventCount: number }>();
 
   for (const hub of visibleSeasonHubs.value) {
     for (const character of hub.characters) {
       const key = normalizeCharacterName(character.name);
       if (!key) continue;
-
-      const builder = builders.get(key) ?? {
-        seasonNumbers: [],
-        eventCount: 0,
-        lastSeen: null,
-        arcs: [],
-        keyEvents: [],
-        seasonNumberSet: new Set<number>(),
-        arcSet: new Set<string>(),
-        keyEventSet: new Set<string>(),
+      const profile = findCharacterMatch(mediaCharacterProfiles.value, key) ?? {
+        name: character.name,
+        imageUrl: null,
+        imageKind: null,
+        imageProvider: null,
+        actorName: null,
+        isVoice: false,
+        sourceUrl: null,
       };
-      builder.eventCount += character.eventCount;
-      builder.seasonNumberSet.add(hub.season.number);
-
-      const lastSeen = {
-        seasonNumber: hub.season.number,
-        episodeNumber: character.lastSeenEpisode,
-      };
-      if (!builder.lastSeen
-        || lastSeen.seasonNumber > builder.lastSeen.seasonNumber
-        || (lastSeen.seasonNumber === builder.lastSeen.seasonNumber
-          && lastSeen.episodeNumber > builder.lastSeen.episodeNumber)) {
-        builder.lastSeen = lastSeen;
-      }
-
-      for (const arc of character.arcs) builder.arcSet.add(arc);
-      for (const event of character.keyEvents) {
-        const eventKey = `${hub.season.number}:${event.id}`;
-        if (builder.keyEventSet.has(eventKey)) continue;
-        builder.keyEventSet.add(eventKey);
-        builder.keyEvents.push({
-          id: event.id,
-          title: event.title,
-          seasonNumber: hub.season.number,
-          episodeNumber: event.episode,
-        });
-      }
-      builders.set(key, builder);
+      const profileKey = normalizeCharacterName(profile.name);
+      const known = profiles.get(profileKey);
+      if (known) known.eventCount += character.eventCount;
+      else profiles.set(profileKey, { profile, eventCount: character.eventCount });
     }
   }
 
-  return new Map([...builders.entries()].map(([key, builder]) => [
-    key,
-    {
-      seasonNumbers: [...builder.seasonNumberSet].sort((a, b) => a - b),
-      eventCount: builder.eventCount,
-      lastSeen: builder.lastSeen,
-      arcs: [...builder.arcSet],
-      keyEvents: builder.keyEvents
-        .sort((a, b) => b.seasonNumber - a.seasonNumber || b.episodeNumber - a.episodeNumber)
-        .slice(0, 3),
-    } satisfies TimelineCharacterKnowledge,
-  ]));
-});
-const timelineSeasonFilter = ref<number | 'all'>('all');
-const timelineCharacterFilter = ref<string | null>(null);
-const isTimelineExpanded = ref(false);
-const isTimelineOpen = ref(false);
-const timelineFilterSeasons = computed(() => [...new Set(timelineEvents.value.map(event => event.seasonNumber))]
-  .sort((a, b) => a - b));
-const seasonFilteredTimelineEvents = computed(() => timelineSeasonFilter.value === 'all'
-  ? timelineEvents.value
-  : timelineEvents.value.filter(event => event.seasonNumber === timelineSeasonFilter.value));
-const filteredTimelineEvents = computed(() => {
-  if (!timelineCharacterFilter.value) return seasonFilteredTimelineEvents.value;
-  return seasonFilteredTimelineEvents.value.filter(event => event.characters
-    .some(character => characterNamesMatch(character, timelineCharacterFilter.value ?? '')));
-});
-const timelineHasMoreEvents = computed(() => filteredTimelineEvents.value.length > TIMELINE_PREVIEW_EVENT_COUNT);
-const displayedTimelineEvents = computed(() => isTimelineExpanded.value || !timelineHasMoreEvents.value
-  ? filteredTimelineEvents.value
-  : filteredTimelineEvents.value.slice(-TIMELINE_PREVIEW_EVENT_COUNT));
-// Scenes of one episode stay together under a single episode marker.
-const displayedTimelineGroups = computed<TimelineEpisodeGroup[]>(() => {
-  const groups: TimelineEpisodeGroup[] = [];
-  for (const event of displayedTimelineEvents.value) {
-    const episodeNumber = Math.max(...event.episodeNumbers);
-    const key = `${event.seasonNumber}-${episodeNumber}`;
-    const currentGroup = groups[groups.length - 1];
-    if (currentGroup?.key === key) {
-      currentGroup.events.push(event);
-    } else {
-      groups.push({
-        key,
-        seasonNumber: event.seasonNumber,
-        episodeNumber,
-        title: timelineEpisodeTitles.value.get(key) ?? null,
-        events: [event],
-      });
-    }
-  }
-  return groups;
-});
-watch(timelineFilterSeasons, (availableSeasons) => {
-  if (timelineSeasonFilter.value !== 'all' && !availableSeasons.includes(timelineSeasonFilter.value)) {
-    timelineSeasonFilter.value = 'all';
-  }
-});
-const knownCharacterProfiles = computed<TimelineCharacterProfile[]>(() => {
-  const profiles = new Map<string, TimelineCharacterProfile>();
-
-  for (const hub of visibleSeasonHubs.value) {
-    for (const character of hub.characters) {
-      const profile = timelineCharacterProfile(character.name);
-      if (!profile) continue;
-      const key = normalizeCharacterName(profile.name);
-      if (key && !profiles.has(key)) profiles.set(key, profile);
-    }
-  }
-
-  return [...profiles.values()].sort((a, b) => b.eventCount - a.eventCount
-    || a.name.localeCompare(b.name, locale.value));
+  // The most present first.
+  return [...profiles.values()]
+    .sort((a, b) => b.eventCount - a.eventCount || a.profile.name.localeCompare(b.profile.name, locale.value))
+    .map(({ profile }) => profile);
 });
 const hasTvMazeDirectoryProfiles = computed(() => knownCharacterProfiles.value
   .some(profile => profile.imageProvider === 'tvmaze'));
-watch(knownCharacterProfiles, (profiles) => {
-  if (timelineCharacterFilter.value
-    && !profiles.some(profile => characterNamesMatch(profile.name, timelineCharacterFilter.value ?? ''))) {
-    timelineCharacterFilter.value = null;
-  }
-});
 const areCharactersExpanded = ref(false);
 const displayedCharacterProfiles = computed(() => areCharactersExpanded.value
   ? knownCharacterProfiles.value
@@ -793,14 +470,6 @@ const progressScopeLabel = computed(() => {
   if (!reachedSeasonNumber.value) return t('The entire series is visible. Set your progress to hide what comes next.');
   if (!reachedEpisode.value) return t('Up to the start of season {number}: nothing after this point is shown.', { number: reachedSeasonNumber.value });
   return t('Up to S{season}E{episode}: nothing after this point is shown.', { season: reachedSeasonNumber.value, episode: reachedEpisode.value });
-});
-const timelineSummary = computed(() => {
-  if (hubsPending.value) return t('Loading scenes…');
-  const count = timelineEvents.value.length;
-  const scope = reachedSeasonNumber.value && reachedEpisode.value && spoilerShieldEnabled.value
-    ? t('up to S{season}E{episode}', { season: reachedSeasonNumber.value, episode: reachedEpisode.value })
-    : !spoilerShieldEnabled.value ? t('across the entire series') : t('seen so far');
-  return count > 1 ? t('{count} scenes {scope}, with their sources', { count, scope }) : t('{count} scene {scope}, with its sources', { count, scope });
 });
 // Placeholders until these views can be built from sources without invention.
 const universeItems = computed(() => [
@@ -863,23 +532,6 @@ function normalizeCharacterName(name: string) {
     .trim();
 }
 
-function characterNamesMatch(firstName: string, secondName: string) {
-  const firstKey = normalizeCharacterName(firstName);
-  const secondKey = normalizeCharacterName(secondName);
-  return Boolean(firstKey && secondKey
-    && (firstKey === secondKey || firstKey.includes(secondKey) || secondKey.includes(firstKey)));
-}
-
-function focusCharacterTimeline(profile: TimelineCharacterProfile) {
-  timelineCharacterFilter.value = profile.name;
-  timelineSeasonFilter.value = 'all';
-  isTimelineOpen.value = true;
-  isTimelineExpanded.value = true;
-  nextTick(() => {
-    document.getElementById('timeline')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
-}
-
 function findCharacterMatch<T>(profiles: Map<string, T>, key: string): T | null {
   const exactMatch = profiles.get(key);
   if (exactMatch) return exactMatch;
@@ -887,29 +539,6 @@ function findCharacterMatch<T>(profiles: Map<string, T>, key: string): T | null 
   const partialMatches = [...profiles.entries()]
     .filter(([profileName]) => profileName.includes(key) || key.includes(profileName));
   return partialMatches.length === 1 ? partialMatches.at(0)?.[1] ?? null : null;
-}
-
-function timelineCharacterProfile(characterName: string): TimelineCharacterProfile | null {
-  const key = normalizeCharacterName(characterName);
-  if (!key) return null;
-  const media = findCharacterMatch(mediaCharacterProfiles.value, key);
-  const knowledge = findCharacterMatch(timelineCharacterKnowledge.value, key);
-  if (!media && !knowledge) return null;
-
-  return {
-    name: media?.name ?? characterName,
-    imageUrl: media?.imageUrl ?? null,
-    imageKind: media?.imageKind ?? null,
-    imageProvider: media?.imageProvider ?? null,
-    actorName: media?.actorName ?? null,
-    isVoice: media?.isVoice ?? false,
-    sourceUrl: media?.sourceUrl ?? null,
-    seasonNumbers: knowledge?.seasonNumbers ?? [],
-    eventCount: knowledge?.eventCount ?? 0,
-    lastSeen: knowledge?.lastSeen ?? null,
-    arcs: knowledge?.arcs ?? [],
-    keyEvents: knowledge?.keyEvents ?? [],
-  };
 }
 
 watch(progressEpisodeTotal, (totalEpisodes) => {
@@ -1165,31 +794,6 @@ function goToRecapEditor(show?: string, season?: string, recap?: string) {
 const { openStory } = useStoryViewer();
 function goToRecap(recapId: string) { openStory(recapId); }
 
-const correctionOpen = ref(false);
-const correctionSubmitting = ref(false);
-const correctionForm = reactive({
-  seasonNumber: 0, targetType: 'event' as SeasonHubCorrectionTarget, targetKey: '', field: 'description',
-  currentValue: '', proposedValue: '', reason: '', sourceUrl: '', revealEpisode: 0, throughEpisode: 0,
-});
-
-async function openCorrection(
-  seasonNumber: number,
-  targetType: SeasonHubCorrectionTarget,
-  targetKey: string,
-  field: string,
-  currentValue: string,
-  revealEpisode: number,
-  throughEpisode: number,
-) {
-  if (!user.value) {
-    toast.info(t('Sign in to suggest a correction.'));
-    await navigateTo('/login');
-    return;
-  }
-  Object.assign(correctionForm, { seasonNumber, targetType, targetKey, field, currentValue, proposedValue: currentValue, reason: '', sourceUrl: '', revealEpisode, throughEpisode });
-  correctionOpen.value = true;
-}
-
 function correctionFieldLabel(field: string) {
   const labels: Record<string, string> = {
     description: t('Description'),
@@ -1202,22 +806,6 @@ function correctionFieldLabel(field: string) {
     summary: t('Summary'),
   };
   return labels[field] ?? field;
-}
-
-async function submitCorrection() {
-  correctionSubmitting.value = true;
-  try {
-    await $fetch(`/api/shows/${route.params.slug}/seasons/${correctionForm.seasonNumber}/corrections`, {
-      method: 'POST', body: correctionForm,
-    });
-    correctionOpen.value = false;
-    toast.success(t('Your correction has been submitted.'));
-    await refreshHubs();
-  } catch (cause: any) {
-    toast.error(t('Could not submit the correction.'), { description: cause.data?.statusMessage || cause.message });
-  } finally {
-    correctionSubmitting.value = false;
-  }
 }
 
 async function vote(correctionId: string, value: -1 | 1, throughEpisode: number) {

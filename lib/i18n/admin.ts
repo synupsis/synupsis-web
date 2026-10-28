@@ -105,5 +105,15 @@ export const adminMessages: Record<string, string> = {
   "Copy ID": "Copier l’identifiant",
   "Edit": "Modifier",
   "Duplicate": "Dupliquer",
-  "Delete": "Supprimer"
+  "Delete": "Supprimer",
+  "Slide as seen": "Slide telle qu’elle a été vue",
+  "Accept": "Accepter",
+  "Slide suggestions": "Suggestions de slides",
+  "Corrections and new slides suggested on recaps. Accepting one only marks it as accepted: the recap itself is edited separately.": "Corrections et nouvelles slides proposées sur les récaps. Accepter une suggestion la marque seulement comme acceptée : le récap se modifie à part.",
+  "New slide after slide {number}": "Nouvelle slide après la slide {number}",
+  "No slide suggestions are waiting.": "Aucune suggestion de slide en attente.",
+  "Suggestion": "Suggestion",
+  "Suggestion accepted.": "Suggestion acceptée.",
+  "Suggestion rejected.": "Suggestion refusée.",
+  "Current text": "Texte actuel"
 };

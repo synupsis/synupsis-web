@@ -27,13 +27,15 @@ const requestedId = computed(() => {
 const activeId = ref<string | null>(requestedId.value);
 const player = ref<InstanceType<typeof RecapStoryPlayer> | null>(null);
 
-watch(requestedId, (id) => {
+watch([requestedId, () => route.path], ([id], [, previousPath]) => {
   if (id) {
     activeId.value = id;
     return;
   }
   forgetStoryEntry();
-  if (player.value) void player.value.leave();
+  // On another page (the recap editor, say) there is nothing to shrink back
+  // into: the story goes at once instead of waiting for its animation.
+  if (player.value && route.path === previousPath) void player.value.leave();
   else activeId.value = null;
 });
 </script>

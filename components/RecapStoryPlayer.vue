@@ -1,6 +1,7 @@
 <template>
   <div
     class="fixed inset-0 z-50 select-none overflow-hidden overscroll-contain text-white"
+    :class="{ 'pointer-events-none [&_*]:!pointer-events-none': phase === 'leaving' }"
     role="dialog"
     aria-modal="true"
     :aria-label="dialogLabel"
@@ -32,8 +33,14 @@
       <div
         ref="frameElement"
         tabindex="-1"
-        class="pointer-events-auto relative h-full w-full max-w-full touch-pan-x overflow-hidden bg-neutral-950 shadow-2xl shadow-black/60 outline-none sm:aspect-[390/844] sm:w-auto sm:rounded-[30px] sm:ring-1 sm:ring-white/10"
+        class="pointer-events-auto relative h-full w-full max-w-full touch-pan-x overflow-hidden bg-neutral-950 shadow-2xl shadow-black/60 outline-none [-webkit-touch-callout:none] sm:aspect-[390/844] sm:w-auto sm:rounded-[30px] sm:ring-1 sm:ring-white/10"
         :style="frameStyle"
+        @click.capture="onChipClick"
+        @pointerdown="onPressStart"
+        @pointermove="onPressMove"
+        @pointerup="cancelPress"
+        @pointercancel="cancelPress"
+        @contextmenu="onContextMenu"
         @mousedown="pauseStory"
         @mouseup="resumeStory"
         @touchstart.passive="onTouchStart"
@@ -131,6 +138,26 @@
               <Button
                 variant="ghost"
                 size="icon"
+                class="relative h-10 w-10 rounded-full text-white hover:bg-white/10 hover:text-white"
+                :class="{ 'bg-white text-neutral-900 hover:bg-white/90 hover:text-neutral-900': isSuggesting }"
+                :aria-label="currentSlideSuggestionCount
+                  ? t('Suggest a correction · {count} suggestions on this slide', { count: currentSlideSuggestionCount })
+                  : t('Suggest a correction')"
+                :title="t('Suggest a correction, or press and hold a text')"
+                :aria-pressed="isSuggesting"
+                @click.stop="toggleSuggesting"
+              >
+                <SquarePenIcon class="h-[22px] w-[22px]" :class="{ 'drop-shadow': !isSuggesting }" />
+                <!-- This slide already has suggestions: their count, out of suggestion mode too. -->
+                <span
+                  v-if="currentSlideSuggestionCount && !isSuggesting"
+                  class="absolute right-0.5 top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-amber-400 px-1 text-[10px] font-bold leading-none text-neutral-900 tabular-nums"
+                  aria-hidden="true"
+                >{{ currentSlideSuggestionCount }}</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
                 :aria-label="t('Close recap')"
                 class="h-10 w-10 rounded-full text-white hover:bg-white/10 hover:text-white"
                 @click="requestClose"
@@ -151,7 +178,12 @@
             :total-slides="data.slides.length"
             :genres="data.show.genres"
             :has-rail="isChapterStory"
+            :editable="isSuggesting"
+            :selected-path="selectedPath"
+            :suggestion-counts="suggestionCounts"
             class="animate-fade-in-up"
+            @select-text="selectText"
+            @open-suggestions="openTextSuggestions"
           />
           <ClientOnly v-else>
             <RecapCanvas
@@ -236,9 +268,47 @@
             </div>
           </div>
 
-          <!-- Navigation areas: back on the left third, forward on the right third -->
-          <div class="absolute inset-y-0 left-0 z-10 w-1/3" @click="tapPrev" />
-          <div class="absolute inset-y-0 right-0 z-10 w-1/3" @click="tapNext" />
+          <RecapTextSuggestionsSheet
+            :open="Boolean(chipSheetPath)"
+            :text="chipSheetText"
+            :suggestions="chipSheetSuggestions"
+            @close="closeChipSheet"
+            @like="suggestionStore.toggleLike"
+            @propose="proposeFromChipSheet"
+          />
+
+          <!-- Navigation areas: back on the left third, forward on the right third; in suggestion mode the texts take the taps. -->
+          <template v-if="!isSuggesting">
+            <div class="absolute inset-y-0 left-0 z-10 w-1/3" @click="tapPrev" />
+            <div class="absolute inset-y-0 right-0 z-10 w-1/3" @click="tapNext" />
+          </template>
+
+          <!-- Suggestion mode: what to do, and the suggestions already made on this slide -->
+          <div
+            v-if="isSuggesting"
+            class="absolute inset-x-3 top-[calc(env(safe-area-inset-top)_+_4.4rem)] z-30 flex items-center gap-2 rounded-full bg-black/75 py-1.5 pl-4 pr-1.5 text-[13px] shadow-lg backdrop-blur-md"
+            @mousedown.stop
+            @mouseup.stop
+            @touchstart.stop
+            @touchend.stop
+          >
+            <span class="min-w-0 flex-1 truncate font-medium">{{ currentSlide.content ? t('Tap a text to correct it') : t('Describe the change you suggest') }}</span>
+            <button
+              type="button"
+              class="shrink-0 rounded-full bg-white/15 px-3 py-1.5 font-semibold tabular-nums transition-colors hover:bg-white/25"
+              :aria-expanded="isSuggestionSheetOpen"
+              @click="openSuggestionList"
+            >
+              {{ t('Suggestions · {count}', { count: currentSlideSuggestionCount }) }}
+            </button>
+            <button
+              type="button"
+              class="shrink-0 rounded-full bg-white px-3 py-1.5 font-semibold text-neutral-900 transition-colors hover:bg-white/90"
+              @click="stopSuggesting"
+            >
+              {{ t('Done') }}
+            </button>
+          </div>
         </template>
       </div>
     </div>
@@ -320,17 +390,60 @@
         </p>
       </section>
     </div>
+
+    <div
+      v-if="isSuggestionSheetOpen && data && currentSlide"
+      class="absolute inset-0 z-40 flex items-end bg-black/40 sm:items-center sm:justify-center sm:p-3"
+      @mousedown.stop
+      @mouseup.stop
+      @touchstart.stop
+      @touchend.stop
+      @click.self="onSuggestionBackdrop"
+    >
+      <section
+        class="max-h-[72dvh] w-full overflow-y-auto rounded-t-2xl bg-background p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-foreground shadow-2xl sm:max-w-md sm:rounded-2xl"
+        :aria-label="t('Suggestions for slide {number}', { number: currentSlideIndex + 1 })"
+      >
+        <div class="mb-4 flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <h2 class="text-lg font-semibold">{{ selectedPath ? t('Correct this text') : t('Suggestions') }}</h2>
+            <p class="mt-0.5 text-xs text-muted-foreground">{{ t('Slide {number} of {count}', { number: currentSlideIndex + 1, count: data.slides.length }) }}</p>
+          </div>
+          <div class="flex shrink-0 items-center">
+            <Button variant="ghost" size="sm" class="rounded-full text-xs" @click="openEditor">
+              <LayoutGridIcon class="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {{ t('All slides') }}
+            </Button>
+            <Button variant="ghost" size="icon" :aria-label="t('Close suggestions')" @click="closeSuggestionSheet">
+              <XIcon class="h-5 w-5" />
+            </Button>
+          </div>
+        </div>
+        <RecapSuggestionPanel
+          :key="currentSlide.id"
+          v-model:selected-path="selectedPath"
+          :store="suggestionStore"
+          :slide="currentSlide"
+          :slide-order="currentSlideIndex + 1"
+        />
+      </section>
+    </div>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { FastForwardIcon, InfoIcon, XIcon } from 'lucide-vue-next';
+import { FastForwardIcon, InfoIcon, LayoutGridIcon, SquarePenIcon, XIcon } from 'lucide-vue-next';
 const { t } = useI18n();
 import { ref, shallowRef, onMounted, onUnmounted, computed } from 'vue';
 import { Button } from '~/components/shadcn/button';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import RecapCanvas from '~/components/RecapCanvas.client.vue';
 import RecapStorySlide from '~/components/RecapStorySlide.vue';
+import RecapSuggestionPanel from '~/components/RecapSuggestionPanel.vue';
+import RecapTextSuggestionsSheet from '~/components/RecapTextSuggestionsSheet.vue';
+import { editableSlideText } from '~/lib/recap-slide-text';
+import { useRecapSuggestions } from '~/composables/useRecapSuggestions';
+import { lockPageScroll } from '~/lib/page-scroll-lock';
 import { findStoryOrigin, loadRecapStory, type RecapStoryPayload } from '~/composables/useStoryViewer';
 import type { RecapStorySlideContent } from '~/types/recap-story.types';
 
@@ -656,6 +769,8 @@ const pauseStory = () => {
 };
 
 const resumeStory = () => {
+  // Suggesting, or reading a text's suggestions, holds the story on its slide.
+  if (isSuggesting.value || isQuickCorrection.value || chipSheetPath.value) return;
   isPaused.value = false;
 };
 
@@ -667,6 +782,181 @@ const openSources = () => {
 const closeSources = () => {
   isSourcesOpen.value = false;
   resumeStory();
+};
+
+// Suggestion mode: the story holds on its slide, its texts can be picked to
+// propose a correction, and everyone's suggestions can be read and liked.
+const suggestionStore = useRecapSuggestions(() => props.recapId);
+const isSuggesting = ref(false);
+const selectedPath = ref<string | null>(null);
+const isSuggestionListOpen = ref(false);
+// The text whose chip was opened: its suggestions rise from the bottom of the story.
+const chipSheetPath = ref<string | null>(null);
+const chipSheetText = computed(() => (chipSheetPath.value
+  ? editableSlideText(currentSlide.value?.content, chipSheetPath.value) ?? ''
+  : ''));
+const chipSheetSuggestions = computed(() => currentSlideSuggestions.value
+  .filter(suggestion => suggestion.fieldPath === chipSheetPath.value));
+// A quick correction: one text, from a long press or its chip, without the
+// slide-wide suggestion mode; the story picks up again once its sheet closes.
+const isQuickCorrection = ref(false);
+const isSuggestionSheetOpen = computed(() => (isSuggesting.value || isQuickCorrection.value)
+  && (Boolean(selectedPath.value) || isSuggestionListOpen.value));
+const currentSlideSuggestions = computed(() => suggestionStore.forSlide(currentSlideIndex.value + 1));
+const currentSlideSuggestionCount = computed(() => currentSlideSuggestions.value.length);
+const suggestionCounts = computed(() => suggestionStore.countsByPath(currentSlideIndex.value + 1));
+
+const startSuggesting = () => {
+  isSuggesting.value = true;
+  isSourcesOpen.value = false;
+  pauseStory();
+  if (!suggestionStore.loaded.value && !suggestionStore.loading.value) void suggestionStore.load();
+  // A slide without structured content (older recaps) can only be described.
+  if (!currentSlide.value?.content) isSuggestionListOpen.value = true;
+};
+
+const stopSuggesting = () => {
+  isSuggesting.value = false;
+  selectedPath.value = null;
+  isSuggestionListOpen.value = false;
+  resumeStory();
+};
+
+const toggleSuggesting = () => (isSuggesting.value ? stopSuggesting() : startSuggesting());
+
+const selectText = (path: string) => {
+  selectedPath.value = path;
+};
+
+const openSuggestionList = () => {
+  selectedPath.value = null;
+  isSuggestionListOpen.value = true;
+};
+
+const openTextSuggestions = (path: string) => {
+  selectedPath.value = null;
+  isSuggestionListOpen.value = false;
+  chipSheetPath.value = path;
+  pauseStory();
+};
+
+const closeChipSheet = () => {
+  chipSheetPath.value = null;
+  resumeStory();
+};
+
+const openQuickCorrection = (path: string) => {
+  isSourcesOpen.value = false;
+  isQuickCorrection.value = true;
+  pauseStory();
+  if (!suggestionStore.loaded.value && !suggestionStore.loading.value) void suggestionStore.load();
+  selectedPath.value = path;
+};
+
+// Sent, cancelled or dismissed: a quick correction ends with its sheet.
+watch(isSuggestionSheetOpen, (open) => {
+  if (open || !isQuickCorrection.value) return;
+  isQuickCorrection.value = false;
+  resumeStory();
+});
+
+// "My version": the correction form of that text; quick, unless the whole slide is being reviewed.
+const proposeFromChipSheet = () => {
+  const path = chipSheetPath.value;
+  chipSheetPath.value = null;
+  if (!path) return;
+  if (isSuggesting.value) selectedPath.value = path;
+  else openQuickCorrection(path);
+};
+
+const closeSuggestionSheet = () => {
+  selectedPath.value = null;
+  isSuggestionListOpen.value = false;
+};
+
+// The tap zones lie over the slide: a click on a suggestion chip is caught
+// before them, and lists that text's suggestions instead of turning the slide.
+const onChipClick = (event: MouseEvent) => {
+  const frame = frameElement.value;
+  const chip = document.elementsFromPoint(event.clientX, event.clientY)
+    .find((element): element is HTMLElement => element instanceof HTMLElement
+      && Boolean(element.dataset.chipPath) && Boolean(frame?.contains(element)));
+  if (chipSheetPath.value || !chip?.dataset.chipPath || performance.now() < ignoreTapsUntil) return;
+  event.stopPropagation();
+  openTextSuggestions(chip.dataset.chipPath);
+};
+
+// The release of a long press may land on the sheet's backdrop: it does not close it.
+const onSuggestionBackdrop = () => {
+  if (performance.now() >= ignoreTapsUntil) closeSuggestionSheet();
+};
+
+// Another slide: whatever was picked on the previous one no longer applies.
+watch(currentSlideIndex, () => {
+  selectedPath.value = null;
+  chipSheetPath.value = null;
+});
+
+// Pressing and holding a text opens its correction directly, without the pencil.
+// The tap zones lie over the slide, so the text is found under the finger.
+const LONG_PRESS_MS = 500;
+const LONG_PRESS_TOLERANCE_PX = 10;
+let press: { x: number; y: number; timer: ReturnType<typeof setTimeout> } | null = null;
+
+function textPathAt(x: number, y: number): string | null {
+  const frame = frameElement.value;
+  const text = document.elementsFromPoint(x, y)
+    .find((element): element is HTMLElement => element instanceof HTMLElement
+      && Boolean(element.dataset.editPath) && Boolean(frame?.contains(element)));
+  return text?.dataset.editPath ?? null;
+}
+
+const cancelPress = () => {
+  if (press) clearTimeout(press.timer);
+  press = null;
+};
+
+const onPressStart = (event: PointerEvent) => {
+  cancelPress();
+  if (isSuggesting.value || isQuickCorrection.value || chipSheetPath.value || phase.value !== 'open' || !event.isPrimary || event.button !== 0) return;
+  if (!currentSlide.value?.content || !textPathAt(event.clientX, event.clientY)) return;
+  const { clientX: x, clientY: y } = event;
+  press = {
+    x,
+    y,
+    timer: setTimeout(() => {
+      press = null;
+      const path = textPathAt(x, y);
+      if (!path || isDragging.value) return;
+      // The release that follows must not turn the slide.
+      ignoreTapsUntil = performance.now() + 800;
+      touchStart = null;
+      navigator.vibrate?.(10);
+      openQuickCorrection(path);
+    }, LONG_PRESS_MS),
+  };
+};
+
+const onPressMove = (event: PointerEvent) => {
+  if (press && Math.hypot(event.clientX - press.x, event.clientY - press.y) > LONG_PRESS_TOLERANCE_PX) cancelPress();
+};
+
+// A long press on a phone would open the browser's menu over the text.
+const onContextMenu = (event: Event) => {
+  if (event.target instanceof Element && event.target.closest('[data-edit-path]')) event.preventDefault();
+};
+
+onUnmounted(cancelPress);
+
+const route = useRoute();
+
+// Every slide of the story at once, with its suggestions: the back button returns here.
+const openEditor = () => {
+  pauseStory();
+  // Opened over the editor already: closing the story leads back to it.
+  const editorPath = `/recap/${props.recapId}/edit`;
+  if (route.path === editorPath) return requestClose();
+  return navigateTo(editorPath);
 };
 
 const getProgressBarValue = (index: number) => {
@@ -757,6 +1047,10 @@ let leaving: Promise<void> | null = null;
 function leave(): Promise<void> {
   if (leaving) return leaving;
   phase.value = 'leaving';
+  // The page underneath is back at once: it scrolls and takes the taps while
+  // the story plays its way out, however long that takes.
+  releaseScroll?.();
+  releaseScroll = null;
   isSourcesOpen.value = false;
   if (timer) clearInterval(timer);
   timer = null;
@@ -793,6 +1087,9 @@ function leave(): Promise<void> {
       animation = frame.animate([{ ...from, opacity: 1 }, { opacity: 0, transform: lowered }], options);
     }
     animation.finished.then(() => resolve(), () => resolve());
+    // A browser that never finishes the animation (a hidden tab, a busy phone)
+    // must not keep the story mounted over the page.
+    setTimeout(resolve, duration + 200);
   }).then(() => emit('closed'));
   return leaving;
 }
@@ -830,7 +1127,8 @@ const backdropStyle = computed(() => ({
 const onTouchStart = (event: TouchEvent) => {
   pauseStory();
   const touch = event.touches[0];
-  touchStart = touch && event.touches.length === 1 && phase.value === 'open'
+  // Suggesting holds the story: no pull to close while picking texts.
+  touchStart = touch && event.touches.length === 1 && phase.value === 'open' && !isSuggesting.value
     ? { x: touch.clientX, y: touch.clientY, time: event.timeStamp }
     : null;
 };
@@ -872,27 +1170,33 @@ const tapNext = () => {
 };
 
 const handleKeydown = (e: KeyboardEvent) => {
+  // Typing a suggestion moves the caret, not the story.
+  if (e.target instanceof Element && e.target.closest('input, textarea')) {
+    if (e.key === 'Escape') closeSuggestionSheet();
+    return;
+  }
+  if (chipSheetPath.value) {
+    if (e.key === 'Escape') closeChipSheet();
+    return;
+  }
+  if (isQuickCorrection.value) {
+    if (e.key === 'Escape') closeSuggestionSheet();
+    return;
+  }
   if (e.key === 'ArrowRight') nextSlide();
   if (e.key === 'ArrowLeft') prevSlide();
   if (e.key === 'Escape') {
     if (isSourcesOpen.value) closeSources();
+    else if (isSuggestionSheetOpen.value) closeSuggestionSheet();
+    else if (isSuggesting.value) stopSuggesting();
     else requestClose();
   }
 };
 
-// The page underneath keeps its scroll position and stops scrolling; the
-// scrollbar's width is kept so it does not shift.
+// The page underneath keeps its scroll position and stops scrolling.
 let releaseScroll: (() => void) | null = null;
 const lockScroll = () => {
-  const root = document.documentElement;
-  const previous = { overflow: root.style.overflow, paddingRight: root.style.paddingRight };
-  const scrollbarWidth = window.innerWidth - root.clientWidth;
-  root.style.overflow = 'hidden';
-  if (scrollbarWidth > 0) root.style.paddingRight = `${scrollbarWidth}px`;
-  releaseScroll = () => {
-    root.style.overflow = previous.overflow;
-    root.style.paddingRight = previous.paddingRight;
-  };
+  releaseScroll = lockPageScroll();
 };
 
 // Keyboard users get their place back; after a click or a tap, the ring stays
@@ -908,6 +1212,8 @@ onMounted(() => {
   loadRecapStory(props.recapId).then((story) => {
     data.value = story;
     startWhenReady();
+    // Slides with suggestions are marked from the start, not only in suggestion mode.
+    void suggestionStore.load({ quiet: true });
   }, (cause) => {
     loadError.value = cause;
   });
