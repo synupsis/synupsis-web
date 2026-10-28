@@ -11,7 +11,9 @@ const filename = 'components/EpisodeTracker.vue';
 const source = readFileSync(new URL(`../../${filename}`, import.meta.url), 'utf8');
 const { descriptor } = parse(source, { filename });
 const script = compileScript(descriptor, { id: 'episode-tracker-test' });
-const compiled = ts.transpileModule(script.content, {
+// CommonJS has no import.meta: the browser-only comment count stays off, so
+// the requests seen here are the catalogue's alone.
+const compiled = ts.transpileModule(script.content.replaceAll('import.meta.client', 'false'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 
@@ -36,6 +38,8 @@ function createTracker(t, overrides = {}) {
   runInNewContext(compiled, {
     module, exports: module.exports,
     useI18n: () => ({ t: message => message }),
+    // Comment counts are a browser-only extra: none here.
+    useEpisodeCommentCounts: () => ({ countOf: () => undefined, setCount: () => {}, loadCount: async () => {} }),
     $fetch: url => new Promise((resolve, reject) => { requests.push({ url, resolve, reject }); }),
     require: specifier => {
       if (specifier === 'vue') return { ...vue, onMounted: callback => mounted.push(callback) };
