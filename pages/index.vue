@@ -27,15 +27,6 @@
               {{ title }}
             </button>
           </div>
-          <div v-if="recentSearches.length && !hasQuery" class="mt-5 text-left">
-            <div class="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-              <span class="flex items-center gap-1.5"><History class="size-3.5" aria-hidden="true" /> {{ t('Recent searches') }}</span>
-              <button type="button" class="rounded px-2 py-1 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400" @click="clearHistory">{{ t('Clear history') }}</button>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <button v-for="query in recentSearches" :key="query" type="button" class="max-w-full truncate rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400" @click="chooseQuery(query)">{{ query }}</button>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -66,11 +57,11 @@
             <button type="button" class="mt-6 inline-flex items-center gap-2 rounded-xl bg-foreground px-5 py-3 text-sm font-medium text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400" @click="searchNow"><RefreshCw class="size-4" aria-hidden="true" /> {{ t('Try again') }}</button>
           </div>
           <div v-else-if="searchResults.length" class="space-y-8">
-            <ShowSearchCard :show="searchResults[0]!" featured data-show-result @click="rememberSearch" />
+            <ShowSearchCard :show="searchResults[0]!" featured data-show-result />
             <div v-if="searchResults.length > 1">
               <h3 class="mb-5 text-sm font-medium text-muted-foreground">{{ t('More matches') }}</h3>
               <div class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-6">
-                <ShowSearchCard v-for="show in searchResults.slice(1)" :key="show.traktId" :show="show" data-show-result @click="rememberSearch" />
+                <ShowSearchCard v-for="show in searchResults.slice(1)" :key="show.traktId" :show="show" data-show-result />
               </div>
             </div>
           </div>
@@ -106,7 +97,7 @@
 
 <script setup lang="ts">
 const { t } = useI18n();
-import { History, RefreshCw, SearchX, TrendingUp, WifiOff } from 'lucide-vue-next';
+import { RefreshCw, SearchX, TrendingUp, WifiOff } from 'lucide-vue-next';
 import { useEventListener } from '@vueuse/core';
 import SearchInput from '~/components/ui/SearchInput.vue';
 import ShowSearchCard from '~/components/ShowSearchCard.vue';
@@ -118,9 +109,7 @@ const readRouteQuery = () => typeof route.query.q === 'string' ? route.query.q.s
 const searchQuery = ref(readRouteQuery());
 const searchInput = ref<InstanceType<typeof SearchInput> | null>(null);
 const resultsSection = ref<HTMLElement | null>(null);
-const recentSearches = ref<string[]>([]);
 const suggestions = ['Breaking Bad', 'Severance', 'The Last of Us'];
-const historyKey = 'synupsis:recent-show-searches';
 const { results: searchResults, isSearching, error: searchError, searchNow, normalizedQuery, hasQuery } = useShowSearch(searchQuery);
 const { data: featuredShows, status: trendingStatus, refresh: refreshTrending } = useFetch<TraktShowCard[]>('/api/shows/trending');
 
@@ -146,31 +135,6 @@ watch(() => route.query.q, () => {
   if (route.path === '/' && pendingUrlQuery === null) searchQuery.value = readRouteQuery();
 });
 
-onMounted(() => {
-  try {
-    const stored: unknown = JSON.parse(localStorage.getItem(historyKey) || '[]');
-    if (Array.isArray(stored)) {
-      recentSearches.value = [...new Set(stored.filter((value): value is string => typeof value === 'string' && value.trim().length >= 2 && value.length <= 100))].slice(0, 5);
-    }
-  } catch { /* Search also works when browser storage is unavailable. */ }
-});
-
-function persistHistory() {
-  try { localStorage.setItem(historyKey, JSON.stringify(recentSearches.value)); } catch { /* Storage is optional. */ }
-}
-
-function rememberSearch() {
-  const query = normalizedQuery.value;
-  if (!hasQuery.value || !searchResults.value.length) return;
-  recentSearches.value = [query, ...recentSearches.value.filter(value => value.toLocaleLowerCase() !== query.toLocaleLowerCase())].slice(0, 5);
-  persistHistory();
-}
-
-function clearHistory() {
-  recentSearches.value = [];
-  persistHistory();
-}
-
 function clearSearch() {
   searchQuery.value = '';
   searchInput.value?.focus();
@@ -190,7 +154,6 @@ async function submitSearch() {
   const submittedQuery = normalizedQuery.value;
   await searchNow();
   if (normalizedQuery.value !== submittedQuery || isSearching.value) return;
-  rememberSearch();
   await nextTick();
   focusResults();
 }

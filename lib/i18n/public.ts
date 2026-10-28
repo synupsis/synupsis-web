@@ -3,8 +3,6 @@ export const publicMessages: Record<string, string> = {
   "Find your show. Refresh your memory.": "Retrouvez votre série. Rafraîchissez votre mémoire.",
   "Get back to the story.": "Replongez dans l’histoire.",
   "Try": "Essayez",
-  "Recent searches": "Recherches récentes",
-  "Clear history": "Effacer l’historique",
   "Searching the catalogue…": "Recherche dans le catalogue…",
   "Search is taking a break": "La recherche fait une pause",
   "Try again": "Réessayer",
