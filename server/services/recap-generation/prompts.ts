@@ -238,7 +238,8 @@ function formatEvidenceForPrompt(evidence: RecapEvidence): string {
   const revision = evidence.revisionId ? `, révision ${evidence.revisionId}` : '';
   const maxLength = evidence.kind === 'season-article'
     ? 14_000
-    : evidence.kind === 'episode-plot' ? 5_000 : 1_600;
+    : evidence.kind === 'episode-plot' ? 5_000
+      : evidence.kind === 'transcript-extract' ? 6_000 : 1_600;
   return [
     `[${evidence.id}]`,
     `${evidence.providerId}/${evidence.locale}/${evidence.trustTier}/${evidence.licenseId}${revision}`,

@@ -250,6 +250,12 @@ To run this project, you will need to add the following environment variables to
 
 `TMDB_API_READ_ACCESS_TOKEN` or `TMDB_API_KEY` (optional, adds French and English season/episode evidence; TVmaze enrichment needs no key)
 
+`OPENSUBTITLES_API_KEY` (optional, server only: summarizes the subtitles of poorly documented episodes into recap evidence; `RECAP_SUBTITLES_ENABLED=false` turns it off)
+
+`OPENSUBTITLES_USERNAME` and `OPENSUBTITLES_PASSWORD` (optional, raise the OpenSubtitles daily download quota above the anonymous one)
+
+`SUBDL_API_KEY` (optional, server only: Subdl is tried when OpenSubtitles has no usable file or runs out of quota)
+
 The asynchronous recap generation flow, quality gate, deployment steps and current limitations are documented in [docs/recap-generation.md](docs/recap-generation.md). The source-of-truth strategy and richer narrative roadmap are documented in [docs/recap-source-strategy.md](docs/recap-source-strategy.md).
 
 ## Authors

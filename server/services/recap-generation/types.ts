@@ -13,6 +13,9 @@ export type EpisodeSource = {
   runtime: number | null;
   rating: number | null;
   traktId: number | null;
+  // Number across the series and IMDb id; absent from snapshots taken before they were recorded.
+  absoluteNumber?: number | null;
+  imdbId?: string | null;
   evidence: RecapEvidence[];
   // TMDB stills of the episode, best first; absent from snapshots taken before format version 10.
   stills?: string[];

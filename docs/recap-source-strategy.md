@@ -6,7 +6,11 @@ Le modèle n'est jamais une source de vérité. Il est un moteur de transformati
 
 Le socle obligatoire est actuellement Trakt. Il fournit l'identité de la série, les épisodes, leurs synopsis et une image éventuelle. TMDB enrichit les résumés français et anglais lorsqu'une clé est configurée. TVmaze est interrogé comme second référentiel lorsque Trakt fournit un identifiant TVDB ou IMDb compatible. Ces trois sources ne fournissent le plus souvent que des accroches promotionnelles.
 
-Les résumés détaillés viennent de Wikipédia, épisode par épisode. Wikidata retrouve la série par son identifiant IMDb, puis la saison, les épisodes et leurs articles ; des modèles de titres servent de repli. Chaque épisode reçoit la ligne du tableau d'épisodes, le « Résumé détaillé » des articles de saison français et la section « Plot » ou « Résumé » de son article lorsqu'il existe. Une saison dont moins de 60 % des épisodes ont un texte d'au moins 400 caractères n'est pas générée.
+Les résumés détaillés viennent de Wikipédia, épisode par épisode. Wikidata retrouve la série par son identifiant IMDb, puis la saison, les épisodes et leurs articles ; des modèles de titres servent de repli. Chaque épisode reçoit la ligne du tableau d'épisodes, le « Résumé détaillé » des articles de saison français et la section « Plot » ou « Résumé » de son article lorsqu'il existe. Les pages de série sont aussi lues par numéro d'épisode dans la série : une saison Trakt publiée en plusieurs parties (Lupin : « Partie 1 » et « Partie 2 » forment la saison 1) retrouve ainsi ses derniers épisodes, et une partie dont la numérotation ne correspond pas à la saison Trakt est écartée. TVmaze est aligné de la même façon quand il découpe les saisons autrement que Trakt.
+
+Pour chaque épisode dont la meilleure source écrite fait moins de 1 800 caractères, les sous-titres sont téléchargés depuis OpenSubtitles (recherche par identifiant IMDb de l'épisode), puis Subdl en secours (identifiant TMDB de la série, saison et épisode) quand OpenSubtitles n'a pas de fichier exploitable ou n'a plus de quota ; la langue originale passe en premier, puis le français, puis l'anglais, et un modèle en tire un résumé détaillé de l'intrigue, en français. Seul ce résumé est conservé comme fragment (`transcript-extract`, fournisseur `opensubtitles` ou `subdl`) : les sous-titres eux-mêmes ne sont jamais stockés. Les sous-titres sont un texte protégé : le registre classe OpenSubtitles et Subdl en `contract-required`, et en mode `enforce` chaque fournisseur n'est interrogé qu'une fois listé dans `RECAP_SOURCE_APPROVALS`. `RECAP_SUBTITLES_ENABLED=false` les désactive.
+
+Une saison dont moins de 60 % des épisodes ont un texte d'au moins 400 caractères n'est pas générée.
 
 Chaque fragment narratif possède :
 
@@ -80,7 +84,7 @@ Même pipeline, avec revue humaine ciblée selon le score de confiance, l'audien
 2. Ajouter une table de documents et de fragments avec hash, licence, langue et historique d'ingestion pour remplacer progressivement les gros snapshots JSON.
 3. Ajouter un vérificateur indépendant : chaque phrase doit être supportée, contredite ou déclarée insuffisamment prouvée.
 5. Construire une banque de plusieurs images candidates par épisode avec provenance, dimensions, personnages visibles et zone de recadrage sûre.
-6. Brancher les sources officielles ou commerciales après validation juridique ; tester les sous-titres uniquement avec des droits explicites.
+6. Brancher les sources officielles ou commerciales après validation juridique, et valider les droits des sous-titres avant le lancement commercial.
 7. Déporter l'orchestration vers un worker durable afin que la finalisation ne dépende plus du polling du navigateur.
 
 ## Règles produit recommandées

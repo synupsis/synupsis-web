@@ -1,4 +1,4 @@
-export const RECAP_SOURCE_REGISTRY_VERSION = '2026-07-22';
+export const RECAP_SOURCE_REGISTRY_VERSION = '2026-10-28';
 
 export type RecapSourceProviderId =
   | 'trakt'
@@ -8,7 +8,9 @@ export type RecapSourceProviderId =
   | 'wikidata'
   | 'editorial'
   | 'official'
-  | 'transcript';
+  | 'transcript'
+  | 'opensubtitles'
+  | 'subdl';
 
 export type RecapSourcePolicy = {
   id: RecapSourceProviderId;
@@ -168,6 +170,38 @@ const SOURCE_POLICIES: Record<RecapSourceProviderId, RecapSourcePolicy> = {
     canTransform: false,
     canDisplaySourceText: false,
     notes: 'No transcript may be ingested until a contract explicitly permits storage and recap generation.',
+  },
+  opensubtitles: {
+    id: 'opensubtitles',
+    label: 'OpenSubtitles',
+    licenseId: 'opensubtitles-api-terms',
+    licenseName: 'OpenSubtitles API Terms; dialogue rights belong to the rights holders',
+    licenseUrl: null,
+    termsUrl: 'https://www.opensubtitles.com/en/terms',
+    rightsStatus: 'contract-required',
+    commercialUse: 'contract-required',
+    attributionRequired: true,
+    shareAlikeRequired: false,
+    canStore: false,
+    canTransform: true,
+    canDisplaySourceText: false,
+    notes: 'Subtitles are copyrighted dialogue. Raw subtitles are never stored: only a model-written plot summary of them is kept as evidence. In enforce mode, they are fetched only once listed in RECAP_SOURCE_APPROVALS.',
+  },
+  subdl: {
+    id: 'subdl',
+    label: 'Subdl',
+    licenseId: 'subdl-api-terms',
+    licenseName: 'Subdl API Terms; dialogue rights belong to the rights holders',
+    licenseUrl: null,
+    termsUrl: 'https://subdl.com/api-doc',
+    rightsStatus: 'contract-required',
+    commercialUse: 'contract-required',
+    attributionRequired: true,
+    shareAlikeRequired: false,
+    canStore: false,
+    canTransform: true,
+    canDisplaySourceText: false,
+    notes: 'Same rules as OpenSubtitles: raw subtitles are never stored, only a model-written plot summary. In enforce mode, fetched only once listed in RECAP_SOURCE_APPROVALS.',
   },
 };
 

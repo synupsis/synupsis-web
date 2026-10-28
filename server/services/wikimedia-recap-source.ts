@@ -19,6 +19,17 @@ type SeasonSitelinks = {
 export type EpisodeSummary = {
   text: string;
   articleTitle: string | null;
+  // The episode title printed by the article, without quotes.
+  title?: string | null;
+  // The episode's number across the whole series, when the article prints it.
+  overallNumber?: number | null;
+};
+
+/** A Trakt episode, with its number across the series to align articles split into parts. */
+export type WikimediaEpisodeRef = {
+  number: number;
+  absoluteNumber: number | null;
+  title: string;
 };
 
 type ParsedPage = {
@@ -55,6 +66,7 @@ const MAX_SEASON_OVERVIEW_CHARS = 2_000;
 // A season page summary this long already carries the plot; skip the episode article request.
 const EPISODE_ARTICLE_FETCH_THRESHOLD_CHARS = 1_500;
 const ARTICLE_FETCH_CONCURRENCY = 3;
+const MAX_OVERALL_NUMBER_GAP = 2;
 const MAX_RETRIES = 2;
 
 const FRENCH_SEASON_ORDINALS = [
@@ -81,6 +93,7 @@ export async function fetchWikimediaRecapEnrichment(input: {
   showName: string;
   imdbId: string | null;
   seasonNumber: number;
+  episodes: WikimediaEpisodeRef[];
   fetchedAt: string;
 }): Promise<WikimediaRecapEnrichment | null> {
   if (process.env.RECAP_WIKIMEDIA_ENABLED === 'false') return null;
@@ -112,6 +125,7 @@ export async function fetchWikimediaRecapEnrichment(input: {
           identity,
           sitelinks,
           seasonNumber: input.seasonNumber,
+          episodes: input.episodes,
           fetchedAt: input.fetchedAt,
         });
         collected.episodeEvidence.forEach((items, episodeNumber) => {
@@ -156,6 +170,7 @@ async function collectWikipediaEvidence(input: {
   identity: WikidataIdentity | null;
   sitelinks: SeasonSitelinks;
   seasonNumber: number;
+  episodes: WikimediaEpisodeRef[];
   fetchedAt: string;
 }): Promise<{
   episodeEvidence: Map<number, RecapEvidence[]>;
@@ -175,9 +190,13 @@ async function collectWikipediaEvidence(input: {
   };
 
   // 1. Per-episode summaries from the season article, or from the season
-  // section of an episode list or series article.
-  let summaries = new Map<number, EpisodeSummary>();
+  // section of an episode list or series article. A series article also
+  // aligns its rows on the series-wide episode number, for shows whose
+  // seasons are split into parts or numbered differently from Trakt. Later
+  // pages only fill the episodes earlier ones missed.
+  const summaries = new Map<number, EpisodeSummary>();
   for (const candidate of await resolveSeasonPageCandidates(host, locale, input)) {
+    if (summaries.size >= input.episodes.length) break;
     const page = await fetchParsedPage(host, candidate.title).catch((error) => {
       console.warn(`Wikipedia (${locale}) page "${candidate.title}" is unavailable.`, toErrorMessage(error));
       return null;
@@ -186,25 +205,33 @@ async function collectWikipediaEvidence(input: {
     const sections = candidate.scope === 'season'
       ? [page.html]
       : extractSeasonSectionsHtml(page.html, seasonNumber, locale);
-    const parsed = sections.map(parseEpisodeSummaries).find(result => result.size > 0);
-    if (!parsed) continue;
+    const sectionSummaries = sections.map(parseEpisodeSummaries).find(result => result.size > 0) ?? new Map();
+    const parsed = candidate.scope === 'season'
+      ? sectionSummaries
+      : alignEpisodeSummaries(sectionSummaries, parseOverallEpisodeSummaries(page.html), input.episodes);
+    const added = [...parsed].filter(([episodeNumber]) => !summaries.has(episodeNumber));
+    if (!added.length) continue;
 
-    summaries = parsed;
     const pageUrl = toArticleUrl(host, page.title);
-    sourceUrl = pageUrl;
-    parsed.forEach((summary, episodeNumber) => addEpisodeEvidence(createEvidence({
-      id: `wikipedia-${locale}-e${episodeNumber}-summary`,
-      kind: 'episode-plot',
-      episodeNumber,
-      locale,
-      text: summary.text,
-      sourceUrl: pageUrl,
-      revisionId: page.revisionId,
-      licenseId: policy.licenseId,
-      fetchedAt,
-    })));
+    sourceUrl ||= pageUrl;
+    added.forEach(([episodeNumber, summary]) => {
+      summaries.set(episodeNumber, summary);
+      addEpisodeEvidence(createEvidence({
+        id: `wikipedia-${locale}-e${episodeNumber}-summary`,
+        kind: 'episode-plot',
+        episodeNumber,
+        locale,
+        text: summary.text,
+        sourceUrl: pageUrl,
+        revisionId: page.revisionId,
+        licenseId: policy.licenseId,
+        fetchedAt,
+      }));
+    });
 
-    const overview = candidate.scope === 'season' ? extractSeasonOverview(page.html, locale) : null;
+    const overview = candidate.scope === 'season' && !seasonEvidence.length
+      ? extractSeasonOverview(page.html, locale)
+      : null;
     if (overview) {
       seasonEvidence.push(createEvidence({
         id: `wikipedia-${locale}-s${seasonNumber}-overview`,
@@ -218,7 +245,6 @@ async function collectWikipediaEvidence(input: {
         fetchedAt,
       }));
     }
-    break;
   }
 
   // 2. Episode articles carry the most detailed plots. Wikidata sitelinks are
@@ -393,8 +419,20 @@ export function parseEpisodeSummaries(html: string): Map<number, EpisodeSummary>
   return summaries;
 }
 
+function findOverallNumber(overallSummaries: Map<number, EpisodeSummary>, summary: EpisodeSummary | null): number | null {
+  if (!summary) return null;
+  for (const [overallNumber, candidate] of overallSummaries) {
+    if (candidate.text === summary.text) return overallNumber;
+  }
+  return null;
+}
+
 function parseEpisodeTableSummaries(html: string): Map<number, EpisodeSummary> {
-  const summaries = new Map<number, EpisodeSummary>();
+  return new Map(parseEpisodeTableRows(html).map(row => [row.episodeNumber, row.summary]));
+}
+
+function parseEpisodeTableRows(html: string): Array<{ episodeNumber: number; summary: EpisodeSummary }> {
+  const rows: Array<{ episodeNumber: number; summary: EpisodeSummary }> = [];
   const rowPattern = /<tr\b[^>]*class="[^"]*\bvevent\b[^"]*"[^>]*>([\s\S]*?)<\/tr>\s*(?:<tr\b[^>]*class="[^"]*\bexpand-child\b[^"]*"[^>]*>([\s\S]*?)<\/tr>)?/gi;
 
   for (const row of html.matchAll(rowPattern)) {
@@ -403,16 +441,88 @@ function parseEpisodeTableSummaries(html: string): Map<number, EpisodeSummary> {
     // within the season in the first data cell, when both columns exist.
     const firstDataCell = cells.find(cell => cell[1]?.toLowerCase() === 'td');
     const headerCell = cells.find(cell => cell[1]?.toLowerCase() === 'th');
-    const episodeNumber = parseEpisodeNumber(firstDataCell?.[3]) ?? parseEpisodeNumber(headerCell?.[3]);
+    const inSeasonNumber = parseEpisodeNumber(firstDataCell?.[3]);
+    const episodeNumber = inSeasonNumber ?? parseEpisodeNumber(headerCell?.[3]);
     const description = row[2]?.match(/<td\b[^>]*class="[^"]*\bdescription\b[^"]*"[^>]*>([\s\S]*?)<\/td>/i)?.[1];
     if (!episodeNumber || !description) continue;
 
     const text = normalizePlotText(htmlToText(description));
     if (text.length < MIN_EPISODE_PLOT_CHARS) continue;
     const summaryCell = cells.find(cell => /\bsummary\b/.test(cell[2] ?? ''));
-    summaries.set(episodeNumber, { text, articleTitle: extractLinkedArticleTitle(summaryCell?.[3]) });
+    rows.push({
+      episodeNumber,
+      summary: {
+        text,
+        articleTitle: extractLinkedArticleTitle(summaryCell?.[3]),
+        title: summaryCell ? cleanEpisodeTitle(htmlToText(summaryCell[3] ?? '')) : null,
+        overallNumber: inSeasonNumber ? parseEpisodeNumber(headerCell?.[3]) : null,
+      },
+    });
   }
-  return summaries;
+  return rows;
+}
+
+/**
+ * Summaries keyed by their number across the series: table rows that print
+ * both numbers, and per-episode blocks when their numbers never restart.
+ */
+export function parseOverallEpisodeSummaries(html: string): Map<number, EpisodeSummary> {
+  const overall = new Map<number, EpisodeSummary>();
+  parseEpisodeTableRows(html).forEach(({ summary }) => {
+    if (summary.overallNumber && !overall.has(summary.overallNumber)) overall.set(summary.overallNumber, summary);
+  });
+  const blocks = [...parseEpisodeBlockSummaries(html)];
+  const increasing = blocks.every(([episodeNumber], index) => index === 0 || episodeNumber > (blocks[index - 1]?.[0] ?? 0));
+  if (increasing) {
+    blocks.forEach(([episodeNumber, summary]) => {
+      if (!overall.has(episodeNumber)) overall.set(episodeNumber, { ...summary, overallNumber: episodeNumber });
+    });
+  }
+  return overall;
+}
+
+/**
+ * Picks each Trakt episode's summary between the season section (by number
+ * in the season) and the series-wide row (by absolute number). A matching
+ * title settles it; otherwise the series-wide row is trusted once another
+ * episode of the season confirms the alignment, so a series split into parts
+ * still finds its later episodes and a mismatched part heading is dropped.
+ */
+export function alignEpisodeSummaries(
+  sectionSummaries: Map<number, EpisodeSummary>,
+  overallSummaries: Map<number, EpisodeSummary>,
+  episodes: WikimediaEpisodeRef[],
+): Map<number, EpisodeSummary> {
+  const candidates = episodes.map(episode => ({
+    episode,
+    section: sectionSummaries.get(episode.number) ?? null,
+    overall: episode.absoluteNumber ? overallSummaries.get(episode.absoluteNumber) ?? null : null,
+  }));
+  const titleMatches = (summary: EpisodeSummary | null, episode: WikimediaEpisodeRef) => Boolean(
+    summary?.title && normalizeForComparison(summary.title) === normalizeForComparison(episode.title),
+  );
+  const overallConfirmed = candidates.some(({ episode, section, overall }) => (
+    overall && (titleMatches(overall, episode) || overall.text === section?.text)
+  ));
+
+  // A section row numbered far from the episode belongs to another part of
+  // the series; a small gap is a special or a split episode counted apart.
+  const sectionRow = (section: EpisodeSummary | null, episode: WikimediaEpisodeRef) => {
+    const overallNumber = section?.overallNumber ?? findOverallNumber(overallSummaries, section);
+    const distant = overallNumber && episode.absoluteNumber
+      && Math.abs(overallNumber - episode.absoluteNumber) > MAX_OVERALL_NUMBER_GAP;
+    return distant && !titleMatches(section, episode) ? null : section;
+  };
+
+  const aligned = new Map<number, EpisodeSummary>();
+  candidates.forEach(({ episode, section, overall }) => {
+    const selected = (overall && (titleMatches(overall, episode) || overall.text === section?.text)) ? overall
+      : titleMatches(section, episode) ? section
+        : overall && overallConfirmed ? overall
+          : sectionRow(section, episode);
+    if (selected) aligned.set(episode.number, selected);
+  });
+  return aligned;
 }
 
 function parseEpisodeBlockSummaries(html: string): Map<number, EpisodeSummary> {
@@ -427,7 +537,11 @@ function parseEpisodeBlockSummaries(html: string): Map<number, EpisodeSummary> {
     const text = extractLabelledSummary(block) ?? extractParagraphSummary(block);
     if (!text || text.length < MIN_EPISODE_PLOT_CHARS) return;
     const detailedArticle = block.match(/Article détaillé[\s\S]{0,300}?(<a\b[^>]*>)/i)?.[1];
-    summaries.set(episodeNumber, { text, articleTitle: extractLinkedArticleTitle(detailedArticle) });
+    summaries.set(episodeNumber, {
+      text,
+      articleTitle: extractLinkedArticleTitle(detailedArticle),
+      title: heading.text.includes(':') ? cleanEpisodeTitle(heading.text.slice(heading.text.indexOf(':') + 1)) : null,
+    });
   });
   return summaries;
 }
@@ -658,6 +772,10 @@ function parseEpisodeNumber(cellHtml?: string): number | null {
   if (!cellHtml) return null;
   const text = htmlToText(cellHtml);
   return /^\d{1,3}$/.test(text) ? Number(text) : null;
+}
+
+function cleanEpisodeTitle(text: string): string | null {
+  return text.replace(/^["“«\s]+|["”»\s]+$/g, '').trim() || null;
 }
 
 function extractLinkedArticleTitle(html?: string): string | null {

@@ -17,10 +17,12 @@ registerHooks({
 })
 
 const {
+  alignEpisodeSummaries,
   extractPlotSection,
   extractSeasonOverview,
   extractSeasonSectionsHtml,
   parseEpisodeSummaries,
+  parseOverallEpisodeSummaries,
 } = await import('../../server/services/wikimedia-recap-source.ts')
 
 const plot = (detail) => `${detail} ${'Les conséquences de cette scène précise sont racontées en détail. '.repeat(4)}`.trim()
@@ -153,4 +155,88 @@ test('extrait le résumé de saison français sans la distribution', () => {
 
   assert.match(extractSeasonOverview(html, 'fr'), /^Carmy hérite de la sandwicherie/)
   assert.equal(extractSeasonOverview(heading(2, 'Distribution'), 'fr'), null)
+})
+
+// Lupin: Trakt numbers Parts 1 and 2 as season 1 (10 episodes), Wikipedia as two parts of 5.
+const partsPage = [
+  heading(2, 'Episodes'),
+  heading(3, 'Part 1 (2021)'),
+  '<table class="wikiepisodetable"><tbody>',
+  episodeRow({ overall: 1, inSeason: 1, title: 'Chapter 1', description: plot('Assane vole le collier au Louvre.') }),
+  episodeRow({ overall: 2, inSeason: 2, title: 'Chapter 2', description: plot('Assane rend visite à Anne Pellegrini.') }),
+  '</tbody></table>',
+  heading(3, 'Part 2 (2021)'),
+  '<table class="wikiepisodetable"><tbody>',
+  episodeRow({ overall: 3, inSeason: 1, title: 'Chapter 3', description: plot('Raoul est enlevé sur la plage d’Étretat.') }),
+  episodeRow({ overall: 4, inSeason: 2, title: 'Chapter 4', description: plot('Assane se rend à la police.') }),
+  '</tbody></table>',
+  heading(3, 'Part 3 (2023)'),
+  '<table class="wikiepisodetable"><tbody>',
+  episodeRow({ overall: 5, inSeason: 1, title: 'Chapter 1', description: plot('Assane revient à Paris pour Claire.') }),
+  '</tbody></table>',
+].join('')
+
+const traktEpisodes = (titles, firstAbsolute) => titles.map((title, index) => ({
+  number: index + 1,
+  absoluteNumber: firstAbsolute + index,
+  title,
+}))
+
+test('complète une saison découpée en parties par le numéro dans la série', () => {
+  const section = extractSeasonSectionsHtml(partsPage, 1, 'en').map(parseEpisodeSummaries).find(result => result.size > 0)
+  const aligned = alignEpisodeSummaries(
+    section,
+    parseOverallEpisodeSummaries(partsPage),
+    traktEpisodes(['Chapter 1', 'Chapter 2', 'Chapter 3', 'Chapter 4'], 1),
+  )
+
+  assert.deepEqual([...aligned.keys()], [1, 2, 3, 4])
+  assert.match(aligned.get(3).text, /^Raoul est enlevé/)
+  assert.match(aligned.get(4).text, /^Assane se rend à la police/)
+})
+
+test('écarte une partie dont le numéro ne correspond pas à la saison Trakt', () => {
+  // Trakt season 2 is Part 3: the "Part 2" heading must not supply its episodes.
+  const section = extractSeasonSectionsHtml(partsPage, 2, 'en').map(parseEpisodeSummaries).find(result => result.size > 0)
+  const aligned = alignEpisodeSummaries(section, parseOverallEpisodeSummaries(partsPage), traktEpisodes(['Chapter 1'], 5))
+
+  assert.deepEqual([...aligned.keys()], [1])
+  assert.match(aligned.get(1).text, /^Assane revient à Paris/)
+})
+
+test('garde la section de saison quand la numérotation absolue diverge', () => {
+  const section = extractSeasonSectionsHtml(seriesPage, 2, 'en').map(parseEpisodeSummaries).find(result => result.size > 0)
+  // Trakt counts a special Wikipedia leaves out: absolute numbers are off by one.
+  const aligned = alignEpisodeSummaries(section, parseOverallEpisodeSummaries(seriesPage), traktEpisodes(['Something else'], 12))
+
+  assert.match(aligned.get(1).text, /^Jonas vit en 2052/)
+})
+
+test('numérote dans la série des blocs d’épisodes qui ne repartent jamais à 1', () => {
+  const block = (number, title, text) => `${heading(4, `Épisode ${number}&#160;: <i>${title}</i>`)}<p>${plot(text)}</p>`
+  const html = [
+    heading(3, 'Partie 1'), block(1, 'Chapitre 1', 'Assane vole le collier.'), block(2, 'Chapitre 2', 'Assane rencontre Anne.'),
+    heading(3, 'Partie 2'), block(3, 'Chapitre 3', 'Raoul est enlevé.'),
+  ].join('')
+  const overall = parseOverallEpisodeSummaries(html)
+  const section = extractSeasonSectionsHtml(html, 1, 'fr').map(parseEpisodeSummaries).find(result => result.size > 0)
+  const aligned = alignEpisodeSummaries(section, overall, traktEpisodes(['Chapter 1', 'Chapter 2', 'Chapter 3'], 1))
+
+  assert.deepEqual([...overall.keys()], [1, 2, 3])
+  assert.equal(overall.get(3).title, 'Chapitre 3')
+  assert.match(aligned.get(3).text, /^Raoul est enlevé/)
+})
+
+test('écarte un bloc d’une autre partie numéroté loin de l’épisode Trakt', () => {
+  const block = (number, title, text) => `${heading(4, `Épisode ${number}&#160;: <i>${title}</i>`)}<p>${plot(text)}</p>`
+  // The French list stops at Part 2; Trakt season 2 (Part 3) starts at episode 11.
+  const html = [
+    heading(3, 'Partie 1'), block(1, 'Chapitre 1', 'Assane vole le collier.'),
+    heading(3, 'Partie 2'), ...Array.from({ length: 9 }, (_, index) => block(index + 2, `Chapitre ${index + 2}`, `Événement ${index + 2}.`)),
+  ].join('')
+  const section = extractSeasonSectionsHtml(html, 2, 'fr').map(parseEpisodeSummaries).find(result => result.size > 0)
+  const episodes = traktEpisodes(Array.from({ length: 7 }, (_, index) => `Chapter ${index + 1}`), 11)
+
+  assert.ok(section.has(6))
+  assert.equal(alignEpisodeSummaries(section, parseOverallEpisodeSummaries(html), episodes).size, 0)
 })

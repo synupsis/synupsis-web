@@ -25,10 +25,14 @@ import {
   getRecapSourcePolicy,
   type RecapSourceProviderId,
 } from '~/server/services/recap-source-registry';
+import { fetchSubtitleRecapEnrichment } from '~/server/services/subtitle-recap-source';
 import { fetchWikimediaRecapEnrichment } from '~/server/services/wikimedia-recap-source';
 import { createTraktHeaders } from '~/server/utils/trakt';
 
 const TARGET_EPISODE_SOURCE_CHARS = 1_200;
+// Below this length, an episode's best written source leaves out most of its
+// scenes, and its subtitles are worth a download and a reading.
+const SUBTITLE_EPISODE_SOURCE_CHARS = 1_800;
 const MAX_EVIDENCE_PER_EPISODE = 4;
 
 export async function fetchRecapSourceSnapshot(input: {
@@ -52,9 +56,11 @@ export async function fetchRecapSourceSnapshot(input: {
   const headers = createTraktHeaders(clientId);
   const seasonUrl = `https://api.trakt.tv/shows/${input.showTraktId}/seasons/${input.seasonNumber}?extended=full`;
   const showUrl = `https://api.trakt.tv/shows/${input.showTraktId}?extended=full`;
-  const [seasonResponse, showResponse] = await Promise.all([
+  const seasonsUrl = `https://api.trakt.tv/shows/${input.showTraktId}/seasons?extended=full`;
+  const [seasonResponse, showResponse, seasonsResponse] = await Promise.all([
     $fetch<any>(seasonUrl, { headers, timeout: 15_000 }),
     $fetch<any>(showUrl, { headers, timeout: 15_000 }),
+    $fetch<any>(seasonsUrl, { headers, timeout: 15_000 }).catch(() => null),
   ]);
   const traktEpisodes = Array.isArray(seasonResponse) ? seasonResponse : [];
   const traktShow = showResponse || {};
@@ -68,6 +74,13 @@ export async function fetchRecapSourceSnapshot(input: {
   const imdbId = sanitizeText(traktShow?.ids?.imdb) || null;
   const traktSlug = sanitizeText(traktShow?.ids?.slug);
   const traktPolicy = getRecapSourcePolicy('trakt');
+  // Episodes of the earlier seasons, to number this season's episodes across
+  // the series: other sources split seasons into parts or number them otherwise.
+  const previousEpisodeCount = Array.isArray(seasonsResponse)
+    ? seasonsResponse
+      .filter((season: any) => Number(season?.number) > 0 && Number(season.number) < input.seasonNumber)
+      .reduce((total: number, season: any) => total + (Number(season?.episode_count) || 0), 0)
+    : null;
   const providers: RecapSourceProvider[] = [createRecapSourceProvider(
     'trakt',
     fetchedAt,
@@ -86,6 +99,10 @@ export async function fetchRecapSourceSnapshot(input: {
         runtime: typeof episode.runtime === 'number' ? episode.runtime : null,
         rating: typeof episode.rating === 'number' ? episode.rating : null,
         traktId: typeof episode.ids?.trakt === 'number' ? episode.ids.trakt : null,
+        absoluteNumber: previousEpisodeCount !== null
+          ? previousEpisodeCount + episode.number
+          : toPositiveInteger(episode.number_abs),
+        imdbId: sanitizeText(episode.ids?.imdb) || null,
         evidence: overview ? [{
           id: `trakt-e${episode.number}-overview`,
           providerId: 'trakt',
@@ -112,11 +129,16 @@ export async function fetchRecapSourceSnapshot(input: {
   const [enrichmentResults, tmdbImages] = await Promise.all([
     Promise.all([
       fetchTmdbEvidence({ tmdbId, seasonNumber: input.seasonNumber, fetchedAt }),
-      fetchTvMazeEvidence({ tvdbId, imdbId, seasonNumber: input.seasonNumber, fetchedAt }),
+      fetchTvMazeEvidence({ tvdbId, imdbId, seasonNumber: input.seasonNumber, episodes, fetchedAt }),
       fetchWikimediaRecapEnrichment({
         showName: input.showName,
         imdbId,
         seasonNumber: input.seasonNumber,
+        episodes: episodes.map(episode => ({
+          number: episode.number,
+          absoluteNumber: episode.absoluteNumber ?? null,
+          title: episode.title,
+        })),
         fetchedAt,
       }),
     ]),
@@ -127,10 +149,6 @@ export async function fetchRecapSourceSnapshot(input: {
     if (stills?.length) episode.stills = stills;
   });
   const characterPortraits = enrichmentResults.flatMap(enrichment => (enrichment && 'portraits' in enrichment ? enrichment.portraits ?? [] : []));
-  const imageFocus = await locateImageFocus([
-    ...episodes.flatMap(episode => episode.stills ?? []),
-    ...(tmdbImages?.backdrops ?? []),
-  ]);
   const seasonEvidence: RecapEvidence[] = [];
   let wikidataId: string | null = null;
 
@@ -148,6 +166,32 @@ export async function fetchRecapSourceSnapshot(input: {
       episode.overview = selectPrimaryOverview(episode.evidence) || episode.overview;
     });
   });
+
+  // Subtitles fill in the episodes the written sources still describe
+  // poorly, while the vision model frames the images.
+  const [subtitleEnrichment, imageFocus] = await Promise.all([
+    fetchSubtitleRecapEnrichment({
+      showName: input.showName,
+      showImdbId: imdbId,
+      showTmdbId: tmdbId,
+      originalLanguage: sanitizeText(traktShow?.language) || null,
+      seasonNumber: input.seasonNumber,
+      episodes: episodes.filter(episode => measureEpisodeSourceLength(episode) < SUBTITLE_EPISODE_SOURCE_CHARS),
+      characterNames: characterPortraits.map(portrait => portrait.name),
+      fetchedAt,
+    }),
+    locateImageFocus([
+      ...episodes.flatMap(episode => episode.stills ?? []),
+      ...(tmdbImages?.backdrops ?? []),
+    ]),
+  ]);
+  if (subtitleEnrichment) {
+    providers.push(...subtitleEnrichment.providers);
+    subtitleEnrichment.episodeEvidence.forEach((items, episodeNumber) => {
+      const episode = episodes.find(candidate => candidate.number === episodeNumber);
+      if (episode) episode.evidence = deduplicateEvidence([...episode.evidence, ...items]);
+    });
+  }
 
   const uniqueProviders = deduplicateProviders(providers);
   return {
@@ -375,6 +419,7 @@ async function fetchTvMazeEvidence(input: {
   tvdbId: number | null;
   imdbId: string | null;
   seasonNumber: number;
+  episodes: EpisodeSource[];
   fetchedAt: string;
 }): Promise<SourceEnrichment | null> {
   if (!input.tvdbId && !input.imdbId) return null;
@@ -392,19 +437,16 @@ async function fetchTvMazeEvidence(input: {
       query: { specials: 1 },
       timeout: 15_000,
     });
-    const seasonEpisodeIds = (Array.isArray(data) ? data : [])
-      .filter((episode: any) => Number(episode?.season) === input.seasonNumber)
-      .flatMap((episode: any) => toPositiveInteger(episode?.id) ?? []);
+    const matchedEpisodes = matchTvMazeEpisodes(Array.isArray(data) ? data : [], input.seasonNumber, input.episodes);
+    const seasonEpisodeIds = [...matchedEpisodes.values()].flatMap((episode: any) => toPositiveInteger(episode?.id) ?? []);
     const portraits = await fetchTvMazePortraits(showId, seasonEpisodeIds);
     const locale = normalizeSourceLocale(show?.language);
     const episodeEvidence = new Map<number, RecapEvidence[]>();
     const tvmazePolicy = getRecapSourcePolicy('tvmaze');
 
-    (Array.isArray(data) ? data : []).forEach((episode: any) => {
-      if (Number(episode?.season) !== input.seasonNumber) return;
-      const episodeNumber = toPositiveInteger(episode?.number);
+    matchedEpisodes.forEach((episode: any, episodeNumber) => {
       const summary = sanitizeText(episode?.summary);
-      if (!episodeNumber || !summary) return;
+      if (!summary) return;
       episodeEvidence.set(episodeNumber, [{
         id: `tvmaze-e${episodeNumber}-summary-${locale}`,
         providerId: 'tvmaze',
@@ -435,6 +477,29 @@ async function fetchTvMazeEvidence(input: {
     console.warn('TVmaze recap enrichment is unavailable; continuing with other sources.', toErrorMessage(error));
     return null;
   }
+}
+
+/**
+ * TVmaze episodes keyed by Trakt episode number. When TVmaze splits or groups
+ * seasons differently (a season released in parts), episodes are matched by
+ * their number across the series instead of their number in the season.
+ */
+function matchTvMazeEpisodes(data: any[], seasonNumber: number, episodes: EpisodeSource[]): Map<number, any> {
+  const regular = data
+    .filter((episode: any) => episode?.type !== 'insignificant_special' && episode?.type !== 'significant_special'
+      && Number(episode?.season) > 0 && toPositiveInteger(episode?.number))
+    .sort((first: any, second: any) => first.season - second.season || first.number - second.number);
+  const season = regular.filter((episode: any) => Number(episode.season) === seasonNumber);
+  const matched = new Map<number, any>();
+  if (season.length === episodes.length || episodes.some(episode => !episode.absoluteNumber)) {
+    season.forEach((episode: any) => matched.set(episode.number, episode));
+    return matched;
+  }
+  episodes.forEach((episode) => {
+    const candidate = regular[(episode.absoluteNumber ?? 0) - 1];
+    if (candidate) matched.set(episode.number, candidate);
+  });
+  return matched;
 }
 
 const IMAGE_FOCUS_BATCH_SIZE = 8;
