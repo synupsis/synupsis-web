@@ -93,9 +93,10 @@
           :aria-label="t('Season {season}, episode {episode}: choose another episode', { season: viewSeason, episode: viewEpisode })"
           @click="openPicker('view')"
         >
-          <span class="flex items-center justify-center gap-1 text-[28px] font-extrabold leading-9 tracking-tight tabular-nums" aria-live="polite">
+          <!-- The chevron hangs outside the label, so the label centres on the title below it. -->
+          <span class="relative inline-block text-[28px] font-extrabold leading-9 tracking-tight tabular-nums" aria-live="polite">
             S{{ viewSeason }} · E{{ viewEpisode }}
-            <ChevronDownIcon class="h-4 w-4 text-muted-foreground transition-colors group-hover:text-white" aria-hidden="true" />
+            <ChevronDownIcon class="absolute left-full top-1/2 ml-1 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors group-hover:text-white" aria-hidden="true" />
           </span>
           <span v-if="catalogs[viewSeason] === undefined" class="mx-auto mt-1 block h-4 w-28 animate-pulse rounded bg-white/10" aria-hidden="true" />
           <span v-else class="block truncate text-[13px] text-muted-foreground">{{ viewedEpisode?.title || t('Episode {number}', { number: viewEpisode }) }}</span>
@@ -214,64 +215,102 @@
     </Transition>
 
     <Dialog v-model:open="pickerOpen">
-      <DialogContent class="flex max-h-[85vh] flex-col gap-5 sm:max-w-lg sm:rounded-2xl">
-        <DialogHeader>
-          <DialogTitle>{{ pickerMode === 'set' ? t('Where are you up to?') : t('Choose an episode') }}</DialogTitle>
+      <!-- A fixed height: switching seasons never resizes or moves the dialog. -->
+      <DialogContent class="flex h-[min(85vh,40rem)] flex-col gap-0 overflow-hidden border-white/10 bg-zinc-950 p-0 sm:max-w-md sm:rounded-3xl">
+        <DialogHeader class="gap-1.5 bg-gradient-to-b from-white/[0.06] to-transparent px-6 pb-4 pt-6 text-left">
+          <p class="truncate pr-8 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{{ showName }}</p>
+          <DialogTitle class="text-xl font-extrabold tracking-tight">{{ pickerMode === 'set' ? t('Where are you up to?') : t('Choose an episode') }}</DialogTitle>
           <DialogDescription :class="pickerMode === 'set' ? '' : 'sr-only'">
             {{ pickerMode === 'set' ? t('Choose the last episode you watched.') : t('Choose a season, then an episode to display.') }}
           </DialogDescription>
         </DialogHeader>
 
-        <div class="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="group" :aria-label="t('Seasons')">
-          <button
-            v-for="season in seasons"
-            :key="season"
-            type="button"
-            class="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
-            :class="pickerSeason === season ? 'border-primary/50 bg-primary/15 text-primary' : 'border-white/10 bg-white/[0.025] text-muted-foreground hover:border-white/20 hover:text-white'"
-            :aria-pressed="pickerSeason === season"
-            @click="selectPickerSeason(season)"
-          >
-            <CircleCheckIcon v-if="isSeasonComplete(season)" class="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" />
-            {{ t('Season {number}', { number: season }) }}
-            <span v-if="!isSeasonComplete(season) && season === reachedSeason && reachedEpisode" class="tabular-nums text-emerald-200">{{ reachedEpisode }}/{{ catalogs[season]?.length || '?' }}</span>
-          </button>
+        <div class="flex flex-col gap-3 px-6 pb-4">
+          <div class="flex gap-1 overflow-x-auto rounded-full bg-white/[0.04] p-1 ring-1 ring-inset ring-white/[0.06] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="group" :aria-label="t('Seasons')">
+            <button
+              v-for="season in seasons"
+              :key="season"
+              type="button"
+              class="inline-flex shrink-0 grow items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              :class="pickerSeason === season ? 'bg-white text-black shadow-sm' : 'text-muted-foreground hover:bg-white/[0.05] hover:text-white'"
+              :aria-pressed="pickerSeason === season"
+              :aria-label="t('Season {number}', { number: season })"
+              @click="selectPickerSeason(season)"
+            >
+              <CircleCheckIcon v-if="isSeasonComplete(season)" class="h-3.5 w-3.5" :class="pickerSeason === season ? 'text-emerald-600' : 'text-emerald-400'" aria-hidden="true" />
+              <!-- Short labels keep every season in view on long series. -->
+              {{ seasons.length > 4 ? `S${season}` : t('Season {number}', { number: season }) }}
+            </button>
+          </div>
+          <div class="flex h-4 items-center gap-3">
+            <span class="h-1 flex-1 overflow-hidden rounded-full bg-white/10" aria-hidden="true">
+              <span
+                class="block h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-300 transition-[width] duration-500 ease-out motion-reduce:transition-none"
+                :style="{ width: `${pickerEpisodes.length ? (seenInPickerSeason / pickerEpisodes.length) * 100 : 0}%` }"
+              />
+            </span>
+            <span v-if="pickerEpisodes.length" class="shrink-0 text-xs tabular-nums text-muted-foreground">
+              {{ t('Season {season} · {seen} / {total} watched', { season: pickerSeason, seen: seenInPickerSeason, total: pickerEpisodes.length }) }}
+            </span>
+          </div>
         </div>
 
-        <div class="-mx-2 min-h-0 flex-1 overflow-y-auto px-2">
-          <div v-if="!catalogs[pickerSeason] && catalogPending" class="grid h-40 place-items-center"><SpinLoader class="h-5 w-5" /></div>
-          <p v-else-if="!(catalogs[pickerSeason]?.length)" class="rounded-xl border border-dashed border-white/15 p-6 text-center text-sm text-muted-foreground">
+        <div ref="pickerList" class="min-h-0 flex-1 overflow-y-auto border-t border-white/10 px-3 py-3" @mouseleave="hoveredEpisode = null">
+          <div v-if="catalogs[pickerSeason] === undefined" class="grid h-40 place-items-center"><SpinLoader class="h-5 w-5" /></div>
+          <p v-else-if="!pickerEpisodes.length" class="m-3 rounded-2xl border border-dashed border-white/15 p-6 text-center text-sm text-muted-foreground">
             {{ t('Episodes for this season are unavailable.') }}
           </p>
-          <ol v-else :key="pickerSeason" class="flex flex-col gap-1">
+          <ol v-else :key="pickerSeason" class="flex flex-col">
             <li
-              v-for="(episode, index) in catalogs[pickerSeason]"
+              v-for="(episode, index) in pickerEpisodes"
               :key="episode.number"
-              class="episode-picker-row"
-              :style="{ animationDelay: `${Math.min(index, 12) * 18}ms` }"
+              class="episode-picker-row relative"
+              :style="{ animationDelay: `${Math.min(index, 8) * 12}ms` }"
             >
+              <!-- The rail joins each episode to the next, green while both are watched. -->
+              <span
+                v-if="index < pickerEpisodes.length - 1"
+                class="pointer-events-none absolute left-[29px] top-1/2 h-full w-px transition-colors duration-200"
+                :class="isPickerFilled(episode.number + 1) ? 'bg-emerald-400/50' : 'bg-white/10'"
+                aria-hidden="true"
+              />
               <button
                 type="button"
-                class="flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors"
-                :class="isPickerCurrent(episode.number) ? 'border-primary/40 bg-primary/10' : 'border-transparent hover:bg-white/[0.05]'"
+                class="relative flex w-full items-center gap-3.5 rounded-2xl px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                :class="isPickerCurrent(episode.number) ? 'bg-white/[0.07]' : 'hover:bg-white/[0.04]'"
                 :aria-current="isPickerCurrent(episode.number) ? 'true' : undefined"
+                @mouseenter="hoveredEpisode = episode.number"
+                @focus="hoveredEpisode = episode.number"
                 @click="pickEpisode(episode.number)"
               >
                 <span
-                  class="grid h-9 w-9 shrink-0 place-items-center rounded-full border text-xs font-bold tabular-nums"
-                  :class="isEpisodeSeen(pickerSeason, episode.number) ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-200' : 'border-white/10 text-muted-foreground'"
+                  class="relative grid h-9 w-9 shrink-0 place-items-center rounded-full border text-xs font-bold tabular-nums transition-colors duration-200"
+                  :class="isPickerCurrent(episode.number)
+                    ? 'border-white bg-white text-black'
+                    : isPickerFilled(episode.number)
+                      ? 'border-emerald-400/50 bg-emerald-950 text-emerald-200'
+                      : 'border-white/15 bg-zinc-950 text-muted-foreground'"
                 >
-                  {{ episode.number }}
+                  <CheckIcon v-if="isPickerFilled(episode.number) && !isPickerCurrent(episode.number)" class="h-4 w-4" aria-hidden="true" />
+                  <template v-else>{{ episode.number }}</template>
                 </span>
-                <span class="min-w-0 flex-1 truncate text-sm font-medium">{{ episode.title || t('Episode {number}', { number: episode.number }) }}</span>
-                <CircleCheckIcon v-if="isEpisodeSeen(pickerSeason, episode.number)" class="h-4 w-4 shrink-0 text-emerald-400" :aria-label="t('Watched')" />
+                <span class="flex min-w-0 flex-1 flex-col">
+                  <span class="truncate text-sm font-semibold" :class="isPickerFilled(episode.number) || isPickerCurrent(episode.number) ? 'text-white' : 'text-white/85'">
+                    {{ episode.title || t('Episode {number}', { number: episode.number }) }}
+                  </span>
+                  <span class="truncate text-xs tabular-nums text-muted-foreground">
+                    {{ t('Episode {number}', { number: episode.number }) }}<template v-if="episode.firstAired"> · {{ formatAirDate(episode.firstAired) }}</template>
+                  </span>
+                </span>
+                <span v-if="isEpisodeSeen(pickerSeason, episode.number)" class="sr-only">{{ t('Watched') }}</span>
               </button>
             </li>
           </ol>
         </div>
 
-        <div v-if="reachedSeason" class="flex justify-start border-t border-white/10 pt-4">
-          <Button type="button" variant="ghost" size="sm" class="text-muted-foreground" @click="resetProgress">
+        <div v-if="reachedSeason" class="flex border-t border-white/10 px-4 py-2.5">
+          <Button type="button" variant="ghost" size="sm" class="rounded-full text-muted-foreground hover:text-red-300" @click="resetProgress">
+            <RotateCcwIcon class="mr-2 h-3.5 w-3.5" aria-hidden="true" />
             {{ t('Reset my progress') }}
           </Button>
         </div>
@@ -281,7 +320,7 @@
 </template>
 
 <script setup lang="ts">
-import { BookmarkCheckIcon, BookmarkIcon, BookmarkXIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, CircleCheckIcon, CircleStopIcon, EllipsisIcon, FastForwardIcon, LockIcon, MessagesSquareIcon, PlayIcon, ShieldCheckIcon, ShieldOffIcon } from 'lucide-vue-next';
+import { BookmarkCheckIcon, BookmarkIcon, BookmarkXIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, CheckIcon, CircleCheckIcon, CircleStopIcon, EllipsisIcon, FastForwardIcon, LockIcon, MessagesSquareIcon, PlayIcon, RotateCcwIcon, ShieldCheckIcon, ShieldOffIcon } from 'lucide-vue-next';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { Button } from '~/components/shadcn/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '~/components/shadcn/dialog';
@@ -335,7 +374,8 @@ watch(() => props.initialCatalog, (catalog) => {
   if (!catalog?.seasonNumber) return;
   storeCatalog(catalog.seasonNumber, catalog.episodes);
 }, { immediate: true });
-const catalogPending = ref(false);
+// One request per season, even when the picker prefetches it while the card asks for it.
+const catalogRequests = new Map<number, Promise<CatalogEpisode[]>>();
 const initialPosition = nextPosition({ season: props.reachedSeason, episode: props.reachedEpisode });
 const viewSeason = ref(initialPosition.season);
 const viewEpisode = ref(Math.max(1, Math.min(initialPosition.episode, catalogs[initialPosition.season]?.length || initialPosition.episode)));
@@ -389,19 +429,29 @@ function isReleased(episode: CatalogEpisode) {
   return !episode.firstAired || new Date(episode.firstAired).getTime() <= Date.now();
 }
 
-async function loadCatalog(season: number) {
-  if (!season || catalogs[season]) return catalogs[season] ?? [];
-  catalogPending.value = true;
-  try {
-    const response = await $fetch<{ episodes: CatalogEpisode[] }>(`/api/shows/${props.slug}/seasons/${season}/episodes`);
-    storeCatalog(season, response.episodes);
-  } catch {
-    catalogs[season] = [];
-    lastAiredEpisodes[season] = null;
-  } finally {
-    catalogPending.value = false;
+function loadCatalog(season: number) {
+  if (!season || catalogs[season]) return Promise.resolve(catalogs[season] ?? []);
+  let request = catalogRequests.get(season);
+  if (!request) {
+    request = $fetch<{ episodes: CatalogEpisode[] }>(`/api/shows/${props.slug}/seasons/${season}/episodes`)
+      .then(response => storeCatalog(season, response.episodes))
+      .catch(() => {
+        catalogs[season] = [];
+        lastAiredEpisodes[season] = null;
+      })
+      .then(() => catalogs[season] ?? [])
+      .finally(() => catalogRequests.delete(season));
+    catalogRequests.set(season, request);
   }
-  return catalogs[season] ?? [];
+  return request;
+}
+
+// The neighbouring seasons load in the background so switching to them is instant.
+function loadPickerSeasons(season: number) {
+  const index = props.seasons.indexOf(season);
+  for (const neighbour of [season, props.seasons[index - 1], props.seasons[index + 1]]) {
+    if (neighbour) loadCatalog(neighbour);
+  }
 }
 
 // The episode after the last one seen: the start of the series without progress.
@@ -453,21 +503,39 @@ const pickerOpen = ref(false);
 const pickerSeason = ref(viewSeason.value);
 // view: show an episode in the card; set: mark everything up to the chosen episode as seen.
 const pickerMode = ref<'view' | 'set'>('view');
+const pickerList = ref<HTMLElement | null>(null);
 
 function openPicker(mode: 'view' | 'set') {
   pickerMode.value = mode;
+  hoveredEpisode.value = null;
   pickerSeason.value = viewSeason.value;
-  loadCatalog(pickerSeason.value);
+  loadPickerSeasons(pickerSeason.value);
   pickerOpen.value = true;
 }
 
 function selectPickerSeason(season: number) {
   pickerSeason.value = season;
-  loadCatalog(season);
+  pickerList.value?.scrollTo({ top: 0 });
+  hoveredEpisode.value = null;
+  loadPickerSeasons(season);
 }
 
 function isPickerCurrent(episode: number) {
   return pickerMode.value === 'view' && pickerSeason.value === viewSeason.value && episode === viewEpisode.value;
+}
+
+const pickerEpisodes = computed(() => catalogs[pickerSeason.value] ?? []);
+const seenInPickerSeason = computed(() => pickerEpisodes.value.filter(episode => isEpisodeSeen(pickerSeason.value, episode.number)).length);
+// While choosing where they are up to, hovering an episode previews everything it marks as watched.
+const hoveredEpisode = ref<number | null>(null);
+
+function isPickerFilled(episode: number) {
+  if (pickerMode.value === 'set' && hoveredEpisode.value !== null) return episode <= hoveredEpisode.value;
+  return isEpisodeSeen(pickerSeason.value, episode);
+}
+
+function formatAirDate(date: string) {
+  return new Intl.DateTimeFormat(locale.value, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(date));
 }
 
 function pickEpisode(episode: number) {
@@ -527,11 +595,11 @@ onMounted(syncWithProgress);
 
 /* Episodes appear one after the other when the list opens or changes season. */
 .episode-picker-row {
-  animation: episode-picker-row-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: episode-picker-row-in 200ms ease-out both;
 }
 
 @keyframes episode-picker-row-in {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(2px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
