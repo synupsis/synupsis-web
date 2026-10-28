@@ -181,7 +181,8 @@
             :editable="isSuggesting"
             :selected-path="selectedPath"
             :suggestion-counts="suggestionCounts"
-            class="animate-fade-in-up"
+            :playing="phase === 'open'"
+            :class="{ 'animate-fade-in-up': hasTurnedSlide }"
             @select-text="selectText"
             @open-suggestions="openTextSuggestions"
           />
@@ -190,7 +191,8 @@
               :key="currentSlide.id"
               :model-value="JSON.stringify(currentSlide.canvas_data)"
               :read-only="true"
-              class="h-full w-full animate-fade-in-up"
+              class="h-full w-full"
+              :class="{ 'animate-fade-in-up': hasTurnedSlide }"
             />
           </ClientOnly>
 
@@ -891,8 +893,13 @@ const onSuggestionBackdrop = () => {
   if (performance.now() >= ignoreTapsUntil) closeSuggestionSheet();
 };
 
+// The first slide arrives with the frame's own opening: it only fades in from the
+// second one, so nothing else moves inside the frame while it animates.
+const hasTurnedSlide = ref(false);
+
 // Another slide: whatever was picked on the previous one no longer applies.
 watch(currentSlideIndex, () => {
+  hasTurnedSlide.value = true;
   selectedPath.value = null;
   chipSheetPath.value = null;
 });

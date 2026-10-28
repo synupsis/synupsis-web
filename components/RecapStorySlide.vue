@@ -13,7 +13,7 @@
           :src="imageUrl"
           alt=""
           class="absolute inset-0 h-full w-full object-cover"
-          :class="{ 'recap-cover-drift': content.kind === 'cover' }"
+          :class="{ 'recap-cover-drift': content.kind === 'cover', 'recap-cover-drift-paused': content.kind === 'cover' && !playing }"
         >
         <div v-else :key="'gradient'" class="absolute inset-0 bg-gradient-to-br from-slate-700 to-slate-950" />
       </Transition>
@@ -299,6 +299,10 @@ const props = defineProps<{
   genres?: string[];
   // The player's episode rail covers the bottom of the slide.
   hasRail?: boolean;
+  // The cover's slow zoom runs only while true: not while the story grows out of
+  // its ring or shrinks back into it, as a second moving layer flickers under the
+  // frame's clip on iOS (in an installed app especially), nor on thumbnails.
+  playing?: boolean;
   // Suggestion mode: the texts open to corrections are outlined and can be picked.
   editable?: boolean;
   selectedPath?: string | null;
@@ -665,6 +669,12 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
 .recap-cover-drift {
   animation: recap-cover-drift 14s ease-out forwards;
   transform-origin: 50% 35%;
+  backface-visibility: hidden;
+}
+
+/* Held where it is, so the zoom neither jumps nor moves while the frame animates. */
+.recap-cover-drift-paused {
+  animation-play-state: paused;
 }
 
 @keyframes recap-cover-drift {
