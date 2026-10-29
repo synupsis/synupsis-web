@@ -13,6 +13,21 @@ export async function requireAuthenticatedUser(event: H3Event): Promise<JwtPaylo
   return user;
 }
 
+/** Whether the signed-in user is an admin, without refusing anyone. */
+export async function isAdminUser(event: H3Event, userId: string): Promise<boolean> {
+  const client = await serverSupabaseClient<Database>(event);
+  const { data, error } = await client
+    .from('profile')
+    .select('role')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) {
+    console.error('Failed to verify admin role:', error);
+    return false;
+  }
+  return data?.role === 'admin';
+}
+
 export async function requireAdminUser(event: H3Event): Promise<JwtPayload> {
   const user = await requireAuthenticatedUser(event);
   const client = await serverSupabaseClient<Database>(event);

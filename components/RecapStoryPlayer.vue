@@ -448,6 +448,7 @@ import { useRecapSuggestions } from '~/composables/useRecapSuggestions';
 import { lockPageScroll } from '~/lib/page-scroll-lock';
 import { findStoryOrigin, loadRecapStory, type RecapStoryPayload } from '~/composables/useStoryViewer';
 import type { RecapStorySlideContent } from '~/types/recap-story.types';
+import { useRecapView } from '~/composables/useRecapView';
 
 type SlideContent = RecapStorySlideContent;
 
@@ -537,6 +538,10 @@ const headerContext = computed(() => {
   const key = isChapterStory.value ? currentChapter.value?.key : null;
   if (key === 'end') return `${season} · ${t("Season ending")}`;
   if (key?.startsWith('episode-')) return `${season} · ${currentChapter.value?.ariaLabel}`;
+  // The cover names the season already: the header credits whoever unlocked the recap.
+  if (currentSlideIndex.value === 0 && data.value?.unlockedBy) {
+    return t("Unlocked by @{name}", { name: data.value.unlockedBy });
+  }
   return season;
 });
 
@@ -991,6 +996,11 @@ const RING_OPEN_FADE: Keyframe[] = [{ opacity: 0, easing: 'ease-out' }, { opacit
 const RING_CLOSE_FADE: Keyframe[] = [{ opacity: 1 }, { opacity: 1, offset: 0.15, easing: 'ease-in-out' }, { opacity: 0, offset: 0.55 }, { opacity: 0 }];
 
 const phase = ref<'entering' | 'open' | 'leaving'>('entering');
+useRecapView({
+  story: () => data.value,
+  slideIndex: () => currentSlideIndex.value,
+  displayed: () => phase.value === 'open',
+});
 const frameElement = ref<HTMLElement | null>(null);
 const backdropElement = ref<HTMLElement | null>(null);
 // The ring's poster stands in for the story while it loads.

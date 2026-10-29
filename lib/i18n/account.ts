@@ -41,5 +41,10 @@ export const accountMessages: Record<string, string> = {
   "Close": "Fermer",
   "Previous Slide": "Diapositive précédente",
   "Next Slide": "Diapositive suivante",
-  "Toggle Sidebar": "Afficher ou masquer le menu latéral"
+  "Toggle Sidebar": "Afficher ou masquer le menu latéral",
+  "Recap tickets": "Tickets de récap",
+  "Points": "Points",
+  "Recaps you unlocked": "Récaps que vous avez débloqués",
+  "1 view": "1 vue",
+  "{count} views": "{count} vues"
 };

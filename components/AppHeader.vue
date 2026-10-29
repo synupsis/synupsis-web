@@ -19,6 +19,7 @@
         <ClientOnly>
           <PwaInstallButton @availability="installAvailable = $event" />
         </ClientOnly>
+        <RecapKeysStatus />
         <slot name="account">
           <UserAuthStatus />
         </slot>

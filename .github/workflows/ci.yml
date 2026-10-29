@@ -53,6 +53,12 @@ jobs:
       - name: Typecheck
         run: yarn typecheck
 
+      - name: Install PostgreSQL for isolated database tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql
+          test -x "$(pg_config --bindir)/initdb"
+
       - name: Pipeline tests
         run: yarn test:pipeline
 

@@ -52,6 +52,12 @@ Run Edge Functions locally
   supabase functions serve
 ```
 
+Create the local test accounts, or put them back in their starting state (keys, role, password). The accounts and their password are listed at the top of `scripts/create-test-accounts.mjs`; the script refuses any non-local database.
+
+```bash
+  yarn test-accounts
+```
+
 ## Display languages
 
 The interface supports French and English. Visitors use the first supported language

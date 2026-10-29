@@ -7,6 +7,7 @@
     <Footer v-if="showFooter" :compact="compactFooter" />
     <ClientOnly>
       <RecapStoryOverlay />
+      <RecapNotices />
       <PwaStatus />
     </ClientOnly>
     <Toaster position="top-center" />
@@ -18,6 +19,7 @@ import { Toaster } from '~/components/shadcn/sonner'
 import 'vue-sonner/style.css'
 import Footer from '~/components/Footer.vue'
 import RecapStoryOverlay from '~/components/RecapStoryOverlay.vue'
+import RecapNotices from '~/components/RecapNotices.vue'
 import { getBrowserLocale } from '~/lib/i18n/locale'
 
 const { locale, browserLocale } = useI18n();

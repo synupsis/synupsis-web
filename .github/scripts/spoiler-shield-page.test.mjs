@@ -150,6 +150,12 @@ async function createPage(t, { savedEntry = entry, userId = 'viewer-1', query = 
         recapGenerationKey: (season, locale) => `${season}:${locale}`,
       };
       if (specifier === '~/composables/useStoryViewer') return { useStoryViewer: () => ({ openStory: () => {} }) };
+      if (specifier === '~/composables/useRecapKeys') return {
+        useRecapKeys: () => ({ wallet: vue.ref(null), refreshWallet: async () => {}, refreshRunning: async () => true }),
+      };
+      if (specifier === '~/composables/useRecapNotices') return {
+        useRecapNotices: () => ({ askPermission: () => {}, notifyWhileHidden: () => false }),
+      };
       if (specifier === 'lucide-vue-next' || specifier.startsWith('~/components/')) return {};
       throw new Error(`Unexpected show-page dependency: ${specifier}`);
     },

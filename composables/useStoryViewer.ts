@@ -5,6 +5,8 @@ import type { RecapStorySlideContent } from '~/types/recap-story.types';
 export type RecapStoryPayload = {
   id: string;
   status: string;
+  /** Who unlocked the recap, when they have a username. */
+  unlockedBy: string | null;
   show: { name: string; trakt_id: number; genres: string[] };
   season: { number: number; image: string | null };
   slides: Array<{

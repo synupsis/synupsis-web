@@ -1,12 +1,8 @@
 import { serverSupabaseClient } from '#supabase/server';
-import { planStorySlides, toDisplayImageUrl } from '~/server/services/recap-generation/slides';
-import type {
-  RecapEventGraph,
-  RecapSourceSnapshot,
-} from '~/server/services/recap-generation/types';
+import { toDisplayImageUrl } from '~/server/services/recap-generation/slides';
+import { getRecapStoryPlan } from '~/server/utils/recap-story-plan';
 import { getRecapCoverArt } from '~/server/services/recap-cover-art';
 import type { Database } from '~/types/database.types';
-import type { RecapPlannedSlide, RecapStory } from '~/types/recap-story.types';
 
 export default defineEventHandler(async event => {
   const client = await serverSupabaseClient<Database>(event);
@@ -25,6 +21,7 @@ export default defineEventHandler(async event => {
       event_graph,
       story_data,
       quality_report,
+      unlocked_by_name,
       show:show_id ( name, trakt_id, genres ),
       season:season_id ( number, image ),
       slides:slide (
@@ -81,9 +78,7 @@ export default defineEventHandler(async event => {
   });
 
   // Format version 10: the slides follow the chapters plan the generation used.
-  const plannedSlides: RecapPlannedSlide[] | null = story?.layout === 'chapters' && sourceSnapshot && eventGraph
-    ? planStorySlides(story as unknown as RecapStory, eventGraph as unknown as RecapEventGraph, sourceSnapshot as unknown as RecapSourceSnapshot)
-    : null;
+  const plannedSlides = getRecapStoryPlan(recap);
 
   // The plan decides the slides; a stored slide only lends its canvas and image,
   // so a recap stored before a change of the plan still shows every slide.
@@ -152,6 +147,7 @@ export default defineEventHandler(async event => {
   return {
     id: recap.id,
     status: recap.status,
+    unlockedBy: recap.unlocked_by_name,
     show: recap.show,
     // Trakt posters go through the image proxy, like the slide images.
     season: recap.season?.image ? { ...recap.season, image: toDisplayImageUrl(recap.season.image) } : recap.season,

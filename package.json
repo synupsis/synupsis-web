@@ -16,6 +16,7 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "test:pipeline": "node --test .github/scripts/*.test.mjs",
+    "test-accounts": "node --env-file=.env scripts/create-test-accounts.mjs",
     "typecheck": "nuxt typecheck",
     "types:supabase": "supabase gen types typescript --linked > types/generated/database.ts"
   },

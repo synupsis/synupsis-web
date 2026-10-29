@@ -243,51 +243,31 @@ async function advanceJob(service: ServiceClient, jobId: string) {
           updated_at: new Date().toISOString(),
         })
         .eq('id', job.id)
+        .eq('status', 'validating')
         .select('*')
-        .single();
-      if (reviewError || !reviewJob) throw reviewError;
+        .maybeSingle();
+      if (reviewError) throw reviewError;
+      if (!reviewJob) return await readPublicJob(service, job.id);
       return toPublicJob(reviewJob);
     }
 
-    await service
+    const { error: renderingError } = await service
       .from('recap_generation_job')
       .update({ status: 'rendering', progress: getRecapGenerationProgress('rendering'), updated_at: new Date().toISOString() })
-      .eq('id', job.id);
+      .eq('id', job.id)
+      .eq('status', 'validating');
+    if (renderingError) throw renderingError;
 
-    const { data: recapId, error: publishError } = await service.rpc('publish_generated_recap', {
-      p_show_id: job.show_id,
-      p_season_id: job.season_id,
-      p_locale: job.locale,
-      p_format_version: job.format_version,
-      p_source_snapshot: snapshot as unknown as Json,
-      p_event_graph: eventGraph as unknown as Json,
+    const { data: completedJobs, error: publishError } = await service.rpc('finalize_recap_generation', {
+      p_job_id: job.id,
       p_story_data: story as unknown as Json,
       p_quality_report: quality as unknown as Json,
-      p_prompt_id: job.prompt_id,
-      p_model: job.model,
-      p_prompt_version: job.prompt_version,
       p_slides: slides as unknown as Json,
     });
-    if (publishError || !recapId) {
+    const completedJob = completedJobs?.[0];
+    if (publishError || !completedJob) {
       throw publishError || new Error('The generated recap could not be published.');
     }
-
-    const { data: completedJob, error: completedError } = await service
-      .from('recap_generation_job')
-      .update({
-        status: 'completed',
-        progress: 100,
-        recap_id: recapId,
-        event_graph: eventGraph as unknown as Json,
-        story_data: story as unknown as Json,
-        quality_report: quality as unknown as Json,
-        completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', job.id)
-      .select('*')
-      .single();
-    if (completedError || !completedJob) throw completedError;
 
     return toPublicJob(completedJob);
   } catch (error) {
@@ -730,7 +710,7 @@ async function failJob(
   errorCode: string,
   errorMessage: string,
 ) {
-  const { data } = await service
+  const { data, error } = await service
     .from('recap_generation_job')
     .update({
       status: 'failed',
@@ -741,10 +721,20 @@ async function failJob(
       updated_at: new Date().toISOString(),
     })
     .eq('id', jobId)
+    .in('status', RECAP_GENERATION_ACTIVE_STATUSES)
     .select('*')
-    .single();
+    .maybeSingle();
 
-  if (!data) throw new Error(`Recap generation job ${jobId} could not be marked as failed (${errorCode}): ${errorMessage}`);
+  if (error) throw error;
+  // Publication may have committed even if the RPC response was lost. A late
+  // error must not overwrite that terminal result or announce a false refund.
+  if (!data) return await readPublicJob(service, jobId);
+  return toPublicJob(data);
+}
+
+async function readPublicJob(service: ServiceClient, jobId: string) {
+  const { data, error } = await service.from('recap_generation_job').select('*').eq('id', jobId).single();
+  if (error || !data) throw error || new Error(`Recap generation job ${jobId} could not be read.`);
   return toPublicJob(data);
 }
 
@@ -764,6 +754,7 @@ export function toPublicJob(job: JobRow) {
     recapId: job.recap_id,
     errorCode: job.error_code,
     errorMessage: job.error_message,
+    keyState: job.key_state,
     qualityReport: job.quality_report,
     // The browser measures the stage's elapsed time against the server clock.
     stageStartedAt: job.stage_started_at ?? job.updated_at,

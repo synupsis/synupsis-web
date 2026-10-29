@@ -294,6 +294,7 @@ export type Database = {
           format_version: number
           generation_phase: string
           id: string
+          key_state: string
           locale: string
           model: string
           progress: number
@@ -304,6 +305,8 @@ export type Database = {
           quality_report: Json | null
           recap_id: string | null
           requested_by: string | null
+          requester_name: string | null
+          requester_notified_at: string | null
           season_id: string
           show_id: string
           source_snapshot: Json | null
@@ -324,6 +327,7 @@ export type Database = {
           format_version?: number
           generation_phase?: string
           id?: string
+          key_state?: string
           locale?: string
           model: string
           progress?: number
@@ -334,6 +338,8 @@ export type Database = {
           quality_report?: Json | null
           recap_id?: string | null
           requested_by?: string | null
+          requester_name?: string | null
+          requester_notified_at?: string | null
           season_id: string
           show_id: string
           source_snapshot?: Json | null
@@ -354,6 +360,7 @@ export type Database = {
           format_version?: number
           generation_phase?: string
           id?: string
+          key_state?: string
           locale?: string
           model?: string
           progress?: number
@@ -364,6 +371,8 @@ export type Database = {
           quality_report?: Json | null
           recap_id?: string | null
           requested_by?: string | null
+          requester_name?: string | null
+          requester_notified_at?: string | null
           season_id?: string
           show_id?: string
           source_snapshot?: Json | null
@@ -485,6 +494,103 @@ export type Database = {
           },
         ]
       }
+      recap_view: {
+        Row: {
+          created_at: string
+          recap_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          recap_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          recap_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recap_view_recap_id_fkey"
+            columns: ["recap_id"]
+            isOneToOne: false
+            referencedRelation: "recap"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recap_view_session: {
+        Row: {
+          id: string
+          recap_id: string
+          user_id: string
+          slide_count: number
+          seen_slides: number[]
+          current_slide: number | null
+          slide_started_at: string
+          expires_at: string
+          completed: boolean
+        }
+        Insert: {
+          id?: string
+          recap_id: string
+          user_id: string
+          slide_count: number
+          seen_slides?: number[]
+          current_slide?: number | null
+          slide_started_at?: string
+          expires_at?: string
+          completed?: boolean
+        }
+        Update: {
+          id?: string
+          recap_id?: string
+          user_id?: string
+          slide_count?: number
+          seen_slides?: number[]
+          current_slide?: number | null
+          slide_started_at?: string
+          expires_at?: string
+          completed?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recap_view_session_recap_id_fkey"
+            columns: ["recap_id"]
+            isOneToOne: false
+            referencedRelation: "recap"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recap_wallet: {
+        Row: {
+          created_at: string
+          key_progress: number
+          keys: number
+          points: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          key_progress?: number
+          keys?: number
+          points?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          key_progress?: number
+          keys?: number
+          points?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       recap: {
         Row: {
           created_at: string
@@ -502,6 +608,8 @@ export type Database = {
           source_snapshot: Json | null
           status: string
           story_data: Json | null
+          unlocked_by: string | null
+          unlocked_by_name: string | null
           user_id: string | null
         }
         Insert: {
@@ -520,6 +628,8 @@ export type Database = {
           source_snapshot?: Json | null
           status?: string
           story_data?: Json | null
+          unlocked_by?: string | null
+          unlocked_by_name?: string | null
           user_id?: string | null
         }
         Update: {
@@ -538,6 +648,8 @@ export type Database = {
           source_snapshot?: Json | null
           status?: string
           story_data?: Json | null
+          unlocked_by?: string | null
+          unlocked_by_name?: string | null
           user_id?: string | null
         }
         Relationships: [
@@ -830,6 +942,36 @@ export type Database = {
       }
     }
     Functions: {
+      attribute_generated_recap: {
+        Args: { p_job_id: string; p_recap_id: string }
+        Returns: undefined
+      }
+      start_recap_view_session: {
+        Args: { p_recap_id: string; p_user_id: string; p_slide_count: number; p_slide_index: number }
+        Returns: string | null
+      }
+      record_recap_view_progress: {
+        Args: { p_session_id: string; p_recap_id: string; p_user_id: string; p_slide_index: number | null }
+        Returns: boolean
+      }
+      convert_recap_key_progress: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
+      finalize_recap_generation: {
+        Args: {
+          p_job_id: string
+          p_story_data: Json
+          p_quality_report: Json
+          p_slides: Json
+        }
+        Returns: Database["public"]["Tables"]["recap_generation_job"]["Row"][]
+      }
+      record_recap_view: {
+        Args: { p_recap_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      reserve_recap_key: { Args: { p_job_id: string }; Returns: number }
       has_watched_episode: {
         Args: { p_show_id: string; p_season: number; p_episode: number }
         Returns: boolean

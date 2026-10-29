@@ -68,6 +68,12 @@
               <p v-if="recapLanguageStatus" class="mt-3 text-sm" :class="recapLanguageError ? 'text-destructive' : 'text-muted-foreground'" role="status" aria-live="polite">{{ t(recapLanguageStatus) }}</p>
             </CardContent>
           </Card>
+          <Card class="mb-6" role="region" :aria-label="t('Recap tickets')">
+            <CardContent class="pt-6">
+              <div v-if="keysPending" class="grid h-16 place-items-center"><SpinLoader class="h-5 w-5" /></div>
+              <RecapTicketsBalance v-else-if="keys" :wallet="keys.wallet" />
+            </CardContent>
+          </Card>
           <Tabs v-model="activeTab" default-value="recaps">
             <TabsList class="grid w-full grid-cols-2">
               <TabsTrigger value="recaps">{{ t("My Recaps") }}</TabsTrigger>
@@ -76,6 +82,21 @@
             
             <!-- Recaps Tab -->
             <TabsContent value="recaps" class="mt-4">
+              <section v-if="unlockedRecaps?.length" class="mb-8">
+                <h2 class="mb-2 text-xl font-semibold">{{ t('Recaps you unlocked') }}</h2>
+                <ul class="divide-y divide-border">
+                  <li v-for="recap in unlockedRecaps" :key="recap.id" class="flex items-center justify-between gap-3 py-2 text-sm">
+                    <button type="button" class="min-w-0 truncate text-left hover:text-primary" @click="openStory(recap.id)">
+                      {{ t('{show}, season {number}', { show: recap.showName, number: recap.seasonNumber }) }}
+                      <span class="ml-1 text-xs uppercase text-muted-foreground">{{ recap.locale }}</span>
+                    </button>
+                    <span class="flex shrink-0 items-center gap-1 text-muted-foreground">
+                      <EyeIcon class="h-3.5 w-3.5" aria-hidden="true" />
+                      {{ recap.views === 1 ? t('1 view') : t('{count} views', { count: recap.views }) }}
+                    </span>
+                  </li>
+                </ul>
+              </section>
               <div v-if="recapsPending">
                 <SpinLoader class="h-8 w-8 mx-auto mt-12" />
               </div>
@@ -188,9 +209,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '~/components/shadcn/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/shadcn/tabs'
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import AvatarUploadModal from '~/components/AvatarUploadModal.vue';
+import RecapTicketsBalance from '~/components/RecapTicketsBalance.vue';
 import { useStoryViewer } from '~/composables/useStoryViewer';
 import type { LanguagePreference } from '~/lib/i18n/locale';
 import { recapLocaleNames, recapLocales, type RecapLocale } from '~/lib/recap-locales';
+import { useRecapKeys } from '~/composables/useRecapKeys';
 
 const { t, preference } = useI18n();
 const { saving, saveLanguagePreference } = useLanguagePreference();
@@ -245,6 +268,14 @@ const displayName = computed(() => {
 const avatarUrl = computed(() => {
   const value = userMetadata.value.avatar_url;
   return typeof value === 'string' ? value : '';
+});
+
+const { wallet, completedVersion, refreshWallet } = useRecapKeys();
+const keys = computed(() => wallet.value ? { wallet: wallet.value } : null);
+const keysPending = computed(() => !wallet.value);
+onMounted(() => { if (!wallet.value) void refreshWallet(); });
+const { data: unlockedRecaps } = useFetch('/api/user/unlocked-recaps', {
+  watch: [completedVersion, () => wallet.value?.points],
 });
 
 // Fetch recaps

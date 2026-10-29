@@ -74,7 +74,7 @@
                 v-else-if="!isDraft"
                 class="absolute inset-0 grid place-items-center bg-black/30 text-white/90 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100"
               >
-                <SparklesIcon class="h-6 w-6" />
+                <TicketIcon class="h-6 w-6" />
               </span>
             </span>
           </span>
@@ -90,7 +90,7 @@
         <SpinLoader v-else-if="isGenerating" class="h-3 w-3" />
         <PlayIcon fill="currentColor" v-else-if="isPublished" class="h-3 w-3" />
         <PencilIcon v-else-if="isDraft" class="h-3 w-3" />
-        <SparklesIcon v-else class="h-3 w-3" />
+        <TicketIcon v-else class="h-3 w-3" />
       </span>
 
       <ClientOnly>
@@ -116,7 +116,7 @@
 </template>
 
 <script setup lang="ts">
-import { LockIcon, PencilIcon, PlayIcon, SparklesIcon } from 'lucide-vue-next';
+import { LockIcon, PencilIcon, PlayIcon, TicketIcon } from 'lucide-vue-next';
 import { computed, useId } from 'vue';
 import CachedImage from '~/components/CachedImage.vue';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
@@ -169,7 +169,7 @@ const statusLabel = computed(() => {
   if (isPublished.value) return props.isLatest ? t('New') : t('Available');
   if (isDraft.value) return t('Draft');
   if (failed.value) return t('Failed · retry');
-  return t('Create recap');
+  return t('To unlock');
 });
 
 const statusTextClass = computed(() => {
@@ -202,7 +202,7 @@ const actionLabel = computed(() => {
   if (isPublished.value) return t('View the recap for season {number}', { number: props.season.number });
   if (isDraft.value) return t('Edit the draft for season {number}', { number: props.season.number });
   if (failed.value) return t('Retry the recap for season {number}', { number: props.season.number });
-  return t('Create the recap for season {number}', { number: props.season.number });
+  return t('Unlock the recap for season {number}', { number: props.season.number });
 });
 
 const adminActionLabel = computed(() => (

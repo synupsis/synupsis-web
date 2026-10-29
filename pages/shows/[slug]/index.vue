@@ -176,6 +176,17 @@
     <div v-else-if="showPending" class="grid min-h-[70vh] place-items-center"><SpinLoader class="h-8 w-8" /></div>
     <div v-else class="grid min-h-[70vh] place-items-center px-5 text-center"><div><h1 class="text-2xl font-bold">{{ t('Could not load this show') }}</h1><p class="mt-2 text-muted-foreground">{{ showError?.statusMessage || t('Please try again in a moment.') }}</p><Button class="mt-5" @click="refreshShow">{{ t('Retry') }}</Button></div></div>
 
+    <RecapUnlockDialog
+      v-if="unlockSeason && showData"
+      v-model:open="unlockOpen"
+      :show-name="showData.name"
+      :season-number="unlockSeason.number"
+      :wallet="unlockWallet"
+      :followers="unlockFollowers"
+      :has-username="hasUsername"
+      @confirm="confirmUnlock"
+    />
+
     <EpisodeComments
       v-if="commentsEpisode"
       v-model:open="commentsOpen"
@@ -205,6 +216,10 @@ import EpisodeComments from '~/components/EpisodeComments.vue';
 import EpisodeTracker from '~/components/EpisodeTracker.vue';
 import ShowCommentsFeed from '~/components/ShowCommentsFeed.vue';
 import SeasonStory from '~/components/SeasonStory.vue';
+import RecapUnlockDialog from '~/components/RecapUnlockDialog.vue';
+import { useRecapNotices } from '~/composables/useRecapNotices';
+import { useRecapKeys } from '~/composables/useRecapKeys';
+import type { RecapWallet } from '~/lib/recap-keys';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import { proxiedImageUrl } from '~/lib/image-url';
 import { recapGenerationKey, useRecapGenerations } from '~/composables/useRecapGenerations';
@@ -640,25 +655,75 @@ function persistProgress(updateSpoilerShield = false): Promise<boolean> {
 
 const { generations: recapGenerations, start: startRecapGeneration } = useRecapGenerations({
   showId: () => showData.value?.id,
-  async onCompleted(_seasonId, recapId) {
-    await Promise.all([refreshShow(), refreshHubs()]);
+  async onCompleted(key, recapId) {
+    await Promise.all([refreshShow(), refreshHubs(), recapKeys.refreshRunning()]);
+    const season = sortedSeasons.value.find(item => key.startsWith(`${item.id}:`));
+    if (season && showData.value && notifyWhileHidden(
+      t('The recap you unlocked is ready.'),
+      t('{show}, season {number}', { show: showData.value.name, number: season.number }),
+    )) return;
     // Several seasons may be generating: offer the recap instead of leaving the page.
     toast.success(t('The recap is ready.'), recapId
       ? { action: { label: t('View'), onClick: () => goToRecap(recapId) } }
       : undefined);
   },
-  onFailed(_seasonId, message) {
-    toast.error(t('Could not generate this recap.'), { description: t(message) });
+  onFailed(_key, message, failure) {
+    void Promise.all([recapKeys.refreshWallet(), recapKeys.refreshRunning()]);
+    if (failure.noKeys) {
+      toast.error(t('You have no ticket left.'), { description: t('The recaps you unlocked earn you new ones as people watch them.') });
+      return;
+    }
+    const reason = t(message);
+    toast.error(t('Could not generate this recap.'), {
+      description: failure.keyRefunded ? `${reason} ${t('Your ticket was given back.')}` : reason,
+    });
   },
 });
 
+// A season without a recap in this language: unlocking it spends a key, so
+// the viewer confirms first, with what they get for it.
+const { askPermission, notifyWhileHidden } = useRecapNotices();
+const recapKeys = useRecapKeys();
+const unlockSeason = ref<{ id: string; number: number } | null>(null);
+const unlockOpen = ref(false);
+const unlockWallet = ref<RecapWallet | null>(null);
+const unlockFollowers = ref<number | null>(null);
+const hasUsername = computed(() => typeof user.value?.user_metadata?.username === 'string'
+  && user.value.user_metadata.username.trim().length > 0);
+
 async function generateRecap(seasonId: string) {
   if (!user.value) {
-    toast.info(t('Sign in to request this recap.'));
+    toast.info(t('Sign in to unlock this recap.'));
     await navigateTo('/login');
     return;
   }
-  await startRecapGeneration(seasonId, selectedRecapLocale.value);
+  const season = sortedSeasons.value.find(item => item.id === seasonId);
+  if (!season) return;
+  unlockSeason.value = { id: season.id, number: season.number };
+  unlockWallet.value = null;
+  unlockOpen.value = true;
+  try {
+    const keys = await $fetch<{ wallet: RecapWallet; followers: number | null }>('/api/recap/keys', {
+      query: { showId: showData.value?.id },
+    });
+    if (unlockSeason.value?.id !== seasonId) return;
+    unlockWallet.value = keys.wallet;
+    recapKeys.wallet.value = keys.wallet;
+    unlockFollowers.value = keys.followers;
+  } catch {
+    unlockOpen.value = false;
+    toast.error(t('Could not read your recap tickets.'));
+  }
+}
+
+async function confirmUnlock() {
+  const season = unlockSeason.value;
+  unlockOpen.value = false;
+  if (!season) return;
+  askPermission();
+  await startRecapGeneration(season.id, selectedRecapLocale.value);
+  // The header shows the key it cost and follows the recap from any page.
+  await Promise.all([recapKeys.refreshWallet(), recapKeys.refreshRunning()]);
 }
 
 function recapGenerationOf(seasonId: string) {

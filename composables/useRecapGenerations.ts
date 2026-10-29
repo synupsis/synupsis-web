@@ -16,8 +16,19 @@ type PublicRecapGenerationJob = {
   progress: number;
   recapId: string | null;
   errorMessage: string | null;
+  keyState: string;
+  /** Whether this authenticated viewer actually received a refund. */
+  keyRefunded: boolean;
   stageStartedAt: string;
   serverNow: string;
+};
+
+/** How a failure touched the viewer's keys. */
+export type RecapGenerationFailure = {
+  /** The viewer had no key to unlock the recap with. */
+  noKeys: boolean;
+  /** The key spent on this recap came back. */
+  keyRefunded: boolean;
 };
 
 export type RecapGeneration = {
@@ -59,7 +70,7 @@ export function recapGenerationKey(seasonId: string, locale: string) {
 export function useRecapGenerations(options: {
   showId: () => string | undefined;
   onCompleted: (key: string, recapId: string | null) => Promise<unknown> | unknown;
-  onFailed: (key: string, message: string) => void;
+  onFailed: (key: string, message: string, failure: RecapGenerationFailure) => void;
 }) {
   const user = useSupabaseUser();
   const { openStory } = useStoryViewer();
@@ -105,8 +116,11 @@ export function useRecapGenerations(options: {
       if (!generation.jobId) throw new Error('Generation did not return a job.');
       generations.value[key] = { ...generations.value[key]!, jobId: generation.jobId };
       void follow(key, generation.jobId);
-    } catch (cause) {
-      fail(key, describeError(cause));
+    } catch (cause: any) {
+      const noKeys = cause?.data?.data?.code === 'no_recap_keys';
+      // A failed HTTP response does not tell us whether the server kept running.
+      const keyRefunded = !noKeys && (cause?.data?.keyRefunded === true || cause?.data?.data?.keyRefunded === true);
+      fail(key, describeError(cause), { noKeys, keyRefunded });
     }
   }
 
@@ -145,13 +159,16 @@ export function useRecapGenerations(options: {
             return;
           }
           if (RECAP_GENERATION_TERMINAL_STATUSES.includes(job.status)) {
-            fail(key, job.errorMessage || 'Generation failed.');
+            fail(key, job.errorMessage || 'Generation failed.', {
+              noKeys: false,
+              keyRefunded: job.keyRefunded === true,
+            });
             return;
           }
         } catch (cause: any) {
           failures += 1;
           if (cause?.statusCode === 404 || failures >= MAX_CONSECUTIVE_POLL_FAILURES) {
-            fail(key, describeError(cause));
+            fail(key, describeError(cause), { noKeys: false, keyRefunded: false });
             return;
           }
         }
@@ -194,7 +211,13 @@ export function useRecapGenerations(options: {
     forget(key);
   }
 
-  function fail(key: string, message: string) {
+  function fail(key: string, message: string, failure: RecapGenerationFailure) {
+    // Nothing started: the season stays as it was, to unlock later.
+    if (failure.noKeys) {
+      forget(key);
+      options.onFailed(key, message, failure);
+      return;
+    }
     clocks.delete(key);
     const current = generations.value[key];
     generations.value[key] = {
@@ -204,7 +227,7 @@ export function useRecapGenerations(options: {
       pending: false,
       error: message,
     };
-    options.onFailed(key, message);
+    options.onFailed(key, message, failure);
   }
 
   function forget(key: string) {

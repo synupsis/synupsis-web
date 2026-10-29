@@ -10,6 +10,8 @@ import {
   RECAP_PROMPT_VERSION,
 } from '~/server/services/recap-generation/config';
 import { getRecapLanguages, normalizeRecapLocale, type RecapLocale } from '~/lib/recap-locales';
+import { toRecapWallet } from '~/lib/recap-keys';
+import { isAdminUser } from '~/server/utils/require-admin';
 import { getRecapModel, startEpisodeExtraction } from '~/server/services/recap-generation/openai';
 import { createEpisodeExtractionPrompt } from '~/server/services/recap-generation/prompts';
 import {
@@ -93,11 +95,39 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  // Refreshing a recap someone already unlocked in this language, for a newer
+  // format, costs no key: the name and the points stay with them.
+  const { count: unlockedBefore, error: unlockedBeforeError } = await service
+    .from('recap')
+    .select('id', { count: 'exact', head: true })
+    .eq('season_id', seasonId)
+    .eq('locale', locale)
+    .not('unlocked_by', 'is', null);
+  if (unlockedBeforeError) {
+    throw createError({ statusCode: 500, statusMessage: 'Could not check existing recaps.' });
+  }
+  // Admins unlock without keys.
+  const costsKey = !unlockedBefore && !await isAdminUser(event, user.sub);
+  if (costsKey) {
+    const { data: wallet, error: walletError } = await service
+      .from('recap_wallet')
+      .select('keys, points, key_progress')
+      .eq('user_id', user.sub)
+      .maybeSingle();
+    if (walletError) {
+      throw createError({ statusCode: 500, statusMessage: 'Could not read your recap tickets.' });
+    }
+    if (toRecapWallet(wallet).keys < 1) throw noKeysError();
+  }
+
+  const metadata = user.user_metadata ?? {};
+  const username = typeof metadata.username === 'string' ? metadata.username.trim().slice(0, 80) : '';
   const promptConfig = await getPromptConfig(service);
   const { data: job, error: jobError } = await service
     .from('recap_generation_job')
     .insert({
       requested_by: user.sub,
+      requester_name: username || null,
       show_id: showId,
       season_id: seasonId,
       prompt_id: promptConfig.promptId,
@@ -133,6 +163,27 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: 'Could not create the generation job.' });
   }
 
+  if (costsKey) {
+    const { error: reserveError } = await service.rpc('reserve_recap_key', { p_job_id: job.id });
+    if (reserveError) {
+      // Another tab spent the last key meanwhile: the job never starts.
+      await service
+        .from('recap_generation_job')
+        .update({
+          status: 'cancelled',
+          error_code: 'no_recap_keys',
+          error_message: 'No recap ticket left.',
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          requester_notified_at: new Date().toISOString(),
+        })
+        .eq('id', job.id);
+      if (reserveError.code === 'P0001') throw noKeysError();
+      console.error('Could not reserve a recap key:', reserveError);
+      throw createError({ statusCode: 500, statusMessage: 'Could not use a recap ticket.' });
+    }
+  }
+
   try {
     const snapshot = await fetchRecapSourceSnapshot({
       showId,
@@ -152,7 +203,7 @@ export default defineEventHandler(async (event) => {
     if (!readiness.ready) {
       const message = describeInsufficientSources(readiness);
       const completedAt = new Date().toISOString();
-      const { error: updateError } = await service
+      const { data: failedJob, error: updateError } = await service
         .from('recap_generation_job')
         .update({
           status: 'failed',
@@ -163,13 +214,17 @@ export default defineEventHandler(async (event) => {
           quality_report: { stage: 'sources', ...readiness } as unknown as Json,
           completed_at: completedAt,
           updated_at: completedAt,
+          requester_notified_at: completedAt,
         })
-        .eq('id', job.id);
+        .eq('id', job.id)
+        .in('status', RECAP_GENERATION_ACTIVE_STATUSES)
+        .select('key_state')
+        .maybeSingle();
       if (updateError) throw updateError;
 
       // The message travels in the body: h3 strips accented characters from status lines.
       setResponseStatus(event, 422);
-      return { state: 'insufficient_sources', jobId: job.id, statusMessage: message, readiness };
+      return { state: 'insufficient_sources', jobId: job.id, statusMessage: message, readiness, keyRefunded: failedJob?.key_state === 'refunded' };
     }
 
     // One extraction per episode, in parallel; the polling endpoint collects them.
@@ -207,7 +262,7 @@ export default defineEventHandler(async (event) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown generation error.';
     console.error('Failed to start recap generation:', error);
-    await service
+    const { data: failedJob, error: failureError } = await service
       .from('recap_generation_job')
       .update({
         status: 'failed',
@@ -215,12 +270,25 @@ export default defineEventHandler(async (event) => {
         error_message: message,
         updated_at: new Date().toISOString(),
         completed_at: new Date().toISOString(),
+        requester_notified_at: new Date().toISOString(),
       })
-      .eq('id', job.id);
+      .eq('id', job.id)
+      .in('status', RECAP_GENERATION_ACTIVE_STATUSES)
+      .select('key_state')
+      .maybeSingle();
 
-    throw createError({ statusCode: 502, statusMessage: message });
+    if (failureError) console.error('Could not persist the generation failure:', failureError);
+    throw createError({ statusCode: 502, statusMessage: message, data: { keyRefunded: !failureError && failedJob?.key_state === 'refunded' } });
   }
 });
+
+function noKeysError() {
+  return createError({
+    statusCode: 402,
+    statusMessage: 'No recap ticket left.',
+    data: { code: 'no_recap_keys' },
+  });
+}
 
 async function findActiveJob(
   service: ReturnType<typeof serverSupabaseServiceRole<Database>>,
