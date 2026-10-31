@@ -65,12 +65,7 @@ const MAX_CACHED_SUMMARIES = 300;
 // season spends neither the download quota nor tokens again.
 const summaryCache = new Map<string, string>();
 
-/**
- * Plot summaries written from each episode's subtitles, for the episodes the
- * written sources describe poorly. The subtitles themselves are never kept:
- * only the summary, in French, becomes evidence.
- */
-export async function fetchSubtitleRecapEnrichment(input: {
+type SubtitleRecapInput = {
   showName: string;
   showImdbId: string | null;
   showTmdbId: number | null;
@@ -79,7 +74,22 @@ export async function fetchSubtitleRecapEnrichment(input: {
   episodes: EpisodeSource[];
   characterNames: string[];
   fetchedAt: string;
-}): Promise<SubtitleRecapEnrichment | null> {
+};
+
+/** Raw transcripts live only in this request, never in a persisted source snapshot. */
+export type PreparedSubtitleRecapEnrichment = {
+  input: SubtitleRecapInput;
+  episodes: Array<{
+    episode: EpisodeSource;
+    providerId: SubtitleProvider['id'];
+    file: SubtitleFile;
+    transcript: string | null;
+    cachedSummary: string | null;
+  }>;
+};
+
+/** Download and validate actual subtitle content without making any model call. */
+export async function prepareSubtitleRecapEnrichment(input: SubtitleRecapInput): Promise<PreparedSubtitleRecapEnrichment | null> {
   if (process.env.RECAP_SUBTITLES_ENABLED === 'false' || !process.env.OPENAI_API_KEY || !input.episodes.length) return null;
   const approvals = getRecapSourceApprovals();
   const enforced = getRecapSourcePolicyMode() === 'enforce';
@@ -88,9 +98,7 @@ export async function fetchSubtitleRecapEnrichment(input: {
 
   const languages = rankSubtitleLanguages(input.originalLanguage);
   const stoppedProviders = new Set<SubtitleProvider['id']>();
-  const sourceUrls = new Map<SubtitleProvider['id'], string | null>();
-  const episodeEvidence = new Map<number, RecapEvidence[]>();
-
+  const prepared: PreparedSubtitleRecapEnrichment = { input, episodes: [] };
   await mapWithConcurrency(input.episodes, EPISODE_CONCURRENCY, async (episode) => {
     const query: SubtitleQuery = {
       showImdbId: input.showImdbId,
@@ -103,48 +111,72 @@ export async function fetchSubtitleRecapEnrichment(input: {
     for (const provider of providers) {
       if (stoppedProviders.has(provider.id)) continue;
       try {
-        let file: SubtitleFile | null = null;
-        let summary: string | null = null;
-        for (const candidate of rankSubtitleFiles(await provider.search(query), languages).slice(0, MAX_FILES_PER_PROVIDER)) {
-          summary = await summarizeSubtitleFile(candidate, input, episode).catch((error) => {
+        for (const file of rankSubtitleFiles(await provider.search(query), languages).slice(0, MAX_FILES_PER_PROVIDER)) {
+          try {
+            const cachedSummary = summaryCache.get(`${SUMMARY_PROMPT_VERSION}:${file.key}`) ?? null;
+            const transcript = cachedSummary ? null : formatTranscript(parseSrtCues(await file.download()));
+            if (!cachedSummary && (!transcript || transcript.length < MIN_TRANSCRIPT_CHARS)) continue;
+            prepared.episodes.push({ episode, providerId: provider.id, file, transcript, cachedSummary });
+            return;
+          } catch (error) {
             if (isStopStatus(error)) throw error;
             console.warn(`A ${provider.id} subtitle file of episode ${episode.number} is unusable; trying the next one.`, toErrorMessage(error));
-            return null;
-          });
-          if (summary) {
-            file = candidate;
-            break;
           }
         }
-        if (!file || !summary) continue;
-
-        if (!sourceUrls.get(provider.id)) sourceUrls.set(provider.id, file.url);
-        episodeEvidence.set(episode.number, [{
-          id: `${provider.id}-e${episode.number}-dialogue-fr`,
-          providerId: provider.id,
-          kind: 'transcript-extract',
-          episodeNumber: episode.number,
-          locale: 'fr',
-          text: summary,
-          sourceUrl: file.url,
-          trustTier: 'reference',
-          licenseId: getRecapSourcePolicy(provider.id).licenseId,
-          retrievedAt: input.fetchedAt,
-          revisionId: file.key,
-        }]);
-        return;
       } catch (error) {
         if (isStopStatus(error)) stoppedProviders.add(provider.id);
         console.warn(`${provider.id} subtitles of episode ${episode.number} are unavailable; trying the next provider.`, toErrorMessage(error));
       }
     }
   });
+  return prepared.episodes.length ? prepared : null;
+}
 
+/** Paid enrichment is explicitly separate from the no-AI eligibility preflight. */
+export async function enrichPreparedSubtitles(prepared: PreparedSubtitleRecapEnrichment | null): Promise<SubtitleRecapEnrichment | null> {
+  if (!prepared) return null;
+  const { input } = prepared;
+  const sourceUrls = new Map<SubtitleProvider['id'], string | null>();
+  const episodeEvidence = new Map<number, RecapEvidence[]>();
+  await mapWithConcurrency(prepared.episodes, EPISODE_CONCURRENCY, async (item) => {
+    const { episode, file, providerId } = item;
+    const summary = item.cachedSummary ?? await summarizeTranscript({
+      showName: input.showName,
+      seasonNumber: input.seasonNumber,
+      episode,
+      characterNames: input.characterNames,
+      language: file.language,
+      transcript: item.transcript ?? '',
+    }).catch((error) => {
+      console.warn(`The subtitle summary of episode ${episode.number} is unavailable.`, toErrorMessage(error));
+      return null;
+    });
+    if (!summary) return;
+    rememberSummary(`${SUMMARY_PROMPT_VERSION}:${file.key}`, summary);
+    if (!sourceUrls.get(providerId)) sourceUrls.set(providerId, file.url);
+    episodeEvidence.set(episode.number, [{
+      id: `${providerId}-e${episode.number}-dialogue-fr`,
+      providerId,
+      kind: 'transcript-extract',
+      episodeNumber: episode.number,
+      locale: 'fr',
+      text: summary,
+      sourceUrl: file.url,
+      trustTier: 'reference',
+      licenseId: getRecapSourcePolicy(providerId).licenseId,
+      retrievedAt: input.fetchedAt,
+      revisionId: file.key,
+    }]);
+  });
   if (!episodeEvidence.size) return null;
   return {
     providers: [...sourceUrls].map(([id, url]) => createRecapSourceProvider(id, input.fetchedAt, url)),
     episodeEvidence,
   };
+}
+
+export async function fetchSubtitleRecapEnrichment(input: SubtitleRecapInput): Promise<SubtitleRecapEnrichment | null> {
+  return await enrichPreparedSubtitles(await prepareSubtitleRecapEnrichment(input));
 }
 
 /** The show's original language first (its subtitles follow the dialogue closest), then French and English. */
@@ -167,28 +199,6 @@ export function rankSubtitleFiles<T extends Pick<SubtitleFile, 'language' | 'hea
   return files
     .filter(file => languages.includes(file.language))
     .sort((first, second) => languageRank(first) - languageRank(second) || popularity(second) - popularity(first));
-}
-
-async function summarizeSubtitleFile(
-  file: SubtitleFile,
-  input: { showName: string; seasonNumber: number; characterNames: string[] },
-  episode: EpisodeSource,
-): Promise<string | null> {
-  const cacheKey = `${SUMMARY_PROMPT_VERSION}:${file.key}`;
-  const cached = summaryCache.get(cacheKey);
-  if (cached) return cached;
-  const transcript = formatTranscript(parseSrtCues(await file.download()));
-  if (transcript.length < MIN_TRANSCRIPT_CHARS) return null;
-  const summary = await summarizeTranscript({
-    showName: input.showName,
-    seasonNumber: input.seasonNumber,
-    episode,
-    characterNames: input.characterNames,
-    language: file.language,
-    transcript,
-  });
-  if (summary) rememberSummary(cacheKey, summary);
-  return summary;
 }
 
 /**

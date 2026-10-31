@@ -15,7 +15,8 @@ import { isAdminUser } from '~/server/utils/require-admin';
 import { getRecapModel, startEpisodeExtraction } from '~/server/services/recap-generation/openai';
 import { createEpisodeExtractionPrompt } from '~/server/services/recap-generation/prompts';
 import {
-  describeInsufficientSources,
+  enrichRecapSourceSnapshot,
+  evaluatePreparedRecapSourceReadiness,
   evaluateRecapSourceReadiness,
   fetchRecapSourceSnapshot,
   getEpisodeExtractionTokenBudget,
@@ -26,6 +27,8 @@ import {
   RECAP_GENERATION_ACTIVE_STATUSES,
   getRecapGenerationProgress,
 } from '~/lib/recap-generation-progress';
+import { recapEligibility } from '~/lib/recap-eligibility';
+import { assertRecapEligible, fetchSeasonRecapAvailability } from '~/server/services/recap-eligibility';
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event);
@@ -53,6 +56,7 @@ export default defineEventHandler(async (event) => {
   const { data: existingRecap, error: existingRecapError } = await service
     .from('recap')
     .select('id')
+    .eq('show_id', showId)
     .eq('season_id', seasonId)
     .eq('locale', locale)
     .eq('format_version', RECAP_FORMAT_VERSION)
@@ -68,7 +72,7 @@ export default defineEventHandler(async (event) => {
     return { state: 'ready', recapId: existingRecap.id };
   }
 
-  const existingJob = await findActiveJob(service, seasonId, locale);
+  const existingJob = await findActiveJob(service, showId, seasonId, locale);
   if (existingJob) {
     setResponseStatus(event, 202);
     return { state: existingJob.status, jobId: existingJob.id, progress: existingJob.progress };
@@ -88,12 +92,16 @@ export default defineEventHandler(async (event) => {
       .single(),
   ]);
 
-  if (showError || !show || seasonError || !season || !show.trakt_id || season.number <= 0) {
+  if (showError || !show || seasonError || !season) {
     throw createError({
       statusCode: 404,
       statusMessage: 'The requested show and season combination was not found.',
     });
   }
+
+  // Never infer season completion from its premiere or the show's status.
+  const availability = await fetchSeasonRecapAvailability(show.trakt_id, season.number);
+  assertRecapEligible(availability.eligibility);
 
   // Refreshing a recap someone already unlocked in this language, for a newer
   // format, costs no key: the name and the points stay with them.
@@ -118,6 +126,35 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 500, statusMessage: 'Could not read your recap tickets.' });
     }
     if (toRecapWallet(wallet).keys < 1) throw noKeysError();
+  }
+
+  // This phase contains no AI calls. Predictable refusals must not reserve a
+  // ticket, create a generation job, or spend tokens on subtitles/images.
+  const preparedSources = await fetchRecapSourceSnapshot({
+    showId,
+    seasonId,
+    showName: show.name,
+    showTraktId: show.trakt_id!,
+    showGenres: show.genres,
+    showOverview: show.summary,
+    showImage: show.image,
+    seasonNumber: season.number,
+    seasonFirstAired: season.first_aired,
+    seasonImage: season.image,
+    traktData: availability.traktData,
+  }).catch(() => {
+    throw createError({
+      statusCode: 503,
+      statusMessage: 'Recap sources are temporarily unavailable. Please try again later.',
+      data: { code: 'recap_ineligible', eligibility: recapEligibility('availability_unavailable') },
+    });
+  });
+  const sourceReadiness = evaluatePreparedRecapSourceReadiness(preparedSources);
+  if (!sourceReadiness.ready) {
+    assertRecapEligible(recapEligibility(sourceReadiness.issues.includes('source_rights_not_cleared')
+      ? 'source_rights_restricted'
+      : sourceReadiness.issues.includes('insufficient_finale_source') ? 'finale_source_missing'
+      : 'insufficient_sources'));
   }
 
   const metadata = user.user_metadata ?? {};
@@ -146,7 +183,7 @@ export default defineEventHandler(async (event) => {
   if (jobError || !job) {
     // A concurrent request may have won the partial unique-index race.
     if (jobError?.code === '23505') {
-      const concurrentJob = await findActiveJob(service, seasonId, locale);
+      const concurrentJob = await findActiveJob(service, showId, seasonId, locale);
       if (concurrentJob) {
         setResponseStatus(event, 202);
         return { state: concurrentJob.status, jobId: concurrentJob.id, progress: concurrentJob.progress };
@@ -185,23 +222,14 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const snapshot = await fetchRecapSourceSnapshot({
-      showId,
-      seasonId,
-      showName: show.name,
-      showTraktId: show.trakt_id,
-      showGenres: show.genres,
-      showOverview: show.summary,
-      showImage: show.image,
-      seasonNumber: season.number,
-      seasonFirstAired: season.first_aired,
-      seasonImage: season.image,
-    });
+    const snapshot = await enrichRecapSourceSnapshot(preparedSources);
 
-    // Teasers cannot support a precise recap: stop before spending tokens.
+    // Subtitle summaries can fail: stop and refund before episode extraction.
     const readiness = evaluateRecapSourceReadiness(snapshot);
     if (!readiness.ready) {
-      const message = describeInsufficientSources(readiness);
+      const eligibility = recapEligibility(readiness.issues.includes('insufficient_finale_source')
+        ? 'finale_source_missing' : 'insufficient_sources');
+      const message = eligibility.message;
       const completedAt = new Date().toISOString();
       const { data: failedJob, error: updateError } = await service
         .from('recap_generation_job')
@@ -224,8 +252,12 @@ export default defineEventHandler(async (event) => {
 
       // The message travels in the body: h3 strips accented characters from status lines.
       setResponseStatus(event, 422);
+      // This is a failed paid enrichment, not a preflight refusal: report only
+      // the confirmed refund, never claim that no ticket was reserved.
       return { state: 'insufficient_sources', jobId: job.id, statusMessage: message, readiness, keyRefunded: failedJob?.key_state === 'refunded' };
     }
+
+    snapshot.admission = { version: 1, checkedAt: new Date().toISOString() };
 
     // One extraction per episode, in parallel; the polling endpoint collects them.
     const extractionResponses = Object.fromEntries(await Promise.all(
@@ -292,6 +324,7 @@ function noKeysError() {
 
 async function findActiveJob(
   service: ReturnType<typeof serverSupabaseServiceRole<Database>>,
+  showId: string,
   seasonId: string,
   locale: RecapLocale,
 ) {
@@ -299,6 +332,7 @@ async function findActiveJob(
   const { data, error } = await service
     .from('recap_generation_job')
     .select('id, status, progress')
+    .eq('show_id', showId)
     .eq('season_id', seasonId)
     .eq('locale', locale)
     .eq('format_version', RECAP_FORMAT_VERSION)

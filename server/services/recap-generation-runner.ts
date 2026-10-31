@@ -30,6 +30,10 @@ import {
 import { finalizeRecapStory, processRecapDraft } from '~/server/services/recap-generation/story';
 import { createStoryVerificationPrompt } from '~/server/services/recap-story-quality';
 import { DEFAULT_RECAP_LOCALE, normalizeRecapLocale } from '~/lib/recap-locales';
+import { recapEligibility } from '~/lib/recap-eligibility';
+import { fetchSeasonRecapAvailability } from '~/server/services/recap-eligibility';
+import { evaluateRecapSourceReadiness } from '~/server/services/recap-generation/sources';
+import { evaluateRecapSourceRights } from '~/server/services/recap-source-registry';
 import {
   RECAP_GENERATION_ACTIVE_STATUSES,
   RECAP_GENERATION_TERMINAL_STATUSES,
@@ -102,17 +106,24 @@ export async function expireStaleRecapGenerationJobs(service: ServiceClient) {
 }
 
 async function advanceJob(service: ServiceClient, jobId: string) {
-  const { data: job, error: jobError } = await service
+  const { data: storedJob, error: jobError } = await service
     .from('recap_generation_job')
     .select('*')
     .eq('id', jobId)
     .maybeSingle();
 
   if (jobError) throw jobError;
+  let job = storedJob;
   if (!job) return null;
 
   if (RECAP_GENERATION_TERMINAL_STATUSES.includes(job.status)) {
     return toPublicJob(job);
+  }
+
+  if (job.status === 'generating' && !hasCurrentAdmission(job.source_snapshot)) {
+    const admission = await admitLegacyJob(service, job);
+    if ('result' in admission) return admission.result;
+    job = admission.job;
   }
 
   if (job.status === 'generating' && job.generation_phase === 'preparing_story') {
@@ -275,6 +286,73 @@ async function advanceJob(service: ServiceClient, jobId: string) {
     const message = error instanceof Error ? error.message : 'Unknown generation finalization error.';
     return await failJob(service, job.id, 'generation_finalize_failed', message);
   }
+}
+
+function hasCurrentAdmission(value: Json | null): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const admission = (value as unknown as RecapSourceSnapshot).admission;
+  return admission?.version === 1 && typeof admission.checkedAt === 'string'
+    && Number.isFinite(Date.parse(admission.checkedAt));
+}
+
+/** Existing jobs from before the eligibility guard must not bypass it on resume. */
+async function admitLegacyJob(service: ServiceClient, job: JobRow): Promise<
+  { job: JobRow } | { result: PublicRecapGenerationJob | null }
+> {
+  let snapshot: RecapSourceSnapshot;
+  try {
+    snapshot = parseSourceSnapshot(job.source_snapshot);
+    // These identities are persisted by the server; incomplete old snapshots
+    // must be retried through the normal generation endpoint.
+    if (!Number.isInteger(snapshot.show.traktId) || !Number.isInteger(snapshot.season.number)) {
+      throw new Error('Missing release identifiers.');
+    }
+  } catch {
+    return { result: await failJob(service, job.id, 'recap_ineligible', recapEligibility('metadata_incomplete').message) };
+  }
+
+  const availability = await fetchSeasonRecapAvailability(snapshot.show.traktId, snapshot.season.number);
+  if (!availability.eligibility.eligible) {
+    return { result: await failJob(service, job.id, 'recap_ineligible', availability.eligibility.message) };
+  }
+  const confirmedNumbers = availability.traktData?.episodes.map(episode => episode.number) ?? [];
+  const snapshotNumbers = snapshot.episodes.map(episode => episode?.number);
+  if (!confirmedNumbers.length || confirmedNumbers.length !== snapshotNumbers.length
+    || new Set(snapshotNumbers).size !== confirmedNumbers.length
+    || confirmedNumbers.some(number => !snapshotNumbers.includes(number))) {
+    return { result: await failJob(service, job.id, 'recap_ineligible', recapEligibility('metadata_inconsistent').message) };
+  }
+  let sourceEligibility = recapEligibility('eligible');
+  try {
+    const readiness = evaluateRecapSourceReadiness(snapshot);
+    if (!readiness.ready) {
+      sourceEligibility = recapEligibility(readiness.issues.includes('insufficient_finale_source')
+        ? 'finale_source_missing' : 'insufficient_sources');
+    } else if (!Array.isArray(snapshot.providers) || !evaluateRecapSourceRights(snapshot.providers).ready) {
+      sourceEligibility = recapEligibility('source_rights_restricted');
+    }
+  } catch {
+    sourceEligibility = recapEligibility('metadata_incomplete');
+  }
+  if (!sourceEligibility.eligible) {
+    return { result: await failJob(service, job.id,
+      sourceEligibility.code === 'insufficient_sources' ? 'insufficient_sources' : 'recap_ineligible',
+      sourceEligibility.message) };
+  }
+
+  const checkedAt = new Date().toISOString();
+  snapshot.admission = { version: 1, checkedAt };
+  const { data: admittedJob, error } = await service
+    .from('recap_generation_job')
+    .update({ source_snapshot: snapshot as unknown as Json, updated_at: checkedAt })
+    .eq('id', job.id)
+    .eq('status', 'generating')
+    .eq('updated_at', job.updated_at)
+    .select('*')
+    .maybeSingle();
+  if (error) throw error;
+  // Another poll owns the updated state. Only the winning admission advances.
+  return admittedJob ? { job: admittedJob } : { result: await readPublicJob(service, job.id) };
 }
 
 // Collects one provider response per episode: scene extraction, then the

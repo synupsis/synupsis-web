@@ -452,7 +452,7 @@ test('bloque une saison décrite seulement par des accroches, même traduites', 
   assert.equal(readiness.ready, false)
   assert.equal(readiness.documentedEpisodes, 0)
   assert.ok(readiness.richness < 0.1)
-  assert.deepEqual(readiness.issues, ['insufficient_episode_sources'])
+  assert.deepEqual(readiness.issues, ['insufficient_episode_sources', 'insufficient_finale_source'])
   assert.match(describeInsufficientSources(readiness), /aucun épisode n’est décrit précisément/)
 })
 

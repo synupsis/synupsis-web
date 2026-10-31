@@ -6,6 +6,7 @@ import {
   getRecapGenerationStageKey,
 } from '~/lib/recap-generation-progress';
 import { useStoryViewer } from '~/composables/useStoryViewer';
+import type { RecapEligibility } from '~/lib/recap-eligibility';
 
 type PublicRecapGenerationJob = {
   id: string;
@@ -29,6 +30,8 @@ export type RecapGenerationFailure = {
   noKeys: boolean;
   /** The key spent on this recap came back. */
   keyRefunded: boolean;
+  /** A refusal before a job or ticket reservation, rather than a failed job. */
+  eligibility?: RecapEligibility;
 };
 
 export type RecapGeneration = {
@@ -118,6 +121,11 @@ export function useRecapGenerations(options: {
       void follow(key, generation.jobId);
     } catch (cause: any) {
       const noKeys = cause?.data?.data?.code === 'no_recap_keys';
+      const eligibility = cause?.data?.data?.eligibility ?? cause?.data?.eligibility;
+      if (eligibility?.eligible === false && typeof eligibility.message === 'string') {
+        fail(key, eligibility.message, { noKeys: false, keyRefunded: false, eligibility });
+        return;
+      }
       // A failed HTTP response does not tell us whether the server kept running.
       const keyRefunded = !noKeys && (cause?.data?.keyRefunded === true || cause?.data?.data?.keyRefunded === true);
       fail(key, describeError(cause), { noKeys, keyRefunded });
@@ -213,7 +221,7 @@ export function useRecapGenerations(options: {
 
   function fail(key: string, message: string, failure: RecapGenerationFailure) {
     // Nothing started: the season stays as it was, to unlock later.
-    if (failure.noKeys) {
+    if (failure.noKeys || failure.eligibility) {
       forget(key);
       options.onFailed(key, message, failure);
       return;

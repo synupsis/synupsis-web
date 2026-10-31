@@ -7,6 +7,7 @@
         :class="{ 'active:scale-95': !primaryDisabled }"
         :disabled="primaryDisabled"
         :aria-label="actionLabel"
+        :title="unavailable ? t(eligibility!.message) : undefined"
         :data-story-origin="publishedRecap?.id"
         @pointerenter="prefetchStory"
         @pointerdown="prefetchStory"
@@ -56,10 +57,11 @@
               <span v-else class="block h-full w-full bg-gradient-to-br from-white/10 via-primary/10 to-black" />
 
               <span
-                v-if="spoilerLocked || isGenerating"
+                v-if="spoilerLocked || isGenerating || checkingAvailability"
                 class="absolute inset-0 grid place-items-center bg-black/60 text-white"
               >
                 <LockIcon v-if="spoilerLocked" class="h-6 w-6" />
+                <SpinLoader v-else-if="checkingAvailability" class="h-5 w-5" />
                 <span v-else class="text-base font-bold tabular-nums">
                   {{ displayedProgress }}<span class="text-[10px] font-semibold text-white/70">%</span>
                 </span>
@@ -69,6 +71,12 @@
                 class="absolute inset-0 grid place-items-center bg-black/0 text-white opacity-0 transition group-hover:bg-black/35 group-hover:opacity-100 group-focus-within:bg-black/35 group-focus-within:opacity-100"
               >
                 <PlayIcon fill="currentColor" class="h-7 w-7 drop-shadow" />
+              </span>
+              <span
+                v-else-if="unavailable"
+                class="absolute inset-0 grid place-items-center bg-black/45 text-white/90"
+              >
+                <ClockIcon class="h-6 w-6" />
               </span>
               <span
                 v-else-if="!isDraft"
@@ -88,8 +96,10 @@
       >
         <LockIcon v-if="spoilerLocked" class="h-3 w-3" />
         <SpinLoader v-else-if="isGenerating" class="h-3 w-3" />
+        <SpinLoader v-else-if="checkingAvailability" class="h-3 w-3" />
         <PlayIcon fill="currentColor" v-else-if="isPublished" class="h-3 w-3" />
         <PencilIcon v-else-if="isDraft" class="h-3 w-3" />
+        <ClockIcon v-else-if="unavailable" class="h-3 w-3" />
         <TicketIcon v-else class="h-3 w-3" />
       </span>
 
@@ -109,18 +119,19 @@
     <h3 class="mt-2 truncate text-xs font-semibold text-white">
       {{ t('Season {number}', { number: season.number }) }}
     </h3>
-    <p class="mt-0.5 truncate text-[11px] leading-4" :class="statusTextClass" :title="failed ? t(generationError ?? 'Generation failed.') : undefined">
+    <p class="mt-0.5 truncate text-[11px] leading-4" :class="statusTextClass" :title="unavailable ? t(eligibility!.message) : failed ? t(generationError ?? 'Generation failed.') : undefined">
       {{ statusLabel }}
     </p>
   </article>
 </template>
 
 <script setup lang="ts">
-import { LockIcon, PencilIcon, PlayIcon, TicketIcon } from 'lucide-vue-next';
+import { ClockIcon, LockIcon, PencilIcon, PlayIcon, TicketIcon } from 'lucide-vue-next';
 import { computed, useId } from 'vue';
 import CachedImage from '~/components/CachedImage.vue';
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import { prefetchRecapStory } from '~/composables/useStoryViewer';
+import type { RecapEligibility } from '~/lib/recap-eligibility';
 
 const { t } = useI18n();
 
@@ -133,11 +144,14 @@ const props = withDefaults(defineProps<{
   generationError?: string | null;
   isLatest: boolean;
   spoilerLocked?: boolean;
+  eligibility?: RecapEligibility;
+  eligibilityPending?: boolean;
 }>(), {
   generationProgress: 0,
   generationLabel: '',
   generationError: null,
   spoilerLocked: false,
+  eligibilityPending: false,
 });
 
 const RING_RADIUS = 42.5;
@@ -157,17 +171,25 @@ const publishedRecap = computed(() => (props.season.recap || []).find((recap: an
 const draftRecap = computed(() => (props.season.recap || []).find((recap: any) => recap.status === 'draft'));
 const isPublished = computed(() => Boolean(publishedRecap.value));
 const isDraft = computed(() => Boolean(draftRecap.value));
+const checkingAvailability = computed(() => !isPublished.value && !isDraft.value && props.eligibilityPending);
+const unavailable = computed(() => !isPublished.value && !isDraft.value && props.eligibility?.eligible === false);
 const failed = computed(() => Boolean(props.generationError) && !props.isGenerating && !isPublished.value && !isDraft.value);
 // Floored: the ring may show 100 % only once the recap is published.
 const displayedProgress = computed(() => Math.min(Math.floor(props.generationProgress), 100));
 const ringOffset = computed(() => RING_CIRCUMFERENCE * (1 - Math.min(Math.max(props.generationProgress, 0), 100) / 100));
-const primaryDisabled = computed(() => props.spoilerLocked || props.isGenerating || (isDraft.value && !(user.value && props.isAdmin)));
+const primaryDisabled = computed(() => props.spoilerLocked || props.isGenerating || checkingAvailability.value || (isDraft.value && !(user.value && props.isAdmin)));
 
 const statusLabel = computed(() => {
   if (props.spoilerLocked) return t('Locked');
   if (props.isGenerating) return t(props.generationLabel || 'Preparing');
   if (isPublished.value) return props.isLatest ? t('New') : t('Available');
   if (isDraft.value) return t('Draft');
+  if (checkingAvailability.value) return t('Checking availability');
+  if (unavailable.value) {
+    if (props.eligibility?.code === 'season_in_progress') return t('Still airing');
+    if (props.eligibility?.code === 'not_yet_aired') return t('Not aired yet');
+    return t('Unavailable');
+  }
   if (failed.value) return t('Failed · retry');
   return t('To unlock');
 });
@@ -201,6 +223,8 @@ const actionLabel = computed(() => {
   if (props.isGenerating) return t('Preparing the recap for season {number}: {stage}, {progress}%', { number: props.season.number, stage: t(props.generationLabel || 'Preparing'), progress: displayedProgress.value });
   if (isPublished.value) return t('View the recap for season {number}', { number: props.season.number });
   if (isDraft.value) return t('Edit the draft for season {number}', { number: props.season.number });
+  if (checkingAvailability.value) return t('Checking recap availability for season {number}', { number: props.season.number });
+  if (unavailable.value) return t('Season {number}: {reason} Check again.', { number: props.season.number, reason: t(props.eligibility!.message) });
   if (failed.value) return t('Retry the recap for season {number}', { number: props.season.number });
   return t('Unlock the recap for season {number}', { number: props.season.number });
 });

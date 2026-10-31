@@ -25,7 +25,11 @@ import {
   getRecapSourcePolicy,
   type RecapSourceProviderId,
 } from '~/server/services/recap-source-registry';
-import { fetchSubtitleRecapEnrichment } from '~/server/services/subtitle-recap-source';
+import {
+  prepareSubtitleRecapEnrichment,
+  enrichPreparedSubtitles,
+  type PreparedSubtitleRecapEnrichment,
+} from '~/server/services/subtitle-recap-source';
 import { fetchWikimediaRecapEnrichment } from '~/server/services/wikimedia-recap-source';
 import { createTraktHeaders } from '~/server/utils/trakt';
 
@@ -34,6 +38,12 @@ const TARGET_EPISODE_SOURCE_CHARS = 1_200;
 // scenes, and its subtitles are worth a download and a reading.
 const SUBTITLE_EPISODE_SOURCE_CHARS = 1_800;
 const MAX_EVIDENCE_PER_EPISODE = 4;
+
+export type PreparedRecapSources = {
+  snapshot: RecapSourceSnapshot;
+  // Request-local material; this object must never be persisted or sent to clients.
+  subtitles: PreparedSubtitleRecapEnrichment | null;
+};
 
 export async function fetchRecapSourceSnapshot(input: {
   showId: string;
@@ -46,18 +56,21 @@ export async function fetchRecapSourceSnapshot(input: {
   seasonNumber: number;
   seasonFirstAired: string | null;
   seasonImage: string | null;
-}): Promise<RecapSourceSnapshot> {
+  traktData?: { episodes: any[]; show: any; seasons: any[] };
+}): Promise<PreparedRecapSources> {
   const clientId = process.env.TRAKT_CLIENT_ID;
-  if (!clientId) {
+  if (!clientId && !input.traktData) {
     throw new Error('TRAKT_CLIENT_ID is not configured.');
   }
 
   const fetchedAt = new Date().toISOString();
-  const headers = createTraktHeaders(clientId);
+  const headers = createTraktHeaders(clientId ?? '');
   const seasonUrl = `https://api.trakt.tv/shows/${input.showTraktId}/seasons/${input.seasonNumber}?extended=full`;
   const showUrl = `https://api.trakt.tv/shows/${input.showTraktId}?extended=full`;
   const seasonsUrl = `https://api.trakt.tv/shows/${input.showTraktId}/seasons?extended=full`;
-  const [seasonResponse, showResponse, seasonsResponse] = await Promise.all([
+  const [seasonResponse, showResponse, seasonsResponse] = input.traktData
+    ? [input.traktData.episodes, input.traktData.show, input.traktData.seasons]
+    : await Promise.all([
     $fetch<any>(seasonUrl, { headers, timeout: 15_000 }),
     $fetch<any>(showUrl, { headers, timeout: 15_000 }),
     $fetch<any>(seasonsUrl, { headers, timeout: 15_000 }).catch(() => null),
@@ -167,34 +180,21 @@ export async function fetchRecapSourceSnapshot(input: {
     });
   });
 
-  // Subtitles fill in the episodes the written sources still describe
-  // poorly, while the vision model frames the images.
-  const [subtitleEnrichment, imageFocus] = await Promise.all([
-    fetchSubtitleRecapEnrichment({
-      showName: input.showName,
-      showImdbId: imdbId,
-      showTmdbId: tmdbId,
-      originalLanguage: sanitizeText(traktShow?.language) || null,
-      seasonNumber: input.seasonNumber,
-      episodes: episodes.filter(episode => measureEpisodeSourceLength(episode) < SUBTITLE_EPISODE_SOURCE_CHARS),
-      characterNames: characterPortraits.map(portrait => portrait.name),
-      fetchedAt,
-    }),
-    locateImageFocus([
-      ...episodes.flatMap(episode => episode.stills ?? []),
-      ...(tmdbImages?.backdrops ?? []),
-    ]),
-  ]);
-  if (subtitleEnrichment) {
-    providers.push(...subtitleEnrichment.providers);
-    subtitleEnrichment.episodeEvidence.forEach((items, episodeNumber) => {
-      const episode = episodes.find(candidate => candidate.number === episodeNumber);
-      if (episode) episode.evidence = deduplicateEvidence([...episode.evidence, ...items]);
-    });
-  }
+  // A usable transcript is prepared without AI. Its summary and image focus
+  // happen only after the route has admitted the season and reserved its ticket.
+  const subtitles = await prepareSubtitleRecapEnrichment({
+    showName: input.showName,
+    showImdbId: imdbId,
+    showTmdbId: tmdbId,
+    originalLanguage: sanitizeText(traktShow?.language) || null,
+    seasonNumber: input.seasonNumber,
+    episodes: episodes.filter(episode => measureEpisodeSourceLength(episode) < SUBTITLE_EPISODE_SOURCE_CHARS),
+    characterNames: characterPortraits.map(portrait => portrait.name),
+    fetchedAt,
+  });
 
   const uniqueProviders = deduplicateProviders(providers);
-  return {
+  const snapshot: RecapSourceSnapshot = {
     provider: 'multi-source',
     fetchedAt,
     providers: uniqueProviders,
@@ -221,8 +221,52 @@ export async function fetchRecapSourceSnapshot(input: {
     },
     episodes,
     characterPortraits,
-    imageFocus,
+    imageFocus: {},
   };
+  return { snapshot, subtitles };
+}
+
+/** Check the source material we actually have, before reserving a ticket or using AI. */
+export function evaluatePreparedRecapSourceReadiness(prepared: PreparedRecapSources): RecapSourceReadiness {
+  const subtitleEpisodes = new Set(prepared.subtitles?.episodes.map(item => item.episode.number) ?? []);
+  const snapshot = prepared.snapshot;
+  const readiness = evaluateEpisodeSources(snapshot.episodes.map(episode => ({
+    number: episode.number,
+    length: subtitleEpisodes.has(episode.number)
+      ? Math.max(MIN_DOCUMENTED_EPISODE_CHARS, measureEpisodeSourceLength(episode))
+      : measureEpisodeSourceLength(episode),
+  })));
+  const providers = deduplicateProviders([
+    ...snapshot.providers,
+    ...(prepared.subtitles?.episodes.map(item => createRecapSourceProvider(item.providerId, snapshot.fetchedAt, item.file.url)) ?? []),
+  ]);
+  if (!evaluateRecapSourceRights(providers).ready) {
+    readiness.ready = false;
+    readiness.issues.push('source_rights_not_cleared');
+  }
+  return readiness;
+}
+
+/** The caller must pass eligibility and source preflight before invoking this paid step. */
+export async function enrichRecapSourceSnapshot(prepared: PreparedRecapSources): Promise<RecapSourceSnapshot> {
+  const snapshot = prepared.snapshot;
+  const subtitleEnrichment = await enrichPreparedSubtitles(prepared.subtitles);
+  if (subtitleEnrichment) {
+    snapshot.providers = deduplicateProviders([...snapshot.providers, ...subtitleEnrichment.providers]);
+    subtitleEnrichment.episodeEvidence.forEach((items, episodeNumber) => {
+      const episode = snapshot.episodes.find(candidate => candidate.number === episodeNumber);
+      if (episode) episode.evidence = deduplicateEvidence([...episode.evidence, ...items]);
+    });
+  }
+  snapshot.rights = evaluateRecapSourceRights(snapshot.providers);
+  // Do not spend vision tokens if the subtitle summaries failed the source gate.
+  if (evaluateRecapSourceReadiness(snapshot).ready && snapshot.rights.ready) {
+    snapshot.imageFocus = await locateImageFocus([
+      ...snapshot.episodes.flatMap(episode => episode.stills ?? []),
+      ...(snapshot.show.backdrops ?? []),
+    ]);
+  }
+  return snapshot;
 }
 
 type SourceEnrichment = {
@@ -647,14 +691,27 @@ function toErrorMessage(error: unknown): string {
 }
 
 export function evaluateRecapSourceReadiness(snapshot: RecapSourceSnapshot): RecapSourceReadiness {
-  const lengths = snapshot.episodes.map(measureEpisodeSourceLength);
+  return evaluateEpisodeSources(snapshot.episodes.map(episode => ({
+    number: episode.number,
+    length: measureEpisodeSourceLength(episode),
+  })));
+}
+
+function evaluateEpisodeSources(episodes: Array<{ number: number; length: number }>): RecapSourceReadiness {
+  const lengths = episodes.map(episode => episode.length);
   const documentedEpisodes = lengths.filter(length => length >= MIN_DOCUMENTED_EPISODE_CHARS).length;
   const documentedRatio = ratio(documentedEpisodes, lengths.length);
   const richness = ratio(
     lengths.reduce((total, length) => total + Math.min(1, length / TARGET_EPISODE_SOURCE_CHARS), 0),
     lengths.length,
   );
-  const issues = documentedRatio < MIN_DOCUMENTED_EPISODE_RATIO ? ['insufficient_episode_sources'] : [];
+  const issues = !lengths.length || documentedRatio < MIN_DOCUMENTED_EPISODE_RATIO ? ['insufficient_episode_sources'] : [];
+  // A season recap must be able to explain its ending. Use the episode number,
+  // not source order, and apply the same requirement before and after paid enrichment.
+  const finale = episodes.reduce<(typeof episodes)[number] | null>((latest, episode) => (
+    !latest || episode.number > latest.number ? episode : latest
+  ), null);
+  if (finale && finale.length < MIN_DOCUMENTED_EPISODE_CHARS) issues.push('insufficient_finale_source');
 
   return {
     ready: issues.length === 0,
@@ -667,6 +724,9 @@ export function evaluateRecapSourceReadiness(snapshot: RecapSourceSnapshot): Rec
 }
 
 export function describeInsufficientSources(readiness: RecapSourceReadiness): string {
+  if (readiness.issues.length === 1 && readiness.issues.includes('insufficient_finale_source')) {
+    return 'Pas assez de sources détaillées sur le dernier épisode de cette saison pour raconter sa conclusion. Le récap n’a pas été généré.';
+  }
   const { documentedEpisodes, totalEpisodes } = readiness;
   const coverage = documentedEpisodes === 0
     ? 'aucun épisode n’est décrit précisément'
