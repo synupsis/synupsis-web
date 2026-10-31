@@ -3,7 +3,7 @@
 // whenever a test has used up their keys. Refuses any non-local database.
 // Usage: yarn test-accounts
 //
-// Every account signs in at http://localhost:3000/login with its email and the
+// Every account signs in at http://localhost:3001/login with its email and the
 // password below.
 //
 //   alice@synupsis.test    alice       3 keys, as a new viewer starts

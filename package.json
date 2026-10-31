@@ -8,7 +8,7 @@
   "scripts": {
     "audit:dependencies": "yarn audit",
     "build": "nuxt build",
-    "dev": "nuxt dev",
+    "dev": "nuxt dev --port 3001",
     "eval:recaps": "node --env-file=.env scripts/evaluate-recaps.mjs",
     "generate": "nuxt generate",
     "lint": "eslint . --ext .js,.ts,.vue",

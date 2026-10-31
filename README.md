@@ -32,7 +32,7 @@ Install the dependencies
   yarn install
 ```
 
-Start the development server on `http://localhost:3000`
+Start the development server on `http://localhost:3001`
 
 ```bash
   yarn dev
