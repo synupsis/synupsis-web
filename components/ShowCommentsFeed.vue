@@ -1,6 +1,45 @@
 <template>
-  <!-- Every episode's comments in one feed, the most liked first, each with the episode it was written on. -->
+  <!-- Every watched episode's comments in one feed, with the viewer's chosen order. -->
   <div>
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <h2 class="text-2xl font-bold sm:text-3xl">{{ t('Comments') }}</h2>
+      <div class="ml-auto flex shrink-0 items-center gap-3">
+        <span :id="`${sortId}-label`" class="sr-only">{{ t('Sort by') }}</span>
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <button
+              type="button"
+              :aria-labelledby="`${sortId}-label ${sortId}-value`"
+              class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/[0.025] text-foreground transition-colors hover:border-violet-400/40 hover:bg-violet-500/[0.08] focus-visible:ring-2 focus-visible:ring-violet-400 data-[state=open]:border-violet-400/40 data-[state=open]:bg-violet-500/[0.08] motion-reduce:transition-none"
+            >
+              <ArrowDownWideNarrowIcon class="h-4 w-4 shrink-0 text-violet-300" aria-hidden="true" />
+              <span :id="`${sortId}-value`" class="sr-only">{{ selectedSort.label }}</span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            :side-offset="8"
+            class="w-60 max-w-[calc(100vw-2rem)] rounded-2xl border-white/10 bg-popover/95 p-1.5 shadow-xl shadow-black/30 backdrop-blur-xl"
+          >
+            <DropdownMenuRadioGroup :model-value="sort" :aria-label="t('Sort by')" class="space-y-1" @update:model-value="selectSort">
+              <SortMenuItem
+                v-for="option in sortOptions"
+                :key="option.value"
+                :value="option.value"
+                class="group flex min-h-11 cursor-pointer select-none items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground outline-none transition-colors data-[highlighted]:bg-white/[0.06] data-[highlighted]:text-foreground data-[state=checked]:bg-violet-500/15 data-[state=checked]:text-violet-200 motion-reduce:transition-none"
+              >
+                <component :is="option.icon" class="h-4 w-4 shrink-0 text-muted-foreground group-data-[state=checked]:text-violet-300" aria-hidden="true" />
+                <span class="flex-1 font-medium">{{ option.label }}</span>
+                <DropdownMenuItemIndicator class="flex h-4 w-4 items-center justify-center">
+                  <CheckIcon class="h-4 w-4" aria-hidden="true" />
+                </DropdownMenuItemIndicator>
+              </SortMenuItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+    <p v-if="status === 'loading'" role="status" class="sr-only">{{ t('Loading…') }}</p>
     <div v-if="status === 'loading'" class="flex flex-col gap-5" aria-hidden="true">
       <div v-for="index in 3" :key="index" class="flex gap-3">
         <span class="h-8 w-8 shrink-0 animate-pulse rounded-full bg-white/10" />
@@ -13,7 +52,7 @@
 
     <div v-else-if="status === 'error'" class="py-10 text-center">
       <p class="text-sm text-muted-foreground">{{ t('Could not load the comments.') }}</p>
-      <Button type="button" variant="outline" class="mt-4 rounded-full" @click="load()">{{ t('Retry') }}</Button>
+      <Button type="button" variant="outline" class="mt-4 rounded-full" @click="reload()">{{ t('Retry') }}</Button>
     </div>
 
     <div v-else-if="!items.length" class="py-10 text-center">
@@ -71,9 +110,10 @@
           </div>
         </li>
       </ol>
+      <p v-if="loadMoreError" role="alert" class="mt-4 text-center text-sm text-muted-foreground">{{ t('Could not load the comments.') }}</p>
       <div v-if="hasMore" class="mt-4 flex justify-center">
         <Button type="button" variant="outline" class="rounded-full" :disabled="loadingMore" @click="loadMore">
-          {{ loadingMore ? t('Loading…') : t('Show more comments') }}
+          {{ loadingMore ? t('Loading…') : loadMoreError ? t('Retry') : t('Show more comments') }}
         </Button>
       </div>
     </template>
@@ -81,11 +121,14 @@
 </template>
 
 <script setup lang="ts">
-import { EyeOffIcon, HeartIcon, MessagesSquareIcon } from 'lucide-vue-next';
-import { onMounted, ref, watch } from 'vue';
+import { ArrowDownWideNarrowIcon, CheckIcon, ClockIcon, EyeOffIcon, HeartIcon, HistoryIcon, ListOrderedIcon, MessagesSquareIcon } from 'lucide-vue-next';
+import { DropdownMenuItemIndicator, DropdownMenuRadioItem as SortMenuItem } from 'reka-ui';
+import { computed, onMounted, ref, useId, watch } from 'vue';
 import { Button } from '~/components/shadcn/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuTrigger } from '~/components/shadcn/dropdown-menu';
 import CommentAuthorLine from '~/components/CommentAuthorLine.vue';
-import type { ShowFeedComment } from '~/types/episode-comment.types';
+import { useShowCommentsFeed } from '~/composables/useShowCommentsFeed';
+import type { ShowCommentSort } from '~/types/episode-comment.types';
 
 const { t } = useI18n();
 
@@ -99,43 +142,34 @@ const emit = defineEmits<{
   'open-episode': [position: { season: number; episode: number }];
 }>();
 
-const items = ref<ShowFeedComment[]>([]);
-const status = ref<'loading' | 'ready' | 'error'>('loading');
-const hasMore = ref(false);
-const loadingMore = ref(false);
+const sortId = useId();
+const sort = ref<ShowCommentSort>('most-liked');
+const sortOptions = computed(() => [
+  { value: 'most-liked', label: t('Most liked'), icon: HeartIcon },
+  { value: 'newest', label: t('Newest first'), icon: ClockIcon },
+  { value: 'oldest', label: t('Oldest first'), icon: HistoryIcon },
+  { value: 'episode', label: t('Episode order'), icon: ListOrderedIcon },
+] as const);
+const selectedSort = computed(() => sortOptions.value.find(option => option.value === sort.value) ?? sortOptions.value[0]);
+
+function selectSort(value: unknown) {
+  const option = sortOptions.value.find(option => option.value === value);
+  if (option) sort.value = option.value;
+}
+
+const { items, status, hasMore, loadingMore, loadMoreError, reload, loadMore } = useShowCommentsFeed({
+  slug: () => props.slug,
+  progressKey: () => props.progressKey,
+  sort: () => sort.value,
+});
 const revealed = ref(new Set<string>());
-
-// The feed is ranked by likes: the next page starts where the shown ones end.
-async function load(offset = 0) {
-  if (!offset) status.value = 'loading';
-  try {
-    const response = await $fetch<{ comments: ShowFeedComment[]; hasMore: boolean }>(
-      `/api/shows/${props.slug}/comments`,
-      { query: offset ? { offset } : {} },
-    );
-    items.value = offset ? [...items.value, ...response.comments] : response.comments;
-    hasMore.value = response.hasMore;
-    status.value = 'ready';
-  } catch {
-    if (!offset) status.value = 'error';
-  }
-}
-
-async function loadMore() {
-  loadingMore.value = true;
-  try {
-    await load(items.value.length);
-  } finally {
-    loadingMore.value = false;
-  }
-}
 
 function reveal(id: string) {
   revealed.value = new Set([...revealed.value, id]);
 }
 
-onMounted(() => load());
-watch(() => props.progressKey, () => load());
+onMounted(reload);
+watch([() => props.slug, () => props.progressKey], () => { revealed.value = new Set(); }, { flush: 'sync' });
 
-defineExpose({ reload: () => load() });
+defineExpose({ reload });
 </script>
