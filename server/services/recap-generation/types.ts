@@ -59,6 +59,9 @@ export type RecapSourceProvider = RecapSourceProviderSnapshot;
 export type RecapSourceSnapshot = {
   provider: 'multi-source';
   fetchedAt: string;
+  // Recorded only after release, source and rights checks; legacy jobs are
+  // admitted by the runner before they can start any additional model calls.
+  admission?: { version: 1; checkedAt: string };
   providers: RecapSourceProvider[];
   rights: RecapSourceRightsReport;
   show: {

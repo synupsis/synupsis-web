@@ -4,6 +4,7 @@ import { serverSupabaseServiceRole } from '#supabase/server';
 import type { Database, Json } from '~/types/database.types';
 import type { RecapStory } from '~/types/recap-story.types';
 import { requireAdminUser } from '~/server/utils/require-admin';
+import { assertRecapEligible, fetchSeasonRecapAvailability } from '~/server/services/recap-eligibility';
 
 type EditorSlideInput = {
   canvas?: string | Json;
@@ -41,6 +42,15 @@ export async function saveRecapFromEditor(event: H3Event, publish: boolean) {
   const slideCanvases = body.slides.map((slide, index) => parseCanvas(slide.canvas, index));
   const service = serverSupabaseServiceRole<Database>(event);
 
+  const [{ data: show, error: showError }, { data: season, error: seasonError }] = await Promise.all([
+    service.from('show').select('id, trakt_id').eq('id', showId).maybeSingle(),
+    service.from('season').select('id, number').eq('id', seasonId).eq('show_id', showId).maybeSingle(),
+  ]);
+  if (showError || seasonError) throwDatabaseError('Could not load this show and season.', showError || seasonError);
+  if (!show || !season) {
+    throw createError({ statusCode: 404, statusMessage: 'Season not found for this show.' });
+  }
+
   let recap: ExistingRecap | null = null;
   let createdRecap = false;
 
@@ -64,6 +74,13 @@ export async function saveRecapFromEditor(event: H3Event, publish: boolean) {
       .maybeSingle();
     if (error) throwDatabaseError('Could not look up the recap.', error);
     recap = data;
+  }
+
+  // Drafts can be prepared early. Published recaps remain editable even if
+  // upstream metadata later degrades; only a new publication needs admission.
+  if (publish && recap?.status !== 'published') {
+    const { eligibility } = await fetchSeasonRecapAvailability(show.trakt_id, season.number);
+    assertRecapEligible(eligibility);
   }
 
   if (!recap) {

@@ -86,11 +86,11 @@
           </div>
           <!-- A scroller clips both axes: its top padding, taken back by a negative margin, leaves room for the ring halo, wider on hover. -->
           <div
-            v-if="seasonsChronological.length"
+            v-if="recapSeasons.length"
             class="-mx-5 -mt-6 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-2 pt-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:mt-0 sm:flex-wrap sm:gap-x-4 sm:gap-y-5 sm:overflow-visible sm:px-0 sm:pb-0 sm:pt-0"
           >
             <SeasonStory
-              v-for="season in seasonsChronological"
+              v-for="season in recapSeasons"
               :key="season.id"
               class="snap-start"
               :season="withRecapsInLocale(season)"
@@ -99,6 +99,8 @@
               :generation-progress="recapGenerationOf(season.id)?.progress ?? 0"
               :generation-label="recapGenerationOf(season.id)?.label"
               :generation-error="recapGenerationOf(season.id)?.error ?? null"
+              :eligibility="seasonEligibility[season.id]"
+              :eligibility-pending="eligibilityPending[season.id] ?? !seasonEligibility[season.id]"
               :is-latest="season.number === sortedSeasons[0]?.number"
               :spoiler-locked="!isRecapUnlocked(season.number)"
               @view="goToRecap"
@@ -107,7 +109,7 @@
               @generate="generateRecap"
             />
           </div>
-          <p v-else class="text-sm text-muted-foreground">{{ t('No released seasons are available.') }}</p>
+          <p v-else class="text-sm text-muted-foreground">{{ t('No seasons are available.') }}</p>
         </div>
       </section>
 
@@ -183,6 +185,7 @@
       :wallet="unlockWallet"
       :followers="unlockFollowers"
       :has-username="hasUsername"
+      :eligibility="seasonEligibility[unlockSeason.id]"
       @confirm="confirmUnlock"
     />
 
@@ -201,7 +204,7 @@
 
 <script setup lang="ts">
 import { CalendarIcon, CheckIcon, MessagesSquareIcon, StarIcon } from 'lucide-vue-next';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import type { ShowWithSeasons } from '~/types/database.types';
 import type { LibraryEntry } from '~/types/library.types';
@@ -225,6 +228,7 @@ import { recapGenerationKey, useRecapGenerations } from '~/composables/useRecapG
 import { recapLocaleFlags, recapLocaleNames, recapLocales, type RecapLocale } from '~/lib/recap-locales';
 import { useStoryViewer } from '~/composables/useStoryViewer';
 import { isRegularSeasonReleased } from '~/lib/season-availability';
+import { RECAP_ELIGIBILITY_MESSAGES, type RecapEligibility } from '~/lib/recap-eligibility';
 import { toPlainText } from '~/lib/plain-text';
 
 type ProgressEpisode = { number: number; title: string; firstAired: string | null };
@@ -249,6 +253,12 @@ const { data: showData, pending: showPending, error: showError, refresh: refresh
 const sortedSeasons = computed(() => (showData.value?.seasons ?? [])
   .filter(season => isRegularSeasonReleased(season.number, season.first_aired))
   .sort((a, b) => b.number - a.number));
+// Existing recaps stay reachable even if catalog dates later disappear or change.
+// The episode tracker keeps its own regular-season chronology.
+const recapSeasons = computed(() => (showData.value?.seasons ?? [])
+  .filter(season => (Number.isInteger(season.number) && season.number > 0)
+    || season.recap?.some(recap => recap.status === 'published'))
+  .sort((a, b) => a.number - b.number));
 // Provider summaries may carry HTML: always shown as text.
 const showSummary = computed(() => toPlainText(showData.value?.summary));
 const seasonsChronological = computed(() => [...sortedSeasons.value].reverse());
@@ -307,7 +317,7 @@ const spoilerShieldSaving = ref(false);
 // Each season has one recap per language: every language is offered, so a
 // missing one can be generated, with the user's recap languages first.
 const { recapLanguages } = useRecapLanguages();
-const publishedRecapLocales = computed(() => new Set(sortedSeasons.value.flatMap(season => (season.recap ?? [])
+const publishedRecapLocales = computed(() => new Set(recapSeasons.value.flatMap(season => (season.recap ?? [])
   .filter(recap => recap.status === 'published')
   .map(recap => recap.locale))));
 const recapLocaleOptions = computed<RecapLocale[]>(() => [
@@ -328,6 +338,59 @@ const selectedRecapLocale = computed<RecapLocale>({
 function withRecapsInLocale<T extends { recap?: Array<{ locale: string }> | null }>(season: T): T {
   return { ...season, recap: (season.recap ?? []).filter(recap => recap.locale === selectedRecapLocale.value) };
 }
+
+const seasonEligibility = ref<Record<string, RecapEligibility>>({});
+const eligibilityPending = ref<Record<string, boolean>>({});
+const eligibilityRequests = new Map<string, Promise<RecapEligibility>>();
+let eligibilityMounted = false;
+let eligibilityPrefetchRunning = false;
+
+function checkSeasonEligibility(season: { id: string; number: number }): Promise<RecapEligibility> {
+  const pending = eligibilityRequests.get(season.id);
+  if (pending) return pending;
+  eligibilityPending.value[season.id] = true;
+  const request = $fetch<{ eligibility: RecapEligibility }>(
+    `/api/shows/${route.params.slug}/seasons/${season.number}/eligibility`,
+  ).then(response => response.eligibility).catch((): RecapEligibility => ({
+    eligible: false,
+    code: 'availability_unavailable',
+    message: RECAP_ELIGIBILITY_MESSAGES.availability_unavailable,
+  })).then((eligibility) => {
+    seasonEligibility.value[season.id] = eligibility;
+    return eligibility;
+  }).finally(() => {
+    eligibilityPending.value[season.id] = false;
+    eligibilityRequests.delete(season.id);
+  });
+  eligibilityRequests.set(season.id, request);
+  return request;
+}
+
+function refreshVisibleEligibility() {
+  if (!eligibilityMounted || eligibilityPrefetchRunning) return;
+  const queue = recapSeasons.value.filter((season) => {
+    const hasPublishedRecap = withRecapsInLocale(season).recap?.some(recap => recap.status === 'published');
+    return !hasPublishedRecap && !seasonEligibility.value[season.id];
+  });
+  if (!queue.length) return;
+  eligibilityPrefetchRunning = true;
+  let next = 0;
+  // Long-running series can have dozens of seasons: do not flood the provider.
+  const loadNext = async () => {
+    while (eligibilityMounted && next < queue.length) {
+      const season = queue[next++]!;
+      if (!seasonEligibility.value[season.id]) await checkSeasonEligibility(season);
+    }
+  };
+  void Promise.all(Array.from({ length: Math.min(3, queue.length) }, loadNext)).finally(() => {
+    eligibilityPrefetchRunning = false;
+    // A language change during the requests may reveal another missing recap.
+    refreshVisibleEligibility();
+  });
+}
+onMounted(() => { eligibilityMounted = true; refreshVisibleEligibility(); });
+onBeforeUnmount(() => { eligibilityMounted = false; });
+watch([recapSeasons, selectedRecapLocale], refreshVisibleEligibility);
 
 const { data: seasonHubs, refresh: refreshHubs } = await useAsyncData(
   `series-knowledge-${user.value?.sub ?? 'guest'}-${route.params.slug}`,
@@ -666,8 +729,14 @@ const { generations: recapGenerations, start: startRecapGeneration } = useRecapG
       ? { action: { label: t('View'), onClick: () => goToRecap(recapId) } }
       : undefined);
   },
-  onFailed(_key, message, failure) {
+  onFailed(key, message, failure) {
     void Promise.all([recapKeys.refreshWallet(), recapKeys.refreshRunning()]);
+    if (failure.eligibility) {
+      const season = recapSeasons.value.find(item => key.startsWith(`${item.id}:`));
+      if (season) seasonEligibility.value[season.id] = failure.eligibility;
+      toast.info(t('Recap unavailable'), { description: t(message) });
+      return;
+    }
     if (failure.noKeys) {
       toast.error(t('You have no ticket left.'), { description: t('The recaps you unlocked earn you new ones as people watch them.') });
       return;
@@ -691,13 +760,19 @@ const hasUsername = computed(() => typeof user.value?.user_metadata?.username ==
   && user.value.user_metadata.username.trim().length > 0);
 
 async function generateRecap(seasonId: string) {
+  const season = recapSeasons.value.find(item => item.id === seasonId);
+  if (!season) return;
+  // A fresh check also lets a refused season become available without reloading.
+  const eligibility = await checkSeasonEligibility(season);
+  if (!eligibility.eligible) {
+    toast.info(t('Recap unavailable'), { description: t(eligibility.message) });
+    return;
+  }
   if (!user.value) {
     toast.info(t('Sign in to unlock this recap.'));
     await navigateTo('/login');
     return;
   }
-  const season = sortedSeasons.value.find(item => item.id === seasonId);
-  if (!season) return;
   unlockSeason.value = { id: season.id, number: season.number };
   unlockWallet.value = null;
   unlockOpen.value = true;
@@ -718,7 +793,7 @@ async function generateRecap(seasonId: string) {
 async function confirmUnlock() {
   const season = unlockSeason.value;
   unlockOpen.value = false;
-  if (!season) return;
+  if (!season || !seasonEligibility.value[season.id]?.eligible) return;
   askPermission();
   await startRecapGeneration(season.id, selectedRecapLocale.value);
   // The header shows the key it cost and follows the recap from any page.

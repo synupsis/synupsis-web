@@ -6,6 +6,7 @@ import { compileScript, parse } from '@vue/compiler-sfc';
 import ts from 'typescript';
 import * as vue from 'vue';
 import * as seasonAvailability from '../../lib/season-availability.ts';
+import * as recapEligibility from '../../lib/recap-eligibility.ts';
 import * as plainText from '../../lib/plain-text.ts';
 import * as showCharacters from '../../lib/show-characters.ts';
 
@@ -48,7 +49,10 @@ function hub(season, requestedCursor) {
 
 // Execute the actual page setup and event handlers with real Vue reactivity.
 // Only Nuxt's lifecycle, composables and network boundaries are substituted.
-async function createPage(t, { savedEntry = entry, userId = 'viewer-1', query = {} } = {}) {
+async function createPage(t, {
+  savedEntry = entry, userId = 'viewer-1', query = {}, seasons,
+  eligibility = recapEligibility.recapEligibility('eligible'), eligibilityTransport,
+} = {}) {
   const requests = [];
   const mutations = [];
   const notifications = [];
@@ -56,6 +60,10 @@ async function createPage(t, { savedEntry = entry, userId = 'viewer-1', query = 
   const replacements = [];
   const sources = new Map();
   const stops = [];
+  const mounts = [];
+  const unmounts = [];
+  const generations = [];
+  const infoNotices = [];
   let hubFailure = false;
   const route = { params: { slug: 'example-42' }, query, fullPath: '/shows/example-42' };
   const fetch = async (url, options = {}) => {
@@ -68,10 +76,12 @@ async function createPage(t, { savedEntry = entry, userId = 'viewer-1', query = 
     if (url === '/api/library/42') return { entry: savedEntry ? plain(savedEntry) : null };
     if (url === '/api/shows/42') return { show: {
       id: 'show-42', name: 'Example', summary: 'A show.', image: null,
-      seasons: [1, 2, 3].map(number => ({
+      seasons: seasons ?? [1, 2, 3].map(number => ({
         id: `season-${number}`, number, first_aired: '2020-01-01', recap: [],
       })),
     } };
+    if (url.endsWith('/eligibility')) return eligibilityTransport ? eligibilityTransport(url) : { eligibility };
+    if (url === '/api/recap/keys') return { wallet: { keys: 2, unlimited: false }, followers: 0 };
     // Two recurring characters per season, each seen in that season only.
     if (url === '/api/shows/example-42/characters') return { characters: [1, 2, 3].flatMap(season => [1, 5].map(episode => ({
       name: `Character ${season}-${episode}`, actorName: `Actor ${season}-${episode}`, actorImageUrl: null,
@@ -133,12 +143,13 @@ async function createPage(t, { savedEntry = entry, userId = 'viewer-1', query = 
     },
     require: specifier => {
       if (specifier === 'vue') return {
-        ...vue, watch, onMounted: () => {}, withAsyncContext: callback => [callback(), () => {}],
+        ...vue, watch, onMounted: callback => mounts.push(callback), onBeforeUnmount: callback => unmounts.push(callback), withAsyncContext: callback => [callback(), () => {}],
       };
       if (specifier === 'vue-sonner') return { toast: {
-        error: message => notifications.push(message), success: () => {}, info: () => {},
+        error: message => notifications.push(message), success: () => {}, info: (...args) => infoNotices.push(plain(args)),
       } };
       if (specifier === '~/lib/season-availability') return seasonAvailability;
+      if (specifier === '~/lib/recap-eligibility') return recapEligibility;
       if (specifier === '~/lib/plain-text') return plainText;
       if (specifier === '~/lib/show-characters') return showCharacters;
       if (specifier === '~/lib/recap-locales') return {
@@ -146,7 +157,7 @@ async function createPage(t, { savedEntry = entry, userId = 'viewer-1', query = 
       };
       if (specifier === '~/lib/image-url') return { proxiedImageUrl: value => value };
       if (specifier === '~/composables/useRecapGenerations') return {
-        useRecapGenerations: () => ({ generations: vue.ref({}), start: () => {} }),
+        useRecapGenerations: () => ({ generations: vue.ref({}), start: (...args) => generations.push(args) }),
         recapGenerationKey: (season, locale) => `${season}:${locale}`,
       };
       if (specifier === '~/composables/useStoryViewer') return { useStoryViewer: () => ({ openStory: () => {} }) };
@@ -160,10 +171,12 @@ async function createPage(t, { savedEntry = entry, userId = 'viewer-1', query = 
       throw new Error(`Unexpected show-page dependency: ${specifier}`);
     },
   }, { filename: 'show-page.compiled.cjs', timeout: 1000 });
-  t.after(() => stops.forEach(stop => stop()));
+  t.after(() => { unmounts.forEach(callback => callback()); stops.forEach(stop => stop()); });
   const page = await module.exports.default.setup({}, { expose: () => {} });
   return {
-    page, requests, mutations, notifications, navigations, replacements, sources,
+    page, requests, mutations, notifications, infoNotices, navigations, replacements, sources, generations,
+    mount: async () => { mounts.forEach(callback => callback()); await settle(); },
+    setEligibility: value => { eligibility = value; },
     failHubRefresh: () => { hubFailure = true; },
   };
 }
@@ -355,4 +368,74 @@ test('guest must sign in before changing a persisted shield choice', async t => 
   assert.equal(page.spoilerShieldEnabled.value, true);
   assert.equal(mutations.length, 0);
   assert.deepEqual(navigations, [{ path: '/login', query: { redirect: '/shows/example-42' } }]);
+});
+
+test('recap cards retain published specials and missing dates without changing the episode tracker', async t => {
+  const published = [{ id: 'recap', locale: 'en', status: 'published' }];
+  const seasons = [
+    { id: 'season-0', number: 0, first_aired: null, recap: published },
+    { id: 'season-1', number: 1, first_aired: '2020-01-01', recap: [] },
+    { id: 'season-2', number: 2, first_aired: null, recap: published },
+    { id: 'season-3', number: 3, first_aired: '2999-01-01', recap: published },
+    { id: 'season-4', number: 4, first_aired: '2999-01-01', recap: [] },
+    { id: 'season-5', number: 5, first_aired: null, recap: [] },
+  ];
+  const { page } = await createPage(t, { seasons, savedEntry: null });
+  assert.deepEqual(plain(page.seasonsChronological.value.map(season => season.number)), [1]);
+  assert.deepEqual(plain(page.recapSeasons.value.map(season => season.number)), [0, 1, 2, 3, 4, 5]);
+  assert.equal(page.withRecapsInLocale(page.recapSeasons.value[0]).recap[0].id, 'recap');
+});
+
+for (const code of ['season_in_progress', 'metadata_incomplete', 'availability_unavailable']) {
+  test(`${code} refuses before the wallet dialog and can recover after a fresh check`, async t => {
+    const blocked = recapEligibility.recapEligibility(code);
+    const harness = await createPage(t, { eligibility: blocked });
+    const { page, requests, generations, infoNotices } = harness;
+    await page.generateRecap('season-1');
+    assert.equal(page.unlockOpen.value, false);
+    assert.equal(requests.some(request => request.url === '/api/recap/keys'), false);
+    assert.equal(generations.length, 0);
+    assert.equal(page.seasonEligibility.value['season-1'].code, code);
+    assert.equal(infoNotices.at(-1)[1].description, blocked.message);
+    harness.setEligibility(recapEligibility.recapEligibility('eligible'));
+    await page.generateRecap('season-1');
+    assert.equal(page.unlockOpen.value, true);
+    assert.equal(requests.filter(request => request.url.endsWith('/eligibility')).length, 2);
+    assert.equal(generations.length, 0, 'the wallet dialog still needs the viewer’s confirmation');
+    await page.confirmUnlock();
+    assert.deepEqual(generations, [['season-1', 'en']]);
+  });
+}
+
+test('an eligibility network failure leaves the recap unavailable without opening the wallet', async t => {
+  const { page, requests, generations } = await createPage(t, { eligibilityTransport: async () => { throw new Error('Offline'); } });
+  await page.generateRecap('season-1');
+  assert.equal(page.seasonEligibility.value['season-1'].code, 'availability_unavailable');
+  assert.equal(page.unlockOpen.value, false);
+  assert.equal(requests.some(request => request.url === '/api/recap/keys'), false);
+  assert.equal(generations.length, 0);
+});
+
+test('prefetch limits concurrent checks and skips the published recap in the selected language', async t => {
+  const checks = [];
+  const seasons = Array.from({ length: 6 }, (_, index) => ({
+    id: `season-${index + 1}`, number: index + 1, first_aired: '2020-01-01',
+    recap: index === 0 ? [{ id: 'published', locale: 'en', status: 'published' }] : [],
+  }));
+  const { page, mount } = await createPage(t, {
+    seasons,
+    eligibilityTransport: url => new Promise(resolve => checks.push({ url, resolve })),
+  });
+  await mount();
+  assert.equal(checks.length, 3);
+  assert.ok(checks.every(check => !check.url.includes('/seasons/1/')));
+  checks[0].resolve({ eligibility: recapEligibility.recapEligibility('eligible') });
+  await settle();
+  assert.equal(checks.length, 4);
+  checks.slice(1).forEach(check => check.resolve({ eligibility: recapEligibility.recapEligibility('eligible') }));
+  await settle();
+  assert.equal(checks.length, 5);
+  checks[4].resolve({ eligibility: recapEligibility.recapEligibility('eligible') });
+  await settle();
+  assert.equal(Object.keys(page.seasonEligibility.value).length, 5);
 });
