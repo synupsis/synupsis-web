@@ -131,10 +131,16 @@ yarn build
 CI audits both application and development dependencies and fails on any reported
 vulnerability or audit failure. The audit requires access to the npm registry.
 
-The targeted `minimatch` resolution in `package.json` updates the vulnerable
-`9.0.3` version pinned by TypeScript ESLint 6 to `9.0.9`, without changing its major
-version. Remove this resolution when upgrading to a TypeScript ESLint version
-that already uses a corrected dependency.
+The `minimatch` and `glob` resolutions in `package.json` select `11.0.1` and
+`14.0.2`, which fix [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249)
+and [GHSA-3g3m-2fjr-6pw4](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4).
+These cross major versions: a scoped `flat-cache/rimraf` resolution selects
+`6.1.3` to remove its legacy glob 7 dependency, which is incompatible with the
+new minimatch internals. Flat-cache uses the preserved `rimraf.sync` API with
+globbing disabled. The pipeline tests exercise cache deletion, filelist pattern
+matching and archive expansion; lint and the build also check ESLint, Workbox
+and Nitro. Remove the resolutions when their upstream consumers adopt corrected,
+compatible versions. The audit remains mandatory without advisory exceptions.
 
 Rollup's `deepmerge` dependency has no published fix for GHSA-gcqx-w48m-w2h4.
 A scoped resolution replaces its sole use (cloning internal default options)
