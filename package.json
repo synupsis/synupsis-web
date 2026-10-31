@@ -21,16 +21,18 @@
     "types:supabase": "supabase gen types typescript --linked > types/generated/database.ts"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@nuxtjs/supabase": "^2.0.9",
     "@types/node": "^24",
-    "@typescript-eslint/eslint-plugin": "^6.14.0",
-    "@typescript-eslint/parser": "^6.14.0",
+    "@typescript-eslint/eslint-plugin": "^8.72.1",
+    "@typescript-eslint/parser": "^8.72.1",
     "@vite-pwa/nuxt": "^1.1.1",
     "autoprefixer": "^10.4.16",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "eslint": "^8.55.0",
-    "eslint-plugin-vue": "^9.19.2",
+    "eslint": "^10.14.0",
+    "eslint-plugin-vue": "^10.12.0",
+    "globals": "^17.13.0",
     "nuxt": "^4.6.3",
     "postcss": "^8.4.31",
     "prettier": "3.1.1",
@@ -40,6 +42,7 @@
     "tailwindcss-animate": "^1.0.7",
     "typescript": "5.8.3",
     "vue": "^3.5.44",
+    "vue-eslint-parser": "^10.4.1",
     "vue-router": "^5.2.0",
     "vue-tsc": "^3.3.7"
   },
@@ -60,7 +63,10 @@
   },
   "resolutions": {
     "**/@rollup/plugin-node-resolve/deepmerge": "file:.github/vendor/rollup-defaults-clone",
-    "**/@typescript-eslint/typescript-estree/minimatch": "9.0.9"
+    "**/minimatch": "11.0.1",
+    "**/workbox-build/glob": "14.0.2",
+    "**/@vercel/nft/glob": "14.0.2",
+    "**/archiver-utils/glob": "14.0.2"
   },
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }
