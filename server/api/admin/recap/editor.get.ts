@@ -40,7 +40,7 @@ export default defineEventHandler(async (event) => {
     slide ( id, order, canvas_data )
   `;
 
-  let recaps: any[] = [];
+  let recaps: any[];
   if (recapId) {
     const { data, error } = await service
       .from('recap')
