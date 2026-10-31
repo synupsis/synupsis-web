@@ -147,7 +147,7 @@
 
       <section id="discussion" class="scroll-mt-16 py-10 sm:py-16">
         <div class="mx-auto max-w-7xl px-5 lg:px-8">
-          <h2 class="text-2xl font-bold sm:text-3xl">{{ t('Comments') }}</h2>
+          <h2 v-if="!user || !reachedEpisode" class="text-2xl font-bold sm:text-3xl">{{ t('Comments') }}</h2>
           <!-- Discussions are read with the viewer's progress: nothing beyond it shows up. -->
           <div v-if="!user" class="mt-6 rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-6 text-center sm:p-10">
             <MessagesSquareIcon class="mx-auto h-7 w-7 text-muted-foreground" aria-hidden="true" />
@@ -163,7 +163,6 @@
           <ShowCommentsFeed
             v-else
             ref="commentsFeed"
-            class="mt-6"
             :slug="String(route.params.slug)"
             :progress-key="progressKey"
             @open-episode="openEpisodeDiscussion"

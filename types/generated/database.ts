@@ -976,6 +976,10 @@ export type Database = {
         Args: { p_show_id: string; p_season: number; p_episode: number }
         Returns: boolean
       }
+      most_liked_show_comment_ids: {
+        Args: { p_show_id: string; p_offset?: number; p_limit?: number }
+        Returns: { id: string }[]
+      }
       is_admin: {
         Args: { p_user_id: string }
         Returns: boolean
