@@ -1,193 +1,156 @@
 <template>
-  <div class="w-full min-h-screen bg-background text-foreground">
-    <AppHeader class="border-b" />
-    <main class="p-4 sm:p-8">
-      <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
-        <!-- Left Column: User Card -->
-        <div class="md:col-span-1">
-          <Card class="sticky top-8">
-            <CardHeader class="items-center text-center">
-              <Avatar class="h-24 w-24 mb-4">
-                <AvatarImage v-if="avatarUrl" :src="avatarUrl" :alt="displayName" />
-                <AvatarFallback>{{ displayName.charAt(0) }}</AvatarFallback>
-              </Avatar>
-              <CardTitle>{{ displayName }}</CardTitle>
-              <CardDescription>{{ user?.email }}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button variant="outline" class="w-full" @click="isAvatarModalOpen = true">{{ t("Change Avatar") }}</Button>
-            </CardContent>
-            <CardFooter>
-              <Button variant="destructive" @click="logout" class="w-full">{{ t("Log Out") }}</Button>
-            </CardFooter>
-          </Card>
+  <div class="min-h-screen w-full bg-background text-foreground">
+    <AppHeader class="border-b border-border" />
+    <main class="mx-auto max-w-3xl px-5 pb-20 pt-10 sm:px-8 sm:pt-14">
+      <section class="flex flex-wrap items-center gap-5" :aria-label="t('Profile')">
+        <Avatar class="size-20">
+          <AvatarImage v-if="avatarUrl" :src="avatarUrl" :alt="displayName" />
+          <AvatarFallback class="flex size-full items-center justify-center bg-foreground/10 text-2xl font-semibold">{{ displayName.charAt(0).toUpperCase() }}</AvatarFallback>
+        </Avatar>
+        <div class="min-w-0 flex-1">
+          <h1 class="truncate text-3xl font-bold tracking-tight">{{ displayName }}</h1>
+          <p class="truncate text-sm text-muted-foreground">{{ user?.email }}</p>
         </div>
+        <div class="flex w-full gap-2 sm:w-auto">
+          <Button variant="outline" class="h-10 rounded-lg border border-border bg-transparent px-4 text-sm font-medium text-foreground hover:bg-muted" @click="isAvatarModalOpen = true">{{ t("Change Avatar") }}</Button>
+          <Button variant="ghost" class="h-10 rounded-lg px-4 text-sm font-medium text-red-400 hover:bg-red-400/10 hover:text-red-300" @click="logout">{{ t("Log Out") }}</Button>
+        </div>
+      </section>
 
-        <!-- Right Column: Tabs -->
-        <div class="md:col-span-3">
-          <Card class="mb-6">
-            <CardHeader>
-              <CardTitle>{{ t('Display language') }}</CardTitle>
-              <CardDescription>{{ t('Choose the language used across the app.') }}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form class="flex flex-col gap-3 sm:flex-row sm:items-end" @submit.prevent="saveLanguage">
-                <div class="flex-1">
-                  <label for="display-language" class="mb-2 block text-sm font-medium">{{ t('Display language') }}</label>
-                  <select id="display-language" v-model="selectedLanguage" :disabled="saving" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <option value="browser">{{ t('Browser language') }}</option>
-                    <option value="fr" lang="fr">Français</option>
-                    <option value="en" lang="en">English</option>
-                  </select>
-                </div>
-                <Button type="submit" :disabled="saving || selectedLanguage === preference">
-                  {{ saving ? t('Saving…') : t('Save language') }}
-                </Button>
-              </form>
-              <p v-if="languageStatus" class="mt-3 text-sm" :class="languageError ? 'text-destructive' : 'text-muted-foreground'" role="status" aria-live="polite">{{ t(languageStatus) }}</p>
-            </CardContent>
-          </Card>
-          <Card class="mb-6">
-            <CardHeader>
-              <CardTitle>{{ t('Recap languages') }}</CardTitle>
-              <CardDescription>{{ t('Choose the languages you read recaps in. A show page lets you switch between them.') }}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form class="flex flex-col gap-3 sm:flex-row sm:items-end" @submit.prevent="saveRecapLanguageSelection">
-                <fieldset class="flex flex-1 flex-wrap gap-x-6 gap-y-2" :disabled="savingRecapLanguages">
-                  <legend class="sr-only">{{ t('Recap languages') }}</legend>
-                  <label v-for="language in recapLocales" :key="language" class="flex items-center gap-2 text-sm" :lang="language">
-                    <input v-model="selectedRecapLanguages" type="checkbox" :value="language" class="h-4 w-4 rounded border-input bg-background text-primary focus-visible:ring-2 focus-visible:ring-ring">
-                    {{ recapLocaleNames[language] }}
-                  </label>
-                </fieldset>
-                <Button type="submit" :disabled="savingRecapLanguages || !selectedRecapLanguages.length || !recapLanguagesChanged">
-                  {{ savingRecapLanguages ? t('Saving…') : t('Save recap languages') }}
-                </Button>
-              </form>
-              <p v-if="recapLanguageStatus" class="mt-3 text-sm" :class="recapLanguageError ? 'text-destructive' : 'text-muted-foreground'" role="status" aria-live="polite">{{ t(recapLanguageStatus) }}</p>
-            </CardContent>
-          </Card>
-          <Card class="mb-6" role="region" :aria-label="t('Recap tickets')">
-            <CardContent class="pt-6">
-              <div v-if="keysPending" class="grid h-16 place-items-center"><SpinLoader class="h-5 w-5" /></div>
-              <RecapTicketsBalance v-else-if="keys" :wallet="keys.wallet" />
-            </CardContent>
-          </Card>
-          <Tabs v-model="activeTab" default-value="recaps">
-            <TabsList class="grid w-full grid-cols-2">
-              <TabsTrigger value="recaps">{{ t("My Recaps") }}</TabsTrigger>
-              <TabsTrigger value="stats">{{ t("Statistics") }}</TabsTrigger>
-            </TabsList>
-            
-            <!-- Recaps Tab -->
-            <TabsContent value="recaps" class="mt-4">
-              <section v-if="unlockedRecaps?.length" class="mb-8">
-                <h2 class="mb-2 text-xl font-semibold">{{ t('Recaps you unlocked') }}</h2>
-                <ul class="divide-y divide-border">
-                  <li v-for="recap in unlockedRecaps" :key="recap.id" class="flex items-center justify-between gap-3 py-2 text-sm">
-                    <button type="button" class="min-w-0 truncate text-left hover:text-primary" @click="openStory(recap.id)">
-                      {{ t('{show}, season {number}', { show: recap.showName, number: recap.seasonNumber }) }}
-                      <span class="ml-1 text-xs uppercase text-muted-foreground">{{ recap.locale }}</span>
-                    </button>
-                    <span class="flex shrink-0 items-center gap-1 text-muted-foreground">
-                      <EyeIcon class="h-3.5 w-3.5" aria-hidden="true" />
-                      {{ recap.views === 1 ? t('1 view') : t('{count} views', { count: recap.views }) }}
-                    </span>
+      <section class="mt-10 border-t border-border pt-8" :aria-label="t('Recap tickets')">
+        <div v-if="keysPending" class="grid h-16 place-items-center"><SpinLoader class="h-5 w-5" /></div>
+        <RecapTicketsBalance v-else-if="keys" :wallet="keys.wallet" />
+      </section>
+
+      <section class="mt-10 border-t border-border pt-8">
+        <Tabs v-model="activeTab" default-value="recaps">
+          <TabsList class="h-auto w-full justify-start gap-6 rounded-none border-b border-border bg-transparent p-0">
+            <TabsTrigger value="recaps" class="rounded-none border-b-2 border-transparent px-0 pb-3 text-sm font-medium text-muted-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">{{ t("My Recaps") }}</TabsTrigger>
+            <TabsTrigger value="stats" class="rounded-none border-b-2 border-transparent px-0 pb-3 text-sm font-medium text-muted-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">{{ t("Statistics") }}</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="recaps" class="mt-8">
+            <section v-if="unlockedRecaps?.length" class="mb-10">
+              <h2 class="text-xl font-semibold tracking-tight">{{ t('Recaps you unlocked') }}</h2>
+              <ul class="mt-3 divide-y divide-border">
+                <li v-for="recap in unlockedRecaps" :key="recap.id" class="flex items-center justify-between gap-3 py-3 text-sm">
+                  <button type="button" class="min-w-0 truncate text-left underline-offset-4 hover:underline" @click="openStory(recap.id)">
+                    {{ t('{show}, season {number}', { show: recap.showName, number: recap.seasonNumber }) }}
+                    <span class="ml-1 text-xs uppercase text-muted-foreground">{{ recap.locale }}</span>
+                  </button>
+                  <span class="flex shrink-0 items-center gap-1 text-muted-foreground">
+                    <EyeIcon class="h-3.5 w-3.5" aria-hidden="true" />
+                    {{ recap.views === 1 ? t('1 view') : t('{count} views', { count: recap.views }) }}
+                  </span>
+                </li>
+              </ul>
+            </section>
+            <div v-if="recapsPending">
+              <SpinLoader class="mx-auto mt-12 h-8 w-8" />
+            </div>
+            <p v-else-if="recapsError" class="mt-12 text-center text-destructive">{{ t("Could not load your recaps.") }}</p>
+            <div v-else class="space-y-10">
+              <section>
+                <h2 class="text-xl font-semibold tracking-tight">{{ t("Drafts") }}</h2>
+                <ul v-if="drafts.length > 0" class="mt-3 divide-y divide-border">
+                  <li v-for="recap in drafts" :key="recap.id" class="flex items-center justify-between gap-4 py-3">
+                    <div class="min-w-0">
+                      <p class="truncate font-medium">{{ recap.show.name }}</p>
+                      <p class="text-sm text-muted-foreground">{{ t('Season {number}', { number: recap.season.number }) }}</p>
+                    </div>
+                    <Button variant="outline" class="h-10 rounded-lg border border-border bg-transparent px-4 text-sm font-medium text-foreground hover:bg-muted" @click="goToRecapEditor(recap.show.id, recap.season.id, recap.id)">
+                      <PencilIcon class="mr-2 h-4 w-4" aria-hidden="true" />
+                      {{ t("Edit Draft") }}
+                    </Button>
                   </li>
                 </ul>
+                <p v-else class="mt-3 text-sm text-muted-foreground">{{ t("You have no drafts.") }}</p>
               </section>
-              <div v-if="recapsPending">
-                <SpinLoader class="h-8 w-8 mx-auto mt-12" />
-              </div>
-              <div v-else-if="recapsError">
-                <p class="text-destructive text-center mt-12">{{ t("Could not load your recaps.") }}</p>
-              </div>
-              <div v-else class="space-y-8">
-                <section>
-                  <h2 class="text-2xl font-semibold mb-4">{{ t("Drafts") }}</h2>
-                  <div v-if="drafts.length > 0" class="space-y-4">
-                    <Card v-for="recap in drafts" :key="recap.id">
-                      <CardHeader>
-                        <CardTitle>{{ recap.show.name }}</CardTitle>
-                        <CardDescription>{{ t('Season {number}', { number: recap.season.number }) }}</CardDescription>
-                      </CardHeader>
-                      <CardFooter>
-                        <Button @click="goToRecapEditor(recap.show.id, recap.season.id, recap.id)">
-                          <PencilIcon class="h-4 w-4 mr-2" />
-                          {{ t("Edit Draft") }}
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  </div>
-                  <p v-else class="text-muted-foreground">{{ t("You have no drafts.") }}</p>
-                </section>
-                <section>
-                  <h2 class="text-2xl font-semibold mb-4">{{ t("Published Recaps") }}</h2>
-                  <div v-if="published.length > 0" class="space-y-4">
-                    <Card v-for="recap in published" :key="recap.id">
-                      <CardHeader>
-                        <CardTitle>{{ recap.show.name }}</CardTitle>
-                        <CardDescription>{{ t('Season {number}', { number: recap.season.number }) }}</CardDescription>
-                      </CardHeader>
-                      <CardFooter class="flex gap-2">
-                        <Button variant="secondary" @click="goToRecap(recap.id)">
-                          <EyeIcon class="h-4 w-4 mr-2" />
-                          {{ t("View") }}
-                        </Button>
-                        <Button @click="goToRecapEditor(recap.show.id, recap.season.id, recap.id)">
-                          <PencilIcon class="h-4 w-4 mr-2" />
-                          {{ t("Edit") }}
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  </div>
-                  <p v-else class="text-muted-foreground">{{ t("You have no published recaps.") }}</p>
-                </section>
-              </div>
-            </TabsContent>
+              <section>
+                <h2 class="text-xl font-semibold tracking-tight">{{ t("Published Recaps") }}</h2>
+                <ul v-if="published.length > 0" class="mt-3 divide-y divide-border">
+                  <li v-for="recap in published" :key="recap.id" class="flex flex-wrap items-center justify-between gap-4 py-3">
+                    <div class="min-w-0">
+                      <p class="truncate font-medium">{{ recap.show.name }}</p>
+                      <p class="text-sm text-muted-foreground">{{ t('Season {number}', { number: recap.season.number }) }}</p>
+                    </div>
+                    <div class="flex gap-2">
+                      <Button variant="outline" class="h-10 rounded-lg border border-border bg-transparent px-4 text-sm font-medium text-foreground hover:bg-muted" @click="goToRecap(recap.id)">
+                        <EyeIcon class="mr-2 h-4 w-4" aria-hidden="true" />
+                        {{ t("View") }}
+                      </Button>
+                      <Button variant="outline" class="h-10 rounded-lg border border-border bg-transparent px-4 text-sm font-medium text-foreground hover:bg-muted" @click="goToRecapEditor(recap.show.id, recap.season.id, recap.id)">
+                        <PencilIcon class="mr-2 h-4 w-4" aria-hidden="true" />
+                        {{ t("Edit") }}
+                      </Button>
+                    </div>
+                  </li>
+                </ul>
+                <p v-else class="mt-3 text-sm text-muted-foreground">{{ t("You have no published recaps.") }}</p>
+              </section>
+            </div>
+          </TabsContent>
 
-            <!-- Stats Tab -->
-            <TabsContent value="stats" class="mt-4">
-               <div v-if="statsPending">
-                <SpinLoader class="h-8 w-8 mx-auto mt-12" />
+          <TabsContent value="stats" class="mt-8">
+            <div v-if="statsPending">
+              <SpinLoader class="mx-auto mt-12 h-8 w-8" />
+            </div>
+            <p v-else-if="statsError" class="mt-12 text-center text-destructive">{{ t("Could not load your statistics.") }}</p>
+            <dl v-else-if="stats" class="grid grid-cols-3 divide-x divide-border">
+              <div class="pr-4">
+                <dt class="text-sm font-medium">{{ t("Total Recaps") }}</dt>
+                <dd class="mt-1 text-3xl font-bold tabular-nums">{{ stats.total }}</dd>
+                <dd class="mt-1 text-xs text-muted-foreground">{{ t("All your contributions.") }}</dd>
               </div>
-              <div v-else-if="statsError">
-                <p class="text-destructive text-center mt-12">{{ t("Could not load your statistics.") }}</p>
+              <div class="px-4">
+                <dt class="text-sm font-medium">{{ t("Published") }}</dt>
+                <dd class="mt-1 text-3xl font-bold tabular-nums">{{ stats.published }}</dd>
+                <dd class="mt-1 text-xs text-muted-foreground">{{ t("Visible to everyone.") }}</dd>
               </div>
-              <div v-else-if="stats" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{{ t("Total Recaps") }}</CardTitle>
-                    <CardDescription>{{ t("All your contributions.") }}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p class="text-4xl font-bold">{{ stats.total }}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{{ t("Published") }}</CardTitle>
-                    <CardDescription>{{ t("Visible to everyone.") }}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p class="text-4xl font-bold">{{ stats.published }}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{{ t("Drafts") }}</CardTitle>
-                    <CardDescription>{{ t("Only visible to you.") }}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p class="text-4xl font-bold">{{ stats.drafts }}</p>
-                  </CardContent>
-                </Card>
+              <div class="pl-4">
+                <dt class="text-sm font-medium">{{ t("Drafts") }}</dt>
+                <dd class="mt-1 text-3xl font-bold tabular-nums">{{ stats.drafts }}</dd>
+                <dd class="mt-1 text-xs text-muted-foreground">{{ t("Only visible to you.") }}</dd>
               </div>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </div>
+            </dl>
+          </TabsContent>
+        </Tabs>
+      </section>
+
+      <section class="mt-12 border-t border-border pt-8" aria-labelledby="display-language-heading">
+        <h2 id="display-language-heading" class="text-xl font-semibold tracking-tight">{{ t('Display language') }}</h2>
+        <p class="mt-1 text-sm text-muted-foreground">{{ t('Choose the language used across the app.') }}</p>
+        <form class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center" @submit.prevent="saveLanguage">
+          <label for="display-language" class="sr-only">{{ t('Display language') }}</label>
+          <select id="display-language" v-model="selectedLanguage" :disabled="saving" class="h-10 flex-1 rounded-lg border border-border bg-background px-3 text-sm focus-visible:border-foreground/40 focus-visible:outline-none focus-visible:ring-0">
+            <option value="browser">{{ t('Browser language') }}</option>
+            <option value="fr" lang="fr">Français</option>
+            <option value="en" lang="en">English</option>
+          </select>
+          <Button type="submit" class="h-10 rounded-lg bg-foreground px-4 text-sm font-semibold text-background hover:bg-foreground/85" :disabled="saving || selectedLanguage === preference">
+            {{ saving ? t('Saving…') : t('Save language') }}
+          </Button>
+        </form>
+        <p v-if="languageStatus" class="mt-3 text-sm" :class="languageError ? 'text-destructive' : 'text-muted-foreground'" role="status" aria-live="polite">{{ t(languageStatus) }}</p>
+      </section>
+
+      <section class="mt-10 border-t border-border pt-8" aria-labelledby="recap-languages-heading">
+        <h2 id="recap-languages-heading" class="text-xl font-semibold tracking-tight">{{ t('Recap languages') }}</h2>
+        <p class="mt-1 text-sm text-muted-foreground">{{ t('Choose the languages you read recaps in. A show page lets you switch between them.') }}</p>
+        <form class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center" @submit.prevent="saveRecapLanguageSelection">
+          <fieldset class="flex flex-1 flex-wrap gap-x-6 gap-y-2" :disabled="savingRecapLanguages">
+            <legend class="sr-only">{{ t('Recap languages') }}</legend>
+            <label v-for="language in recapLocales" :key="language" class="flex items-center gap-2 text-sm" :lang="language">
+              <input v-model="selectedRecapLanguages" type="checkbox" :value="language" class="h-4 w-4 rounded border-input bg-background text-foreground focus-visible:ring-2 focus-visible:ring-foreground">
+              {{ recapLocaleNames[language] }}
+            </label>
+          </fieldset>
+          <Button type="submit" class="h-10 rounded-lg bg-foreground px-4 text-sm font-semibold text-background hover:bg-foreground/85" :disabled="savingRecapLanguages || !selectedRecapLanguages.length || !recapLanguagesChanged">
+            {{ savingRecapLanguages ? t('Saving…') : t('Save recap languages') }}
+          </Button>
+        </form>
+        <p v-if="recapLanguageStatus" class="mt-3 text-sm" :class="recapLanguageError ? 'text-destructive' : 'text-muted-foreground'" role="status" aria-live="polite">{{ t(recapLanguageStatus) }}</p>
+      </section>
     </main>
     <AvatarUploadModal v-model:is-open="isAvatarModalOpen" @upload-success="refreshUser" />
   </div>
@@ -196,14 +159,6 @@
 <script lang="ts" setup>
 import { EyeIcon, PencilIcon } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '~/components/shadcn/card'
 import { Button } from '~/components/shadcn/button'
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/shadcn/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/shadcn/tabs'

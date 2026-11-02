@@ -1,30 +1,19 @@
 <template>
-  <div class="w-full h-screen flex flex-col items-center justify-center p-4 bg-background">
-    <div class="w-full max-w-md">
-      <div class="flex justify-center mb-8">
-        <Logo display-text size="md" :aria-label="t('Synupsis home')" />
-      </div>
-      <Card>
-        <CardHeader class="text-center">
-          <CardTitle>{{ t('Check Your Inbox') }}</CardTitle>
-        </CardHeader>
-        <CardContent class="text-center space-y-4">
-          <MailCheckIcon class="h-16 w-16 text-primary mx-auto" />
-          <p>{{ t('We have sent a confirmation link to {email}.', { email }) }}</p>
-          <p class="text-sm text-muted-foreground">{{ t('Please click the link in the email to activate your account.') }}</p>
-        </CardContent>
-        <CardFooter class="flex flex-col gap-4">
-          <Button class="w-full" as-child>
-            <router-link to="/">{{ t('Back to Homepage') }}</router-link>
-          </Button>
-          <Button variant="outline" class="w-full" @click="resendConfirmation" :disabled="isResending">
-            <SpinLoader v-if="isResending" class="h-4 w-4 mr-2" />
-            {{ t('Didn\'t receive an email? Resend') }}
-          </Button>
-        </CardFooter>
-      </Card>
+  <AuthPageShell :title="t('Check Your Inbox')" :alternate-label="t('Log in')" alternate-to="/login">
+    <div class="space-y-3 text-center">
+      <p>{{ t('We have sent a confirmation link to {email}.', { email }) }}</p>
+      <p class="text-sm text-muted-foreground">{{ t('Please click the link in the email to activate your account.') }}</p>
     </div>
-  </div>
+    <div class="mt-8 space-y-3">
+      <Button as-child class="h-12 w-full rounded-lg bg-foreground text-sm font-semibold text-background hover:bg-foreground/85 focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+        <NuxtLink to="/">{{ t('Back to Homepage') }}</NuxtLink>
+      </Button>
+      <Button type="button" variant="outline" :disabled="isResending" class="h-12 w-full rounded-lg border border-border bg-background/70 text-sm font-medium text-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background" @click="resendConfirmation">
+        <LoaderCircle v-if="isResending" class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+        {{ t('Didn\'t receive an email? Resend') }}
+      </Button>
+    </div>
+  </AuthPageShell>
 </template>
 
 <script lang="ts" setup>
@@ -33,9 +22,8 @@ import { ref, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { toast } from 'vue-sonner';
 import { Button } from '~/components/shadcn/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/shadcn/card';
-import { MailCheckIcon } from 'lucide-vue-next';
-import SpinLoader from '~/components/ui/SpinLoader.vue';
+import AuthPageShell from '~/components/AuthPageShell.vue';
+import { LoaderCircle } from 'lucide-vue-next';
 
 const route = useRoute();
 const supabase = useSupabaseClient();

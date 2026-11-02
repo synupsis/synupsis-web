@@ -96,7 +96,6 @@ export const publicMessages: Record<string, string> = {
   "{count} shows found for {query}.": "{count} séries trouvées pour {query}.",
   "A password reset link has been sent to {email}.": "Un lien de réinitialisation du mot de passe a été envoyé à {email}.",
   "We have sent a confirmation link to {email}.": "Nous avons envoyé un lien de confirmation à {email}.",
-  "Search a show, e.g. Breaking Bad": "Recherchez une série, par ex. Breaking Bad",
   "Search for a TV show…": "Rechercher une série…",
   "Log in — Synupsis": "Connexion — Synupsis",
   "Sign up — Synupsis": "Inscription — Synupsis",

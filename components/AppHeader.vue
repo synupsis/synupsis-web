@@ -10,7 +10,7 @@
       <Logo
         display-text
         size="md"
-        :class="{ 'max-[420px]:[&>img:last-child]:hidden': installAvailable }"
+        :class="installAvailable ? 'max-[420px]:[&>img:last-child]:hidden' : 'max-[359px]:[&>img:last-child]:hidden'"
         :play-on-home-arrival="animateLogoOnArrival"
         :aria-label="t('Synupsis home')"
       />

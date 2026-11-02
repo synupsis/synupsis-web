@@ -17,7 +17,6 @@
             ref="searchInput"
             v-model="searchQuery"
             :loading="isSearching"
-            :placeholders="[t('Search a show, e.g. Breaking Bad')]"
             controls="show-results"
             @submit="submitSearch"
             @browse="focusResults"

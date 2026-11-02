@@ -1,11 +1,11 @@
 <template>
   <form
-    class="group flex min-h-16 w-full items-center gap-3 rounded-xl border border-border bg-muted/30 p-2 pl-5 transition focus-within:border-foreground/40 focus-within:bg-background"
+    class="group flex min-h-16 w-full items-center gap-3 rounded-xl border border-border bg-muted/30 p-2 pl-4 sm:pl-5 transition focus-within:border-foreground/40 focus-within:bg-background"
     role="search"
     :aria-label="t('Find a TV show')"
     @submit.prevent="submit"
   >
-    <Search class="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+    <Search class="hidden size-5 shrink-0 text-muted-foreground sm:block" aria-hidden="true" />
     <input
       :id="inputId"
       ref="inputRef"

@@ -1,62 +1,30 @@
 <template>
-  <div class="w-full h-screen flex flex-col items-center justify-center p-4 bg-background">
-    <div class="w-full max-w-md">
-      <div class="flex justify-center mb-8">
-        <Logo display-text size="md" :aria-label="t('Synupsis home')" />
+  <AuthPageShell :title="t('Create a New Password')" :alternate-label="t('Log in')" alternate-to="/login">
+    <div v-if="passwordUpdated" role="status" class="space-y-6 text-center">
+      <div class="space-y-3">
+        <p class="font-semibold">{{ t('Password Updated!') }}</p>
+        <p class="text-sm text-muted-foreground">{{ t('You can now log in with your new password.') }}</p>
       </div>
-      <Card>
-        <CardHeader class="text-center">
-          <CardTitle>{{ t('Create a New Password') }}</CardTitle>
-          <CardDescription v-if="!passwordUpdated">
-            {{ t('Choose a new password for your account. Make sure it\'s at least 8 characters long.') }}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div v-if="passwordUpdated" class="text-center space-y-4">
-            <CircleCheckIcon class="h-16 w-16 text-green-500 mx-auto" />
-            <p class="text-lg font-semibold">{{ t('Password Updated!') }}</p>
-            <p class="text-sm text-muted-foreground">{{ t('You can now log in with your new password.') }}</p>
-          </div>
-          <form v-else class="space-y-4" @submit.prevent="updatePassword">
-            <div>
-              <label for="password" class="font-semibold">{{ t('New Password') }}</label>
-              <Input
-                id="password"
-                v-model="password"
-                type="password"
-                :placeholder="t('Enter your new password')"
-                required
-              />
-            </div>
-            <div>
-              <label for="confirmPassword" class="font-semibold">{{ t('Confirm New Password') }}</label>
-              <Input
-                id="confirmPassword"
-                v-model="confirmPassword"
-                type="password"
-                :placeholder="t('Confirm your new password')"
-                required
-              />
-            </div>
-          </form>
-        </CardContent>
-        <CardFooter class="flex flex-col gap-4">
-          <Button
-            v-if="!passwordUpdated"
-            class="w-full"
-            :disabled="!password || !confirmPassword || isLoading"
-            @click="updatePassword"
-          >
-            <SpinLoader v-if="isLoading" class="h-4 w-4 mr-2" />
-            {{ t('Update Password') }}
-          </Button>
-          <Button v-else class="w-full" as-child>
-            <router-link to="/login">{{ t('Go to Login') }}</router-link>
-          </Button>
-        </CardFooter>
-      </Card>
+      <Button as-child class="h-12 w-full rounded-lg bg-foreground text-sm font-semibold text-background hover:bg-foreground/85 focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+        <NuxtLink to="/login">{{ t('Go to Login') }}</NuxtLink>
+      </Button>
     </div>
-  </div>
+    <form v-else class="space-y-5" :aria-busy="isLoading" @submit.prevent="updatePassword">
+      <p class="text-center text-sm text-muted-foreground">{{ t('Choose a new password for your account. Make sure it\'s at least 8 characters long.') }}</p>
+      <div class="space-y-2">
+        <label for="password" class="text-sm font-medium">{{ t('New Password') }}</label>
+        <AuthPasswordInput id="password" v-model="password" autocomplete="new-password" :minlength="8" :placeholder="t('Enter your new password')" :disabled="isLoading" />
+      </div>
+      <div class="space-y-2">
+        <label for="confirmPassword" class="text-sm font-medium">{{ t('Confirm New Password') }}</label>
+        <AuthPasswordInput id="confirmPassword" v-model="confirmPassword" autocomplete="new-password" :minlength="8" :placeholder="t('Confirm your new password')" :disabled="isLoading" />
+      </div>
+      <Button :disabled="!password || !confirmPassword || isLoading" type="submit" class="h-12 w-full rounded-lg bg-foreground text-sm font-semibold text-background hover:bg-foreground/85 focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+        <LoaderCircle v-if="isLoading" class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+        {{ t('Update Password') }}
+      </Button>
+    </form>
+  </AuthPageShell>
 </template>
 
 <script lang="ts" setup>
@@ -64,17 +32,9 @@ const { t } = useI18n();
 import { ref } from 'vue';
 import { toast } from 'vue-sonner';
 import { Button } from '~/components/shadcn/button';
-import { Input } from '~/components/shadcn/input';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '~/components/shadcn/card';
-import SpinLoader from '~/components/ui/SpinLoader.vue';
-import { CircleCheckIcon } from 'lucide-vue-next';
+import AuthPageShell from '~/components/AuthPageShell.vue';
+import AuthPasswordInput from '~/components/ui/AuthPasswordInput.vue';
+import { LoaderCircle } from 'lucide-vue-next';
 
 const supabase = useSupabaseClient();
 
