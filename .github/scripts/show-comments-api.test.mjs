@@ -17,9 +17,23 @@ function comment(id, day, overrides = {}) {
     created_at: `2026-10-${String(day).padStart(2, '0')}T12:00:00Z`, likes: [], replies: [], ...overrides };
 }
 
+// Row security only returns pages of accounts with a username.
+function profileQuery(profiles) {
+  let ids = [];
+  const query = {
+    select() { return query; },
+    in(key, values) { assert.equal(key, 'user_id'); ids = values; return query; },
+    not() { return query; },
+    then(resolve, reject) {
+      return Promise.resolve({ data: profiles.filter(profile => ids.includes(profile.user_id)), error: null }).then(resolve, reject);
+    },
+  };
+  return query;
+}
+
 // The in-memory transport applies the route's database filters, ordering and
 // inclusive ranges. Popularity ordering itself is tested against PostgreSQL.
-function feed(rows, { rankedIds = [], error = null } = {}) {
+function feed(rows, { rankedIds = [], error = null, profiles = [] } = {}) {
   const calls = [];
   const client = {
     async rpc(name, args) {
@@ -27,6 +41,7 @@ function feed(rows, { rankedIds = [], error = null } = {}) {
       return { data: rankedIds.slice(args.p_offset, args.p_offset + args.p_limit).map(id => ({ id })), error };
     },
     from(table) {
+      if (table === 'public_profile') return profileQuery(profiles);
       assert.equal(table, 'episode_comment');
       const filters = [], orders = [];
       let from = 0, to = Infinity;
@@ -120,4 +135,13 @@ test('handles empty feeds and database failures without leaking private details'
       statusCode: 500, message: 'Could not load the comments.',
     });
   }
+});
+
+test('links named authors to their public page, never anonymous comments', async () => {
+  const api = feed([
+    comment('named', 2),
+    comment('anonymous', 1, { user_id: 'quiet', author_name: null }),
+  ], { profiles: [{ user_id: 'author', handle: 'author' }, { user_id: 'quiet', handle: 'quiet' }] });
+  const { comments } = await api.request({ sort: 'newest' });
+  assert.deepEqual(comments.map(row => [row.comment.id, row.comment.authorHandle]), [['named', 'author'], ['anonymous', null]]);
 });

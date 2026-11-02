@@ -1,4 +1,4 @@
-import { EPISODE_COMMENT_COLUMNS, resolveShowForComments, toEpisodeComment } from '~/server/utils/episode-comments';
+import { EPISODE_COMMENT_COLUMNS, loadAuthorHandles, resolveShowForComments, toEpisodeComment } from '~/server/utils/episode-comments';
 import type { ShowCommentSort, ShowFeedComment } from '~/types/episode-comment.types';
 
 const PAGE_SIZE = 20;
@@ -53,8 +53,10 @@ export default defineEventHandler(async (event) => {
   } else {
     hasMore = rows.length > PAGE_SIZE;
   }
-  const comments = rows.slice(0, PAGE_SIZE)
-    .map((row: any): ShowFeedComment => ({ season: row.season, episode: row.episode, comment: toEpisodeComment(row, user.sub) }));
+  const page = rows.slice(0, PAGE_SIZE);
+  const handles = await loadAuthorHandles(client, page as any);
+  const comments = page
+    .map((row: any): ShowFeedComment => ({ season: row.season, episode: row.episode, comment: toEpisodeComment(row, user.sub, handles) }));
   return { comments, hasMore };
 });
 

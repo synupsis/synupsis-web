@@ -12,6 +12,8 @@ export type EpisodeComment = {
   // Null when the author has no username: an email address is never shown.
   authorName: string | null;
   authorAvatarUrl: string | null;
+  // The author's public page, /u/<handle>, when the comment shows their name.
+  authorHandle: string | null;
   body: string;
   createdAt: string;
   isOwn: boolean;

@@ -57,6 +57,7 @@
           <CommentAuthorLine
             :name="item.comment.authorName"
             :avatar-url="item.comment.authorAvatarUrl"
+            :handle="item.comment.authorHandle"
             :date="item.comment.createdAt"
             :is-own="item.comment.isOwn"
           >

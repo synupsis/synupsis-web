@@ -14,7 +14,8 @@
     </Avatar>
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-2">
-        <span class="truncate text-sm font-semibold">{{ comment.authorName || t('A viewer') }}</span>
+        <NuxtLink v-if="comment.authorHandle" :to="`/u/${comment.authorHandle}`" class="truncate text-sm font-semibold underline-offset-4 hover:underline">{{ comment.authorName }}</NuxtLink>
+        <span v-else class="truncate text-sm font-semibold">{{ comment.authorName || t('A viewer') }}</span>
         <span v-if="comment.isOwn" class="shrink-0 rounded-full bg-primary/15 px-1.5 py-px text-[10px] font-semibold text-primary">{{ t('You') }}</span>
         <time class="shrink-0 text-xs text-muted-foreground" :datetime="comment.createdAt" :title="absoluteDate">{{ relativeDate }}</time>
         <span v-if="comment.isSpoiler" class="shrink-0 rounded-full bg-amber-400/15 px-1.5 py-px text-[10px] font-semibold text-amber-300">{{ t('Spoiler') }}</span>

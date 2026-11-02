@@ -5,7 +5,8 @@
       <AvatarImage v-if="avatarUrl" :src="avatarUrl" alt="" />
       <AvatarFallback class="bg-white/10 text-[11px] font-semibold">{{ initial }}</AvatarFallback>
     </Avatar>
-    <span class="truncate text-sm font-semibold">{{ name || t('A viewer') }}</span>
+    <NuxtLink v-if="handle && name" :to="`/u/${handle}`" class="truncate text-sm font-semibold underline-offset-4 hover:underline">{{ name }}</NuxtLink>
+    <span v-else class="truncate text-sm font-semibold">{{ name || t('A viewer') }}</span>
     <span v-if="isOwn" class="shrink-0 rounded-full bg-primary/15 px-1.5 py-px text-[10px] font-semibold text-primary">{{ t('You') }}</span>
     <time class="shrink-0 text-xs text-muted-foreground" :datetime="date" :title="formatAbsoluteDate(date, locale)">
       {{ formatRelativeDate(date, locale, t('just now')) }}
@@ -24,6 +25,8 @@ const { t, locale } = useI18n();
 const props = defineProps<{
   name: string | null;
   avatarUrl: string | null;
+  /** The author's public page, when they have one. */
+  handle?: string | null;
   date: string;
   isOwn?: boolean;
   small?: boolean;

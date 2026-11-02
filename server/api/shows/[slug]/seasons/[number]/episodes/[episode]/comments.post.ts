@@ -1,4 +1,4 @@
-import { EPISODE_COMMENT_MAX_LENGTH, resolveWatchedEpisode, toEpisodeComment } from '~/server/utils/episode-comments';
+import { EPISODE_COMMENT_MAX_LENGTH, loadAuthorHandles, resolveWatchedEpisode, toEpisodeComment } from '~/server/utils/episode-comments';
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<{ body?: unknown; parentId?: unknown; isSpoiler?: unknown }>(event);
@@ -39,5 +39,5 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: 'Could not post your comment.' });
   }
   setResponseStatus(event, 201);
-  return { comment: toEpisodeComment(data, user.sub) };
+  return { comment: toEpisodeComment(data, user.sub, await loadAuthorHandles(client, [data])) };
 });

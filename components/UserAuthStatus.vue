@@ -22,7 +22,13 @@
           <DropdownMenuItem as-child>
             <NuxtLink to="/profile">
               <UserRound aria-hidden="true" />
-              {{ t('Profile') }}
+              {{ t('My profile') }}
+            </NuxtLink>
+          </DropdownMenuItem>
+          <DropdownMenuItem as-child>
+            <NuxtLink to="/settings">
+              <Settings aria-hidden="true" />
+              {{ t('Settings') }}
             </NuxtLink>
           </DropdownMenuItem>
           <DropdownMenuItem as-child>
@@ -83,7 +89,7 @@ import {
   DropdownMenuTrigger,
 } from '~/components/shadcn/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/shadcn/avatar'
-import { ChevronDown, LibraryBig, LogOut, ShieldCheck, UserRound } from 'lucide-vue-next';
+import { ChevronDown, LibraryBig, LogOut, Settings, ShieldCheck, UserRound } from 'lucide-vue-next';
 
 const user = useSupabaseUser();
 const supabase = useSupabaseClient();

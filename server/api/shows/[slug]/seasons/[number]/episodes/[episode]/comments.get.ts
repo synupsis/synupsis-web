@@ -1,4 +1,4 @@
-import { EPISODE_COMMENT_COLUMNS, resolveWatchedEpisode, toEpisodeComment } from '~/server/utils/episode-comments';
+import { EPISODE_COMMENT_COLUMNS, loadAuthorHandles, resolveWatchedEpisode, toEpisodeComment } from '~/server/utils/episode-comments';
 
 // Newest conversations first, each with its replies: the latest reactions are
 // the ones a viewer just back from the episode wants.
@@ -16,5 +16,6 @@ export default defineEventHandler(async (event) => {
     console.error('Could not load episode comments:', error);
     throw createError({ statusCode: 500, statusMessage: 'Could not load the comments.' });
   }
-  return { comments: (data ?? []).map(row => toEpisodeComment(row as any, user.sub)) };
+  const handles = await loadAuthorHandles(client, (data ?? []) as any);
+  return { comments: (data ?? []).map(row => toEpisodeComment(row as any, user.sub, handles)) };
 });

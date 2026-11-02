@@ -132,7 +132,7 @@ for (const keyRefunded of [true, false]) {
   });
 }
 
-test('profile follows the shared wallet and reloads unlocked recaps after a job finishes', async t => {
+test('settings follow the shared wallet and reloads unlocked recaps after a job finishes', async t => {
   let currentWallet = wallet(2);
   let jobs = [job()];
   let unlocked = [];
@@ -158,7 +158,7 @@ test('profile follows the shared wallet and reloads unlocked recaps after a job 
     },
   });
   state.dependencies['~/lib/recap-locales'] = { recapLocales: ['en', 'fr'], recapLocaleNames: {} };
-  const profile = state.load('pages/profile.vue').default.setup({}, { expose() {} });
+  const profile = state.load('pages/settings.vue').default.setup({}, { expose() {} });
   await state.keys.refreshRunning();
   await state.mount();
   assert.equal(profile.keys.value.wallet.keys, 2);

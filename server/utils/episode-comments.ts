@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { H3Event } from 'h3';
 import { serverSupabaseClient } from '#supabase/server';
 import type { Database } from '~/types/database.types';
@@ -57,7 +58,29 @@ export async function resolveShowForComments(event: H3Event) {
   return { client, user, showId: show.id };
 }
 
-export function toEpisodeComment(row: EpisodeCommentRow, viewerId: string): EpisodeComment {
+/**
+ * The public page of each named author, to link their name. Row security only
+ * returns pages of accounts with a username; a comment written without one stays unlinked.
+ */
+export async function loadAuthorHandles(client: SupabaseClient<Database>, rows: EpisodeCommentRow[]): Promise<Map<string, string>> {
+  const ids = [...new Set(rows.flatMap(row => [row, ...(row.replies ?? [])])
+    .filter(row => row.author_name)
+    .map(row => row.user_id))];
+  if (!ids.length) return new Map();
+  const { data, error } = await client.from('public_profile')
+    .select('user_id, handle')
+    .in('user_id', ids)
+    .not('handle', 'is', null)
+    .not('display_name', 'is', null);
+  if (error) {
+    // The links are a convenience: the comments still load without them.
+    console.error('Could not load the comment authors\' profiles:', error);
+    return new Map();
+  }
+  return new Map((data ?? []).map(profile => [profile.user_id, profile.handle!]));
+}
+
+export function toEpisodeComment(row: EpisodeCommentRow, viewerId: string, handles: Map<string, string> = new Map()): EpisodeComment {
   const likes = row.likes ?? [];
   const reportedAsSpoiler = (row.spoiler_report_count ?? 0) >= SPOILER_REPORT_THRESHOLD;
   return {
@@ -69,6 +92,7 @@ export function toEpisodeComment(row: EpisodeCommentRow, viewerId: string): Epis
     isSpoilerReported: (row.spoiler_reports ?? []).some(report => report.reporter_id === viewerId),
     authorName: row.author_name,
     authorAvatarUrl: row.author_avatar_url,
+    authorHandle: row.author_name ? handles.get(row.user_id) ?? null : null,
     body: row.body,
     createdAt: row.created_at,
     isOwn: row.user_id === viewerId,
@@ -77,6 +101,6 @@ export function toEpisodeComment(row: EpisodeCommentRow, viewerId: string): Epis
     isLiked: likes.some(like => like.user_id === viewerId),
     replies: [...(row.replies ?? [])]
       .sort((a, b) => a.created_at.localeCompare(b.created_at))
-      .map(reply => toEpisodeComment({ ...reply, replies: [] }, viewerId)),
+      .map(reply => toEpisodeComment({ ...reply, replies: [] }, viewerId, handles)),
   };
 }

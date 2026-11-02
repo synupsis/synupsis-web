@@ -57,7 +57,7 @@
 
         <DropdownMenuSeparator class="-mx-3 my-2" />
         <DropdownMenuItem as-child class="px-2">
-          <NuxtLink to="/profile">{{ t('My tickets and points') }}</NuxtLink>
+          <NuxtLink to="/settings">{{ t('My tickets and points') }}</NuxtLink>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
