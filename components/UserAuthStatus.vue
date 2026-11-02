@@ -19,8 +19,6 @@
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" class="w-56">
-          <DropdownMenuLabel class="truncate text-sm text-foreground" :title="displayName">{{ displayName }}</DropdownMenuLabel>
-          <DropdownMenuSeparator />
           <DropdownMenuItem as-child>
             <NuxtLink to="/profile">
               <UserRound aria-hidden="true" />
@@ -81,7 +79,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '~/components/shadcn/dropdown-menu'
