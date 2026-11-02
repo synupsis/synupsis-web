@@ -18,8 +18,8 @@
         <NuxtLink to="/about" class="inline-flex min-h-11 items-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-4 focus-visible:ring-offset-background">
           {{ t('About') }}
         </NuxtLink>
-        <a href="#" class="inline-flex min-h-11 items-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-4 focus-visible:ring-offset-background">{{ t('Terms of Service') }}</a>
-        <a href="#" class="inline-flex min-h-11 items-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-4 focus-visible:ring-offset-background">{{ t('Privacy Policy') }}</a>
+        <NuxtLink to="/terms" class="inline-flex min-h-11 items-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-4 focus-visible:ring-offset-background">{{ t('Terms of Service') }}</NuxtLink>
+        <NuxtLink to="/privacy" class="inline-flex min-h-11 items-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-4 focus-visible:ring-offset-background">{{ t('Privacy Policy') }}</NuxtLink>
       </nav>
     </div>
   </footer>

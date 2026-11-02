@@ -61,6 +61,12 @@
         <LoaderCircle v-if="isLoading" class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
         <span>{{ t(isLoading ? 'Creating account…' : 'Create account') }}</span>
       </Button>
+      <p class="text-center text-xs leading-relaxed text-muted-foreground">
+        {{ t('By creating an account, you accept the') }}
+        <NuxtLink to="/terms" class="rounded-sm text-foreground underline decoration-muted-foreground/50 underline-offset-4 transition hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground">{{ t('Terms of Service') }}</NuxtLink>
+        {{ t('and the') }}
+        <NuxtLink to="/privacy" class="rounded-sm text-foreground underline decoration-muted-foreground/50 underline-offset-4 transition hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground">{{ t('Privacy Policy') }}</NuxtLink>.
+      </p>
     </form>
     <p class="mt-10 border-t border-border pt-6 text-center text-sm text-muted-foreground">
       {{ t('Already have an account?') }}
