@@ -118,7 +118,7 @@ const searchInput = ref<InstanceType<typeof SearchInput> | null>(null);
 const resultsSection = ref<HTMLElement | null>(null);
 const suggestions = ['Breaking Bad', 'Severance', 'The Last of Us'];
 const { results: searchResults, isSearching, error: searchError, searchNow, normalizedQuery, hasQuery } = useShowSearch(searchQuery);
-const { data: featuredShows, status: trendingStatus, refresh: refreshTrending } = useFetch<TraktShowCard[]>('/api/shows/trending');
+const { data: featuredShows, status: trendingStatus, refresh: refreshTrending } = useFetch<TraktShowCard[]>('/api/shows/trending', { key: 'trending-shows' });
 // The most watched show with artwork fills the top of the page.
 const spotlight = computed(() => featuredShows.value?.find(show => show.backdrop));
 
