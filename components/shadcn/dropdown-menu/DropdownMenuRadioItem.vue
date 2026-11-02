@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
 import { reactiveOmit } from '@vueuse/core'
-import { Circle } from 'lucide-vue-next'
+import { CheckIcon } from 'lucide-vue-next'
 import {
   DropdownMenuItemIndicator,
   DropdownMenuRadioItem,
@@ -24,15 +24,13 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
   <DropdownMenuRadioItem
     v-bind="forwarded"
     :class="cn(
-      'relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      'relative flex min-h-11 cursor-pointer select-none items-center gap-3 rounded-xl px-3 text-sm font-medium text-muted-foreground outline-none transition-colors data-[highlighted]:bg-white/[0.06] data-[highlighted]:text-foreground data-[state=checked]:bg-white/10 data-[state=checked]:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 motion-reduce:transition-none [&>svg]:size-4 [&>svg]:shrink-0',
       props.class,
     )"
   >
-    <span class="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-      <DropdownMenuItemIndicator>
-        <Circle class="h-4 w-4 fill-current" />
-      </DropdownMenuItemIndicator>
-    </span>
     <slot />
+    <DropdownMenuItemIndicator class="ml-auto flex h-4 w-4 shrink-0 items-center justify-center">
+      <CheckIcon class="h-4 w-4" aria-hidden="true" />
+    </DropdownMenuItemIndicator>
   </DropdownMenuRadioItem>
 </template>

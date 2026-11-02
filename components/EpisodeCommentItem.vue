@@ -24,30 +24,30 @@
               <EllipsisIcon class="h-4 w-4" aria-hidden="true" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" class="w-56 rounded-xl">
+          <DropdownMenuContent align="end" class="w-64">
             <!-- Once viewers reported it, the author can no longer show it in the clear. -->
             <DropdownMenuItem v-if="comment.isOwn && comment.reportedAsSpoiler" disabled>
               <EyeOffIcon aria-hidden="true" />
               {{ t('Reported as a spoiler by viewers') }}
             </DropdownMenuItem>
-            <DropdownMenuItem v-else-if="comment.isOwn" class="cursor-pointer" @click="emit('toggle-spoiler', !comment.markedSpoilerByAuthor)">
+            <DropdownMenuItem v-else-if="comment.isOwn" @click="emit('toggle-spoiler', !comment.markedSpoilerByAuthor)">
               <EyeIcon v-if="comment.markedSpoilerByAuthor" aria-hidden="true" />
               <EyeOffIcon v-else aria-hidden="true" />
               {{ comment.markedSpoilerByAuthor ? t('Not a spoiler') : t('Mark as spoiler') }}
             </DropdownMenuItem>
-            <DropdownMenuItem v-if="comment.isOwn" class="cursor-pointer text-red-300 focus:text-red-200" @click="emit('remove', false)">
+            <DropdownMenuItem v-if="comment.isOwn" class="text-red-300 data-[highlighted]:bg-red-500/10 data-[highlighted]:text-red-200" @click="emit('remove', false)">
               <Trash2Icon aria-hidden="true" />
               {{ t('Delete my comment') }}
             </DropdownMenuItem>
-            <DropdownMenuItem v-if="!comment.isOwn" class="cursor-pointer" :disabled="comment.isSpoilerReported" @click="emit('report-spoiler')">
+            <DropdownMenuItem v-if="!comment.isOwn" :disabled="comment.isSpoilerReported" @click="emit('report-spoiler')">
               <EyeOffIcon aria-hidden="true" />
               {{ comment.isSpoilerReported ? t('Reported as a spoiler') : t('Report a spoiler') }}
             </DropdownMenuItem>
-            <DropdownMenuItem v-if="!comment.isOwn" class="cursor-pointer" :disabled="comment.isReported" @click="emit('report')">
+            <DropdownMenuItem v-if="!comment.isOwn" :disabled="comment.isReported" @click="emit('report')">
               <FlagIcon aria-hidden="true" />
               {{ comment.isReported ? t('Reported') : t('Report') }}
             </DropdownMenuItem>
-            <DropdownMenuItem v-if="isAdmin && !comment.isOwn" class="cursor-pointer text-red-300 focus:text-red-200" @click="emit('remove', true)">
+            <DropdownMenuItem v-if="isAdmin && !comment.isOwn" class="text-red-300 data-[highlighted]:bg-red-500/10 data-[highlighted]:text-red-200" @click="emit('remove', true)">
               <ShieldXIcon aria-hidden="true" />
               {{ t('Delete as moderator') }}
             </DropdownMenuItem>

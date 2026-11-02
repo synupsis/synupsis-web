@@ -16,24 +16,12 @@
               <span :id="`${sortId}-value`" class="sr-only">{{ selectedSort.label }}</span>
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            :side-offset="8"
-            class="w-60 max-w-[calc(100vw-2rem)] rounded-2xl border-white/10 bg-popover/95 p-1.5 shadow-xl shadow-black/30 backdrop-blur-xl"
-          >
-            <DropdownMenuRadioGroup :model-value="sort" :aria-label="t('Sort by')" class="space-y-1" @update:model-value="selectSort">
-              <SortMenuItem
-                v-for="option in sortOptions"
-                :key="option.value"
-                :value="option.value"
-                class="group flex min-h-11 cursor-pointer select-none items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground outline-none transition-colors data-[highlighted]:bg-white/[0.06] data-[highlighted]:text-foreground data-[state=checked]:bg-white/10 data-[state=checked]:text-foreground motion-reduce:transition-none"
-              >
-                <component :is="option.icon" class="h-4 w-4 shrink-0 text-muted-foreground group-data-[state=checked]:text-foreground" aria-hidden="true" />
-                <span class="flex-1 font-medium">{{ option.label }}</span>
-                <DropdownMenuItemIndicator class="flex h-4 w-4 items-center justify-center">
-                  <CheckIcon class="h-4 w-4" aria-hidden="true" />
-                </DropdownMenuItemIndicator>
-              </SortMenuItem>
+          <DropdownMenuContent align="end" class="w-60">
+            <DropdownMenuRadioGroup :model-value="sort" :aria-label="t('Sort by')" @update:model-value="selectSort">
+              <DropdownMenuRadioItem v-for="option in sortOptions" :key="option.value" :value="option.value">
+                <component :is="option.icon" aria-hidden="true" />
+                {{ option.label }}
+              </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -121,11 +109,10 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowDownWideNarrowIcon, CheckIcon, ClockIcon, EyeOffIcon, HeartIcon, HistoryIcon, ListOrderedIcon, MessagesSquareIcon } from 'lucide-vue-next';
-import { DropdownMenuItemIndicator, DropdownMenuRadioItem as SortMenuItem } from 'reka-ui';
+import { ArrowDownWideNarrowIcon, ClockIcon, EyeOffIcon, HeartIcon, HistoryIcon, ListOrderedIcon, MessagesSquareIcon } from 'lucide-vue-next';
 import { computed, onMounted, ref, useId, watch } from 'vue';
 import { Button } from '~/components/shadcn/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuTrigger } from '~/components/shadcn/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '~/components/shadcn/dropdown-menu';
 import CommentAuthorLine from '~/components/CommentAuthorLine.vue';
 import { useShowCommentsFeed } from '~/composables/useShowCommentsFeed';
 import type { ShowCommentSort } from '~/types/episode-comment.types';

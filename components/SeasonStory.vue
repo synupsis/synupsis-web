@@ -183,8 +183,8 @@ const statusTextClass = computed(() => {
 const storyRingClass = computed(() => {
   if (props.spoilerLocked) return 'bg-white/10 opacity-70';
   if (props.isGenerating) return 'bg-transparent';
-  if (isPublished.value) return 'bg-gradient-to-br from-fuchsia-500 via-primary to-cyan-400 shadow-[0_0_24px_-10px_hsl(var(--primary))] group-hover:shadow-[0_0_30px_-8px_hsl(var(--primary))]';
-  if (isDraft.value) return 'bg-gradient-to-br from-amber-300 to-orange-600';
+  if (isPublished.value) return 'bg-white';
+  if (isDraft.value) return 'bg-amber-400';
   return 'bg-white/15 group-hover:bg-white/25';
 });
 

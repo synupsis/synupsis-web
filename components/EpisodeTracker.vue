@@ -1,12 +1,12 @@
 <template>
   <div
-    class="rounded-2xl border bg-black/45 p-5 backdrop-blur-xl transition-colors duration-300"
-    :class="mode === 'tracking' ? (spoilerShieldEnabled ? 'border-emerald-500/25' : 'border-amber-500/40') : 'border-white/15'"
+    class="rounded-xl border bg-black/60 p-5 transition-colors duration-300"
+    :class="mode === 'tracking' ? (spoilerShieldEnabled ? 'border-white/15' : 'border-amber-500/40') : 'border-white/15'"
   >
     <Transition name="tracker-swap" mode="out-in">
       <div v-if="mode !== 'tracking'" :key="mode" class="flex flex-col gap-4">
         <div v-if="mode === 'library'" class="flex items-center justify-between gap-2">
-          <span class="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-300">
+          <span class="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
             <BookmarkCheckIcon class="h-3.5 w-3.5" aria-hidden="true" />
             {{ t('In your library') }}
           </span>
@@ -16,8 +16,8 @@
                 <EllipsisIcon class="h-4 w-4" aria-hidden="true" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" class="w-56 rounded-xl">
-              <DropdownMenuItem class="cursor-pointer" @click="emit('unsave')">
+            <DropdownMenuContent align="end" class="w-64">
+              <DropdownMenuItem @click="emit('unsave')">
                 <BookmarkXIcon aria-hidden="true" />
                 {{ t('Remove from my library') }}
               </DropdownMenuItem>
@@ -53,7 +53,7 @@
       <div v-else key="tracking" class="flex flex-col gap-4">
       <div class="-mb-2 flex items-center justify-between gap-2">
         <span v-if="!saved && !isCaughtUp" />
-        <span v-else class="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-300" role="status" aria-live="polite" aria-atomic="true">
+        <span v-else class="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground" role="status" aria-live="polite" aria-atomic="true">
           <CircleCheckIcon v-if="isCaughtUp" class="h-3.5 w-3.5" aria-hidden="true" />
           <BookmarkCheckIcon v-else class="h-3.5 w-3.5" aria-hidden="true" />
           {{ isCaughtUp ? t('Up to date') : t('In your library') }}
@@ -64,12 +64,12 @@
               <EllipsisIcon class="h-4 w-4" aria-hidden="true" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" class="w-56 rounded-xl">
-            <DropdownMenuItem class="cursor-pointer" @click="emit('reset')">
+          <DropdownMenuContent align="end" class="w-64">
+            <DropdownMenuItem @click="emit('reset')">
               <CircleStopIcon aria-hidden="true" />
               {{ t('Stop tracking') }}
             </DropdownMenuItem>
-            <DropdownMenuItem v-if="saved" class="cursor-pointer" @click="emit('unsave')">
+            <DropdownMenuItem v-if="saved" @click="emit('unsave')">
               <BookmarkXIcon aria-hidden="true" />
               {{ t('Remove from my library') }}
             </DropdownMenuItem>
@@ -122,7 +122,7 @@
           >
             <span
               class="block h-2.5 w-2.5 rounded-full shadow-[0_0_0_3px_rgba(0,0,0,0.85),0_0_14px_rgba(255,255,255,0.35)] transition-colors duration-300"
-              :class="isSeen ? 'bg-emerald-300' : 'bg-primary'"
+              :class="isSeen ? 'bg-white' : 'bg-zinc-400'"
             />
           </span>
           <div class="flex gap-1">
@@ -139,7 +139,7 @@
                 class="relative h-1.5 w-full overflow-hidden rounded-full bg-white/10 transition-[height,background-color] duration-200 group-hover:h-2 group-hover:bg-white/20 group-focus-visible:ring-1 group-focus-visible:ring-ring"
               >
                 <span
-                  class="absolute inset-0 origin-left rounded-full bg-gradient-to-r from-emerald-500 to-emerald-300 transition-transform duration-300 ease-out motion-reduce:transition-none"
+                  class="absolute inset-0 origin-left rounded-full bg-white transition-transform duration-300 ease-out motion-reduce:transition-none"
                   :class="isEpisodeSeen(viewSeason, episode.number) ? 'scale-x-100' : 'scale-x-0'"
                   :style="{ transitionDelay: `${fillDelay(episode.number)}ms` }"
                 />
@@ -162,7 +162,7 @@
       <div class="grid gap-2">
         <template v-if="isSeen">
           <Button type="button" variant="secondary" size="lg" class="w-full rounded-full" @click="unmark">
-            <CircleCheckIcon class="mr-2 h-4 w-4 text-emerald-400" aria-hidden="true" />
+            <CircleCheckIcon class="mr-2 h-4 w-4" aria-hidden="true" />
             {{ t('Watched · undo') }}
           </Button>
           <Button type="button" variant="outline" size="lg" class="w-full rounded-full" @click="emit('discuss', { season: viewSeason, episode: viewEpisode, title: viewedEpisode?.title || null })">
@@ -190,7 +190,7 @@
             type="button"
             role="switch"
             class="flex min-h-11 w-full items-center gap-2 rounded-lg text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-wait disabled:opacity-60"
-            :class="spoilerShieldEnabled ? 'text-emerald-300 hover:text-emerald-200' : 'text-amber-300 hover:text-amber-200'"
+            :class="spoilerShieldEnabled ? 'text-foreground hover:text-white/80' : 'text-amber-300 hover:text-amber-200'"
             :aria-checked="spoilerShieldEnabled"
             :aria-label="t('Spoiler shield')"
             :aria-busy="spoilerShieldSaving"
@@ -204,7 +204,7 @@
             <span class="text-xs font-medium">{{ spoilerShieldEnabled ? t('Enabled') : t('Disabled') }}</span>
             <span
               class="inline-flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors"
-              :class="spoilerShieldEnabled ? 'bg-emerald-400/30' : 'bg-amber-400/20'"
+              :class="spoilerShieldEnabled ? 'bg-white/25' : 'bg-amber-400/20'"
               aria-hidden="true"
             >
               <span class="h-4 w-4 rounded-full bg-current transition-transform motion-reduce:transition-none" :class="spoilerShieldEnabled ? 'translate-x-4' : 'translate-x-0'" />
@@ -218,7 +218,7 @@
       <!-- A fixed height: switching seasons never resizes or moves the dialog. -->
       <DialogContent class="flex h-[min(85vh,40rem)] flex-col gap-0 overflow-hidden border-white/10 bg-zinc-950 p-0 sm:max-w-md sm:rounded-3xl">
         <DialogHeader class="gap-1.5 bg-gradient-to-b from-white/[0.06] to-transparent px-6 pb-4 pt-6 text-left">
-          <p class="truncate pr-8 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{{ showName }}</p>
+          <p class="truncate pr-8 text-sm text-muted-foreground">{{ showName }}</p>
           <DialogTitle class="text-xl font-extrabold tracking-tight">{{ pickerMode === 'set' ? t('Where are you up to?') : t('Choose an episode') }}</DialogTitle>
           <DialogDescription :class="pickerMode === 'set' ? '' : 'sr-only'">
             {{ pickerMode === 'set' ? t('Choose the last episode you watched.') : t('Choose a season, then an episode to display.') }}
@@ -237,7 +237,7 @@
               :aria-label="t('Season {number}', { number: season })"
               @click="selectPickerSeason(season)"
             >
-              <CircleCheckIcon v-if="isSeasonComplete(season)" class="h-3.5 w-3.5" :class="pickerSeason === season ? 'text-emerald-600' : 'text-emerald-400'" aria-hidden="true" />
+              <CircleCheckIcon v-if="isSeasonComplete(season)" class="h-3.5 w-3.5" aria-hidden="true" />
               <!-- Short labels keep every season in view on long series. -->
               {{ seasons.length > 4 ? `S${season}` : t('Season {number}', { number: season }) }}
             </button>
@@ -245,7 +245,7 @@
           <div class="flex h-4 items-center gap-3">
             <span class="h-1 flex-1 overflow-hidden rounded-full bg-white/10" aria-hidden="true">
               <span
-                class="block h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-300 transition-[width] duration-500 ease-out motion-reduce:transition-none"
+                class="block h-full rounded-full bg-white transition-[width] duration-500 ease-out motion-reduce:transition-none"
                 :style="{ width: `${pickerEpisodes.length ? (seenInPickerSeason / pickerEpisodes.length) * 100 : 0}%` }"
               />
             </span>
@@ -267,11 +267,11 @@
               class="episode-picker-row relative"
               :style="{ animationDelay: `${Math.min(index, 8) * 12}ms` }"
             >
-              <!-- The rail joins each episode to the next, green while both are watched. -->
+              <!-- The rail joins each episode to the next, lit while both are watched. -->
               <span
                 v-if="index < pickerEpisodes.length - 1"
                 class="pointer-events-none absolute left-[29px] top-1/2 h-full w-px transition-colors duration-200"
-                :class="isPickerFilled(episode.number + 1) ? 'bg-emerald-400/50' : 'bg-white/10'"
+                :class="isPickerFilled(episode.number + 1) ? 'bg-white/40' : 'bg-white/10'"
                 aria-hidden="true"
               />
               <button
@@ -288,7 +288,7 @@
                   :class="isPickerCurrent(episode.number)
                     ? 'border-white bg-white text-black'
                     : isPickerFilled(episode.number)
-                      ? 'border-emerald-400/50 bg-emerald-950 text-emerald-200'
+                      ? 'border-white/40 bg-white/10 text-white'
                       : 'border-white/15 bg-zinc-950 text-muted-foreground'"
                 >
                   <CheckIcon v-if="isPickerFilled(episode.number) && !isPickerCurrent(episode.number)" class="h-4 w-4" aria-hidden="true" />

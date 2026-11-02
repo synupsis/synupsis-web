@@ -18,34 +18,30 @@
             <ChevronDown class="hidden size-3.5 shrink-0 text-muted-foreground sm:block" aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="end"
-          :side-offset="8"
-          class="w-56 max-w-[calc(100vw-2rem)] rounded-2xl border-border bg-popover/95 p-1.5 shadow-xl shadow-black/20 backdrop-blur-xl"
-        >
-          <DropdownMenuLabel class="truncate px-3 py-2 text-sm font-medium" :title="displayName">{{ displayName }}</DropdownMenuLabel>
-          <DropdownMenuSeparator class="mx-1 my-1" />
-          <DropdownMenuItem as-child class="min-h-10 cursor-pointer rounded-lg px-3 py-2.5">
+        <DropdownMenuContent align="end" class="w-56">
+          <DropdownMenuLabel class="truncate text-sm text-foreground" :title="displayName">{{ displayName }}</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem as-child>
             <NuxtLink to="/profile">
-              <UserRound class="text-muted-foreground" aria-hidden="true" />
+              <UserRound aria-hidden="true" />
               {{ t('Profile') }}
             </NuxtLink>
           </DropdownMenuItem>
-          <DropdownMenuItem as-child class="min-h-10 cursor-pointer rounded-lg px-3 py-2.5">
+          <DropdownMenuItem as-child>
             <NuxtLink to="/library">
-              <LibraryBig class="text-muted-foreground" aria-hidden="true" />
+              <LibraryBig aria-hidden="true" />
               {{ t('Library') }}
             </NuxtLink>
           </DropdownMenuItem>
           <DropdownMenuItem v-if="isAdmin" as-child class="min-h-10 cursor-pointer rounded-lg px-3 py-2.5">
             <NuxtLink to="/admin">
-              <ShieldCheck class="text-muted-foreground" aria-hidden="true" />
+              <ShieldCheck aria-hidden="true" />
               {{ t('Admin Panel') }}
             </NuxtLink>
           </DropdownMenuItem>
-          <DropdownMenuSeparator class="mx-1 my-1" />
+          <DropdownMenuSeparator />
           <DropdownMenuItem
-            class="min-h-10 cursor-pointer rounded-lg px-3 py-2.5 text-red-600 focus:bg-red-500/10 focus:text-red-600 dark:text-red-300 dark:focus:text-red-300"
+            class="text-red-300 data-[highlighted]:bg-red-500/10 data-[highlighted]:text-red-200"
             @click="logout"
           >
             <LogOut aria-hidden="true" />

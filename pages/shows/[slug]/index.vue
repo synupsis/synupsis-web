@@ -18,9 +18,7 @@
           <div class="min-w-0 max-w-3xl md:max-w-xl">
             <h1 class="text-5xl font-black tracking-tight sm:text-7xl">{{ showData.name }}</h1>
             <div v-if="firstAired || rating" class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-white/60">
-              <span v-if="firstAired" class="flex items-center gap-2">
-                <CalendarIcon class="h-4 w-4" />{{ new Date(firstAired).getFullYear() }}
-              </span>
+              <span v-if="firstAired">{{ new Date(firstAired).getFullYear() }}</span>
               <span v-if="rating" class="flex items-center gap-1.5">
                 <StarIcon class="h-4 w-4 fill-amber-300 text-amber-300" aria-hidden="true" />
                 <span class="sr-only">{{ t('Rating:') }} </span>
@@ -64,23 +62,17 @@
               <DropdownMenuTrigger
                 :aria-label="t('Recap language: {language}', { language: recapLocaleNames[selectedRecapLocale] })"
                 :title="recapLocaleNames[selectedRecapLocale]"
-                class="grid h-10 w-10 place-items-center rounded-full border border-white/15 bg-white/5 text-lg leading-none transition-colors hover:border-white/25 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:border-primary/40 data-[state=open]:bg-primary/15"
+                class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/[0.025] text-lg leading-none transition-colors hover:border-foreground/40 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground data-[state=open]:border-foreground/40 data-[state=open]:bg-white/[0.06] motion-reduce:transition-none"
               >
                 <span aria-hidden="true">{{ recapLocaleFlags[selectedRecapLocale] }}</span>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" :side-offset="8" class="w-48 rounded-2xl border-white/10 bg-background/95 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
-                <DropdownMenuLabel class="px-2.5 pb-1.5 pt-1 text-xs font-medium text-white/45">{{ t('Recap language') }}</DropdownMenuLabel>
-                <DropdownMenuItem
-                  v-for="option in recapLocaleOptions"
-                  :key="option"
-                  class="flex cursor-pointer items-center gap-3 rounded-xl px-2.5 py-2 text-sm focus:bg-white/10"
-                  :class="option === selectedRecapLocale ? 'text-primary' : 'text-white/85'"
-                  @select="selectedRecapLocale = option"
-                >
-                  <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/10 text-base leading-none" aria-hidden="true">{{ recapLocaleFlags[option] }}</span>
-                  <span class="min-w-0 flex-1 font-semibold" :lang="option">{{ recapLocaleNames[option] }}</span>
-                  <CheckIcon v-if="option === selectedRecapLocale" class="h-4 w-4 shrink-0" aria-hidden="true" />
-                </DropdownMenuItem>
+              <DropdownMenuContent align="end" class="w-60">
+                <DropdownMenuRadioGroup v-model="selectedRecapLocale" :aria-label="t('Recap language')">
+                  <DropdownMenuRadioItem v-for="option in recapLocaleOptions" :key="option" :value="option">
+                    <span class="flex h-4 w-4 shrink-0 items-center justify-center text-base leading-none" aria-hidden="true">{{ recapLocaleFlags[option] }}</span>
+                    <span :lang="option">{{ recapLocaleNames[option] }}</span>
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -200,7 +192,7 @@
 </template>
 
 <script setup lang="ts">
-import { CalendarIcon, CheckIcon, MessagesSquareIcon, StarIcon } from 'lucide-vue-next';
+import { MessagesSquareIcon, StarIcon } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import type { ShowWithSeasons } from '~/types/database.types';
@@ -209,7 +201,7 @@ import type { SeasonHubResponse } from '~/types/season-hub.types';
 import type { ShowCastCharacter, ShowCharacterProfile, VisibleCastCharacter } from '~/types/show-character.types';
 import { visibleCastCharacters } from '~/lib/show-characters';
 import { Button } from '~/components/shadcn/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '~/components/shadcn/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '~/components/shadcn/dropdown-menu';
 import CharacterProfileCard from '~/components/CharacterProfileCard.vue';
 import EpisodeComments from '~/components/EpisodeComments.vue';
 import EpisodeTracker from '~/components/EpisodeTracker.vue';

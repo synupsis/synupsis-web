@@ -30,21 +30,17 @@
           </template>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        :side-offset="8"
-        class="w-72 max-w-[calc(100vw-2rem)] rounded-2xl border-border bg-popover/95 p-3 shadow-xl shadow-black/20 backdrop-blur-xl"
-      >
+      <DropdownMenuContent align="end" class="w-72 p-3">
         <RecapTicketsBalance :wallet="wallet" compact class="px-1" />
 
         <template v-if="running.length">
-          <DropdownMenuSeparator class="my-3" />
+          <DropdownMenuSeparator class="-mx-3 my-2" />
           <p class="px-1 text-xs font-medium text-muted-foreground">{{ t('Being prepared') }}</p>
           <DropdownMenuItem
             v-for="recap in running"
             :key="recap.id"
             as-child
-            class="mt-1 block cursor-pointer rounded-xl px-2 py-2"
+            class="block min-h-0 px-2 py-2 text-foreground"
           >
             <NuxtLink :to="recap.showPath ?? '/'">
               <span class="flex items-baseline justify-between gap-3 text-sm">
@@ -59,8 +55,8 @@
           </DropdownMenuItem>
         </template>
 
-        <DropdownMenuSeparator class="my-3" />
-        <DropdownMenuItem as-child class="cursor-pointer rounded-lg px-2 py-2 text-sm">
+        <DropdownMenuSeparator class="-mx-3 my-2" />
+        <DropdownMenuItem as-child class="px-2">
           <NuxtLink to="/profile">{{ t('My tickets and points') }}</NuxtLink>
         </DropdownMenuItem>
       </DropdownMenuContent>
