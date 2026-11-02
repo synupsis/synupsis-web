@@ -11,7 +11,7 @@
           {{ t('In an age of binge-watching and ever-expanding universes, it\'s easy to forget the crucial plot points of a series, especially when a new season comes out months (or even years!) later. Synupsis was born from a simple idea: what if you could get a quick, clear, and engaging recap of any season of any show, right when you need it?') }}
         </p>
         <p>
-          {{ t('Our mission is to provide high-quality, community-driven recaps that help you dive back into your favorite stories without missing a beat. Whether you\'re preparing for a new season premiere or just need a refresher, Synupsis is your personal guide to the world of television.') }}
+          {{ t('Our mission is to provide high-quality recaps, built on verified sources and improved by the community\'s suggestions, that help you dive back into your favorite stories without missing a beat. Whether you\'re preparing for a new season premiere or just need a refresher, Synupsis is your personal guide to the world of television.') }}
         </p>
         <p class="font-semibold">
           {{ t('Welcome to the community. Welcome to Synupsis.') }}
