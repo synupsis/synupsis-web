@@ -6,11 +6,11 @@
           <Button
             variant="ghost"
             :aria-label="t('Open account menu for {name}', { name: displayName })"
-            class="flex h-10 w-10 items-center gap-2 rounded-xl border border-transparent p-1 text-foreground transition-colors hover:border-border hover:bg-muted/70 focus-visible:ring-violet-400 data-[state=open]:border-border data-[state=open]:bg-muted/70 sm:w-auto sm:pl-1 sm:pr-3"
+            class="flex h-10 w-10 items-center gap-2 rounded-xl border border-transparent p-1 text-foreground transition-colors hover:border-border hover:bg-muted/70 focus-visible:ring-foreground data-[state=open]:border-border data-[state=open]:bg-muted/70 sm:w-auto sm:pl-1 sm:pr-3"
           >
-            <Avatar class="size-8 shrink-0 border border-violet-400/20">
+            <Avatar class="size-8 shrink-0 border border-foreground/20">
               <AvatarImage v-if="avatarUrl" :src="avatarUrl" alt="" />
-              <AvatarFallback class="flex size-full items-center justify-center bg-violet-500/15 text-sm font-semibold text-violet-700 dark:text-violet-200">
+              <AvatarFallback class="flex size-full items-center justify-center bg-foreground/10 text-sm font-semibold text-foreground">
                 {{ displayName.charAt(0).toUpperCase() }}
               </AvatarFallback>
             </Avatar>
@@ -58,13 +58,13 @@
       <Button
         as-child
         variant="ghost"
-        class="h-10 rounded-xl px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted/70 hover:text-foreground focus-visible:ring-violet-400 sm:px-3 sm:text-sm"
+        class="h-10 rounded-xl px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted/70 hover:text-foreground focus-visible:ring-foreground sm:px-3 sm:text-sm"
       >
         <NuxtLink to="/login">{{ t('Log in') }}</NuxtLink>
       </Button>
       <Button
         as-child
-        class="h-10 rounded-xl border border-violet-400/20 bg-violet-500 px-3 text-xs font-semibold text-white shadow-sm shadow-violet-950/20 transition-colors hover:bg-violet-400 focus-visible:ring-violet-400 sm:px-4 sm:text-sm"
+        class="h-10 rounded-xl bg-foreground px-3 text-xs font-semibold text-background transition-colors hover:bg-foreground/85 focus-visible:ring-foreground sm:px-4 sm:text-sm"
       >
         <NuxtLink to="/signup">{{ t('Sign up') }}</NuxtLink>
       </Button>

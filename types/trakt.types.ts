@@ -3,6 +3,7 @@ export type TraktShowCard = {
   slug: string;
   name: string;
   image: string;
+  backdrop?: string;
   year?: number | null;
   overview?: string;
   rating?: number | null;

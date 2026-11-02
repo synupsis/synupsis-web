@@ -3,6 +3,7 @@ import { createTraktHeaders } from '~/server/utils/trakt';
 
 type TraktShowImageSet = {
   poster?: string[];
+  fanart?: string[];
 };
 
 type TraktShowIds = {
@@ -30,6 +31,7 @@ function mapTraktShow(entry: TraktShowEntry) {
   const slug = show?.ids?.slug;
   const name = show?.title;
   const poster = show?.images?.poster?.[0];
+  const fanart = show?.images?.fanart?.[0];
 
   if (!traktId || !slug || !name || !poster) {
     return null;
@@ -40,6 +42,7 @@ function mapTraktShow(entry: TraktShowEntry) {
     slug,
     name,
     image: `https://${poster}`,
+    backdrop: fanart ? `https://${fanart}` : undefined,
   };
 }
 

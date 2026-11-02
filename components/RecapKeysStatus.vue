@@ -5,7 +5,7 @@
         <Button
           variant="ghost"
           :aria-label="triggerLabel"
-          class="flex h-10 items-center gap-1.5 rounded-xl border border-transparent px-2.5 text-foreground transition-colors hover:border-border hover:bg-muted/70 focus-visible:ring-violet-400 data-[state=open]:border-border data-[state=open]:bg-muted/70"
+          class="flex h-10 items-center gap-1.5 rounded-xl border border-transparent px-2.5 text-foreground transition-colors hover:border-border hover:bg-muted/70 focus-visible:ring-foreground data-[state=open]:border-border data-[state=open]:bg-muted/70"
         >
           <TicketIcon class="h-4 w-4 text-primary" aria-hidden="true" />
           <span class="text-sm font-semibold tabular-nums">{{ wallet.unlimited ? '∞' : wallet.keys }}</span>

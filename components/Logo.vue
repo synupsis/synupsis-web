@@ -6,7 +6,7 @@
       :aria-current="isExactActive ? 'page' : undefined"
       v-bind="$attrs"
       :class="[
-        'logo inline-flex shrink-0 items-center rounded-lg outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-4 focus-visible:ring-offset-background',
+        'logo inline-flex shrink-0 items-center rounded-lg outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-4 focus-visible:ring-offset-background',
         logoClasses.container,
       ]"
       @pointerenter="onPointerEnter"

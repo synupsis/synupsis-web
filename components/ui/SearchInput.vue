@@ -1,6 +1,6 @@
 <template>
   <form
-    class="group flex min-h-16 w-full items-center gap-3 rounded-2xl border border-border bg-background/90 p-2 pl-5 shadow-lg shadow-black/5 transition focus-within:border-violet-400/70 focus-within:ring-4 focus-within:ring-violet-400/10"
+    class="group flex min-h-16 w-full items-center gap-3 rounded-xl border border-border bg-muted/30 p-2 pl-5 transition focus-within:border-foreground/40 focus-within:bg-background"
     role="search"
     :aria-label="t('Find a TV show')"
     @submit.prevent="submit"
@@ -29,7 +29,7 @@
       v-if="query"
       type="button"
       :aria-label="t('Clear search')"
-      class="flex size-10 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
+      class="flex size-10 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
       @click="clear"
     >
       <X class="size-4" aria-hidden="true" />
@@ -37,11 +37,11 @@
     <button
       :disabled="query.trim().length < 2"
       :aria-label="t('Search shows')"
-      class="flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-violet-500 px-4 font-medium text-white transition hover:bg-violet-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 sm:px-5"
+      class="flex h-12 shrink-0 items-center justify-center gap-2 rounded-lg bg-foreground px-4 font-medium text-background transition hover:bg-foreground/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 sm:px-5"
       type="submit"
     >
       <LoaderCircle v-if="loading" class="size-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-      <ArrowRight v-else class="size-5" aria-hidden="true" />
+      <Search v-else class="size-5 sm:hidden" aria-hidden="true" />
       <span class="hidden sm:inline">{{ t('Search') }}</span>
     </button>
   </form>
@@ -49,7 +49,7 @@
 
 <script lang="ts" setup>
 const { t } = useI18n();
-import { ArrowRight, LoaderCircle, Search, X } from 'lucide-vue-next';
+import { LoaderCircle, Search, X } from 'lucide-vue-next';
 
 withDefaults(defineProps<{
   placeholders?: string[];

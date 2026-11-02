@@ -15,7 +15,7 @@
 
     <div v-if="$pwa?.needRefresh" class="rounded-2xl border border-white/10 bg-zinc-950/95 p-4 text-white shadow-xl backdrop-blur">
       <div class="flex items-start gap-3">
-        <RefreshCw class="mt-0.5 size-4 shrink-0 text-violet-300" aria-hidden="true" />
+        <RefreshCw class="mt-0.5 size-4 shrink-0 text-foreground" aria-hidden="true" />
         <div>
           <p class="text-sm font-medium">{{ t('A new version of Synupsis is available') }}</p>
           <p class="mt-1 text-xs leading-relaxed text-zinc-400">{{ t('Save your changes before updating. The app will reload.') }}</p>

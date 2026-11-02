@@ -21,7 +21,7 @@
             <li v-for="entry in section.entries" :key="entry.slug">
               <NuxtLink
                 :to="entryLink(entry)"
-                class="group block overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025] outline-none transition-colors hover:border-white/25 focus-visible:ring-2 focus-visible:ring-violet-400"
+                class="group block overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025] outline-none transition-colors hover:border-white/25 focus-visible:ring-2 focus-visible:ring-foreground"
               >
                 <div class="relative aspect-video bg-muted">
                   <img

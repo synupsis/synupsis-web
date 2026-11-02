@@ -1,11 +1,8 @@
 <template>
   <section class="mb-10 border-t border-border pt-8 sm:mb-14" aria-labelledby="recent-library-heading" :aria-busy="loading">
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-      <h2 id="recent-library-heading" class="flex items-center gap-2 text-xl font-semibold tracking-tight sm:text-2xl">
-        <LibraryBig class="size-5 shrink-0 text-violet-500 dark:text-violet-300" aria-hidden="true" />
-        {{ t('My shows') }}
-      </h2>
-      <NuxtLink to="/library" class="inline-flex items-center gap-1.5 rounded text-sm font-medium text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400">
+      <h2 id="recent-library-heading" class="text-xl font-semibold tracking-tight sm:text-2xl">{{ t('My shows') }}</h2>
+      <NuxtLink to="/library" class="inline-flex items-center gap-1.5 rounded text-sm font-medium text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground">
         {{ t('View library') }} <ArrowRight class="size-4" aria-hidden="true" />
       </NuxtLink>
     </div>
@@ -18,11 +15,11 @@
     </div>
     <div v-else-if="error" class="rounded-2xl border border-border px-6 py-8 text-center text-sm text-muted-foreground" role="status">
       <p>{{ t('Could not load your library.') }}</p>
-      <button type="button" class="mt-4 rounded-lg border border-border px-4 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400" @click="refresh()">{{ t('Try again') }}</button>
+      <button type="button" class="mt-4 rounded-lg border border-border px-4 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground" @click="refresh()">{{ t('Try again') }}</button>
     </div>
     <ul v-else-if="entries.length" class="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-5">
       <li v-for="entry in entries" :key="entry.slug" class="min-w-0">
-        <NuxtLink :to="`/shows/${entry.slug}`" class="group block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-4 focus-visible:ring-offset-background">
+        <NuxtLink :to="`/shows/${entry.slug}`" class="group block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-4 focus-visible:ring-offset-background">
           <div class="relative aspect-video overflow-hidden rounded-xl bg-muted">
             <img
               v-if="entry.image && !failedImages.has(entry.slug)"
@@ -36,7 +33,7 @@
             <div v-else class="grid h-full place-items-center text-muted-foreground"><Tv class="size-8 opacity-50" aria-hidden="true" /></div>
           </div>
           <div class="mt-3 flex items-baseline justify-between gap-2">
-            <h3 :title="entry.name" class="min-w-0 flex-1 truncate text-sm font-semibold leading-snug transition group-hover:text-violet-500 sm:text-base dark:group-hover:text-violet-300">{{ entry.name }}</h3>
+            <h3 :title="entry.name" class="min-w-0 flex-1 truncate text-sm font-semibold leading-snug decoration-1 underline-offset-4 group-hover:underline sm:text-base">{{ entry.name }}</h3>
             <span v-if="entry.isCaughtUp" class="shrink-0 text-xs font-medium text-emerald-600 sm:text-sm dark:text-emerald-300">{{ t('Up to date') }}</span>
             <span v-else-if="entry.season && entry.episode > 0" class="shrink-0 text-xs text-muted-foreground tabular-nums sm:text-sm">
               {{ `S${String(entry.season).padStart(2, '0')}E${String(entry.episode).padStart(2, '0')}` }}
@@ -53,7 +50,7 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowRight, LibraryBig, Tv } from 'lucide-vue-next';
+import { ArrowRight, Tv } from 'lucide-vue-next';
 import { proxiedImageUrl } from '~/lib/image-url';
 import type { HomeLibraryEntry } from '~/types/library.types';
 

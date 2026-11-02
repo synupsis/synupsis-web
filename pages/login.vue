@@ -14,13 +14,13 @@
           :spellcheck="false"
           required
           :disabled="isLoading"
-          class="h-12 rounded-xl border-border bg-muted/20 px-4 text-base shadow-none focus-visible:border-violet-400/70 focus-visible:ring-4 focus-visible:ring-violet-400/10"
+          class="h-12 rounded-xl border-border bg-muted/20 px-4 text-base shadow-none focus-visible:border-foreground/40 focus-visible:ring-0"
         />
       </div>
       <div class="space-y-2">
         <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <label class="text-sm font-medium" for="password">{{ t('Password') }}</label>
-          <NuxtLink to="/pwdforgot" class="rounded text-xs text-muted-foreground transition hover:text-violet-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background">{{ t('Forgot password?') }}</NuxtLink>
+          <NuxtLink to="/pwdforgot" class="rounded text-xs text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background">{{ t('Forgot password?') }}</NuxtLink>
         </div>
         <AuthPasswordInput id="password" v-model="password" autocomplete="current-password" :disabled="isLoading" />
       </div>
@@ -29,7 +29,7 @@
 
       <Button
         :disabled="!email.trim() || !password || isLoading"
-        class="h-12 w-full rounded-xl bg-violet-500 text-sm font-semibold text-white shadow-sm shadow-violet-950/20 hover:bg-violet-400 focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        class="h-12 w-full rounded-xl bg-foreground text-sm font-semibold text-background hover:bg-foreground/85 focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         type="submit"
       >
         <LoaderCircle v-if="isLoading" class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
@@ -38,7 +38,7 @@
       </Button>
       <p class="border-t border-border pt-5 text-center text-sm text-muted-foreground">
         {{ t('No account yet?') }}
-        <NuxtLink class="ml-1 inline-block rounded font-medium text-violet-400 transition hover:text-violet-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background" to="/signup">{{ t('Sign up') }}</NuxtLink>
+        <NuxtLink class="ml-1 inline-block rounded font-medium text-foreground underline decoration-muted-foreground/50 underline-offset-4 transition hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background" to="/signup">{{ t('Sign up') }}</NuxtLink>
       </p>
     </form>
   </AuthPageShell>

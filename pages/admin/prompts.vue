@@ -200,7 +200,7 @@ onMounted(async () => {
     </Sidebar>
     <div class="flex min-w-0 flex-1 flex-col">
       <header class="flex h-20 w-full shrink-0 items-center justify-between gap-3 border-b border-border px-5 sm:px-8">
-        <SidebarTrigger class="size-10 rounded-xl text-muted-foreground hover:text-foreground focus-visible:ring-violet-400" />
+        <SidebarTrigger class="size-10 rounded-xl text-muted-foreground hover:text-foreground focus-visible:ring-foreground" />
         <nav :aria-label="t('Account')" class="ml-auto flex shrink-0 items-center">
           <UserAuthStatus />
         </nav>

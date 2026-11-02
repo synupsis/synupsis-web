@@ -1,16 +1,18 @@
 <template>
-  <div class="relative min-h-screen overflow-hidden">
-    <div aria-hidden="true" class="pointer-events-none absolute inset-x-0 top-0 h-[620px] bg-[radial-gradient(ellipse_at_top,_rgba(139,92,246,0.12),_transparent_65%)]" />
-    <AppHeader contained animate-logo-on-arrival class="relative z-10 border-b border-white/5" />
+  <div class="min-h-screen">
+    <div class="relative isolate">
+      <div v-if="spotlight" aria-hidden="true" class="absolute inset-0 -z-10 overflow-hidden">
+        <img :src="proxiedImageUrl(spotlight.backdrop)" alt="" decoding="async" fetchpriority="high" class="h-full w-full object-cover object-[center_25%]" />
+        <div class="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-background/10" />
+        <div class="absolute inset-0 bg-gradient-to-r from-background/70 via-background/20 to-transparent" />
+      </div>
 
-    <main class="relative mx-auto max-w-7xl px-5 pb-20 sm:px-8">
-      <div class="mx-auto max-w-3xl pb-10 pt-10 text-center sm:pb-14 sm:pt-16">
-        <h1 class="text-4xl font-extrabold tracking-tight sm:text-6xl">{{ t('Never lose track again.') }}</h1>
-        <p class="mx-auto mt-4 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-          {{ t('Find your show. Refresh your memory.') }}<br class="sm:hidden" /> {{ t('Get back to the story.') }}
-        </p>
+      <AppHeader contained animate-logo-on-arrival />
 
-        <div class="mx-auto mt-8 max-w-2xl sm:mt-10">
+      <div :class="['mx-auto flex max-w-7xl flex-col justify-end px-5 sm:px-8', hasQuery ? 'pb-10 pt-8' : 'min-h-[420px] pb-10 pt-16 sm:min-h-[540px] sm:pb-14']">
+        <h1 class="text-lg font-semibold sm:text-xl">{{ t('Season-by-season recaps of your shows.') }}</h1>
+
+        <div class="mt-4 max-w-2xl">
           <SearchInput
             ref="searchInput"
             v-model="searchQuery"
@@ -20,16 +22,18 @@
             @submit="submitSearch"
             @browse="focusResults"
           />
-
-          <div v-if="!hasQuery" class="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs sm:text-sm">
-            <span class="mr-1 text-muted-foreground">{{ t('Try') }}</span>
-            <button v-for="title in suggestions" :key="title" type="button" class="rounded-full border border-border px-3 py-1.5 text-muted-foreground transition hover:border-violet-400/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400" @click="chooseQuery(title)">
-              {{ title }}
-            </button>
-          </div>
         </div>
-      </div>
 
+        <p v-if="!hasQuery" class="mt-4 text-sm text-muted-foreground">
+          {{ t('Try') }}
+          <template v-for="(title, index) in suggestions" :key="title">
+            <button type="button" class="rounded-sm text-foreground underline decoration-muted-foreground/50 underline-offset-4 transition hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground" @click="chooseQuery(title)">{{ title }}</button>{{ index < suggestions.length - 1 ? ', ' : '' }}
+          </template>
+        </p>
+      </div>
+    </div>
+
+    <main class="mx-auto max-w-7xl px-5 pb-20 sm:px-8">
       <HomeRecentLibrary v-if="user && !hasQuery" :key="user.sub" :user-id="user.sub" />
 
       <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">{{ searchAnnouncement }}</p>
@@ -54,9 +58,9 @@
           </div>
           <div v-else-if="searchError" class="rounded-2xl border border-border bg-muted/20 px-6 py-14 text-center">
             <WifiOff class="mx-auto mb-4 size-8 text-muted-foreground" aria-hidden="true" />
-            <h3 class="text-lg font-semibold">{{ t('Search is taking a break') }}</h3>
+            <h3 class="text-lg font-semibold">{{ t('Search isn’t responding') }}</h3>
             <p class="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">{{ t(searchError) }}</p>
-            <button type="button" class="mt-6 inline-flex items-center gap-2 rounded-xl bg-foreground px-5 py-3 text-sm font-medium text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400" @click="searchNow"><RefreshCw class="size-4" aria-hidden="true" /> {{ t('Try again') }}</button>
+            <button type="button" class="mt-6 inline-flex items-center gap-2 rounded-xl bg-foreground px-5 py-3 text-sm font-medium text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground" @click="searchNow"><RefreshCw class="size-4" aria-hidden="true" /> {{ t('Try again') }}</button>
           </div>
           <div v-else-if="searchResults.length" class="space-y-8">
             <ShowSearchCard :show="searchResults[0]!" featured data-show-result />
@@ -71,15 +75,13 @@
             <SearchX class="mx-auto mb-4 size-9 text-muted-foreground" aria-hidden="true" />
             <h3 class="text-lg font-semibold">{{ t('No shows found yet') }}</h3>
             <p class="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">{{ t('Try a shorter title, check the spelling, or search with the show\'s original title.') }}</p>
-            <button type="button" class="mt-6 rounded-xl border border-border px-5 py-3 text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400" @click="clearSearch">{{ t('Clear search') }}</button>
+            <button type="button" class="mt-6 rounded-xl border border-border px-5 py-3 text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground" @click="clearSearch">{{ t('Clear search') }}</button>
           </div>
         </template>
 
         <template v-else>
-          <div class="mb-6 flex items-center justify-between gap-4 border-t border-border pt-8">
-            <div>
-              <h2 id="results-heading" class="flex items-center gap-2 text-xl font-semibold tracking-tight sm:text-2xl"><TrendingUp class="size-5 text-violet-500 dark:text-violet-300" aria-hidden="true" /> {{ t('Trending now') }}</h2>
-            </div>
+          <div class="mb-6 border-t border-border pt-8">
+            <h2 id="results-heading" class="text-xl font-semibold tracking-tight sm:text-2xl">{{ t('Trending now') }}</h2>
           </div>
           <div v-if="trendingStatus === 'pending'" :aria-label="t('Loading trending shows')" class="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-5">
             <div v-for="i in 5" :key="i" class="aspect-[2/3] rounded-xl bg-muted motion-safe:animate-pulse" />
@@ -89,7 +91,7 @@
           </div>
           <div v-else class="rounded-2xl border border-border px-6 py-10 text-center text-sm text-muted-foreground">
             <p>{{ t('Trending shows are unavailable right now. You can still search for your favorites above.') }}</p>
-            <button type="button" class="mt-4 rounded-lg border border-border px-4 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400" @click="refreshTrending()">{{ t('Retry trending shows') }}</button>
+            <button type="button" class="mt-4 rounded-lg border border-border px-4 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground" @click="refreshTrending()">{{ t('Retry trending shows') }}</button>
           </div>
         </template>
       </section>
@@ -99,11 +101,12 @@
 
 <script setup lang="ts">
 const { t } = useI18n();
-import { RefreshCw, SearchX, TrendingUp, WifiOff } from 'lucide-vue-next';
+import { RefreshCw, SearchX, WifiOff } from 'lucide-vue-next';
 import { useEventListener } from '@vueuse/core';
 import SearchInput from '~/components/ui/SearchInput.vue';
 import ShowSearchCard from '~/components/ShowSearchCard.vue';
 import HomeRecentLibrary from '~/components/HomeRecentLibrary.vue';
+import { proxiedImageUrl } from '~/lib/image-url';
 import type { TraktShowCard } from '~/types/trakt.types';
 
 const user = useSupabaseUser();
@@ -116,6 +119,8 @@ const resultsSection = ref<HTMLElement | null>(null);
 const suggestions = ['Breaking Bad', 'Severance', 'The Last of Us'];
 const { results: searchResults, isSearching, error: searchError, searchNow, normalizedQuery, hasQuery } = useShowSearch(searchQuery);
 const { data: featuredShows, status: trendingStatus, refresh: refreshTrending } = useFetch<TraktShowCard[]>('/api/shows/trending');
+// The most watched show with artwork fills the top of the page.
+const spotlight = computed(() => featuredShows.value?.find(show => show.backdrop));
 
 const searchAnnouncement = computed(() => {
   if (!hasQuery.value) return '';

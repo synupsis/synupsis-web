@@ -2,8 +2,8 @@
   <NuxtLink
     :to="`/shows/${show.slug}-${show.traktId}`"
     :class="[
-      'group block rounded-2xl text-left outline-none transition focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-4 focus-visible:ring-offset-background',
-      featured ? 'flex items-center gap-5 border border-violet-400/20 bg-violet-400/5 p-4 hover:border-violet-400/50 sm:gap-7 sm:p-6' : '',
+      'group block rounded-2xl text-left outline-none transition focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-4 focus-visible:ring-offset-background',
+      featured ? 'flex items-center gap-5 border border-border p-4 hover:border-foreground/30 sm:gap-7 sm:p-6' : '',
     ]"
   >
     <div :class="['relative shrink-0 overflow-hidden rounded-xl bg-muted', featured ? 'w-24 sm:w-32' : 'w-full']">
@@ -28,8 +28,10 @@
       </span>
     </div>
     <div :class="featured ? 'min-w-0 flex-1' : 'mt-3'">
-      <p v-if="featured" class="mb-2 text-xs font-medium text-violet-500 dark:text-violet-300">{{ t('Top result') }}</p>
-      <h3 :class="['font-semibold leading-snug transition group-hover:text-violet-500 dark:group-hover:text-violet-300', featured ? 'text-xl sm:text-3xl' : 'text-sm sm:text-base']">{{ show.name }}</h3>
+      <p v-if="featured" class="mb-2 text-xs text-muted-foreground">{{ t('Top result') }}</p>
+      <h3 :class="['leading-snug', featured ? 'text-xl font-semibold sm:text-3xl' : 'text-sm font-semibold sm:text-base']">
+        <span class="decoration-1 underline-offset-4 group-hover:underline">{{ show.name }}</span>
+      </h3>
       <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground sm:text-sm">
         <span v-if="show.year">{{ show.year }}</span>
         <span v-if="featured && show.genres?.length" class="capitalize">{{ show.genres.slice(0, 2).join(' · ').replaceAll('-', ' ') }}</span>

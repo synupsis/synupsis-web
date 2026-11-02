@@ -10,9 +10,9 @@
             <button
               type="button"
               :aria-labelledby="`${sortId}-label ${sortId}-value`"
-              class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/[0.025] text-foreground transition-colors hover:border-violet-400/40 hover:bg-violet-500/[0.08] focus-visible:ring-2 focus-visible:ring-violet-400 data-[state=open]:border-violet-400/40 data-[state=open]:bg-violet-500/[0.08] motion-reduce:transition-none"
+              class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/[0.025] text-foreground transition-colors hover:border-foreground/40 hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-foreground data-[state=open]:border-foreground/40 data-[state=open]:bg-white/[0.06] motion-reduce:transition-none"
             >
-              <ArrowDownWideNarrowIcon class="h-4 w-4 shrink-0 text-violet-300" aria-hidden="true" />
+              <ArrowDownWideNarrowIcon class="h-4 w-4 shrink-0 text-foreground" aria-hidden="true" />
               <span :id="`${sortId}-value`" class="sr-only">{{ selectedSort.label }}</span>
             </button>
           </DropdownMenuTrigger>
@@ -26,9 +26,9 @@
                 v-for="option in sortOptions"
                 :key="option.value"
                 :value="option.value"
-                class="group flex min-h-11 cursor-pointer select-none items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground outline-none transition-colors data-[highlighted]:bg-white/[0.06] data-[highlighted]:text-foreground data-[state=checked]:bg-violet-500/15 data-[state=checked]:text-violet-200 motion-reduce:transition-none"
+                class="group flex min-h-11 cursor-pointer select-none items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground outline-none transition-colors data-[highlighted]:bg-white/[0.06] data-[highlighted]:text-foreground data-[state=checked]:bg-white/10 data-[state=checked]:text-foreground motion-reduce:transition-none"
               >
-                <component :is="option.icon" class="h-4 w-4 shrink-0 text-muted-foreground group-data-[state=checked]:text-violet-300" aria-hidden="true" />
+                <component :is="option.icon" class="h-4 w-4 shrink-0 text-muted-foreground group-data-[state=checked]:text-foreground" aria-hidden="true" />
                 <span class="flex-1 font-medium">{{ option.label }}</span>
                 <DropdownMenuItemIndicator class="flex h-4 w-4 items-center justify-center">
                   <CheckIcon class="h-4 w-4" aria-hidden="true" />
