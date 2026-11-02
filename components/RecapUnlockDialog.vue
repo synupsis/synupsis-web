@@ -14,6 +14,10 @@
         </DialogDescription>
       </DialogHeader>
 
+      <p v-if="eligibility && !eligibility.eligible" class="text-sm leading-6 text-amber-300" role="status">
+        {{ t(eligibility.message) }}
+      </p>
+
       <ul class="mt-2 grid gap-3 text-sm leading-5 text-white/80">
         <li class="flex gap-3">
           <UserRoundIcon class="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
@@ -41,7 +45,7 @@
 
       <DialogFooter class="mt-2 gap-2 sm:gap-2">
         <Button type="button" variant="ghost" class="rounded-full" @click="emit('update:open', false)">{{ t('Not now') }}</Button>
-        <Button type="button" class="rounded-full" :disabled="!wallet || (!wallet.unlimited && wallet.keys < 1)" @click="emit('confirm')">
+        <Button type="button" class="rounded-full" :disabled="!eligibility?.eligible || !wallet || (!wallet.unlimited && wallet.keys < 1)" @click="emit('confirm')">
           <TicketIcon class="mr-2 h-4 w-4" aria-hidden="true" />
           {{ wallet?.unlimited ? t('Unlock the recap') : t('Unlock the recap · 1 ticket') }}
         </Button>
@@ -64,6 +68,7 @@ import {
 import SpinLoader from '~/components/ui/SpinLoader.vue';
 import RecapTicketsBalance from '~/components/RecapTicketsBalance.vue';
 import type { RecapWallet } from '~/lib/recap-keys';
+import type { RecapEligibility } from '~/lib/recap-eligibility';
 
 const { t } = useI18n();
 
@@ -75,6 +80,7 @@ defineProps<{
   wallet: RecapWallet | null;
   followers: number | null;
   hasUsername: boolean;
+  eligibility?: RecapEligibility;
 }>();
 
 const emit = defineEmits<{

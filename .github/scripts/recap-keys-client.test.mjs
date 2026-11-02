@@ -6,6 +6,8 @@ import { compileScript, parse } from '@vue/compiler-sfc';
 import ts from 'typescript';
 import * as vue from 'vue';
 import * as progress from '../../lib/recap-generation-progress.ts';
+import { recapEligibility, RECAP_ELIGIBILITY_MESSAGES } from '../../lib/recap-eligibility.ts';
+import { showMessages } from '../../lib/i18n/shows.ts';
 
 const root = new URL('../../', import.meta.url);
 const plain = value => JSON.parse(JSON.stringify(value));
@@ -61,7 +63,7 @@ function context(t, fetch) {
     document: { visibilityState: 'visible', addEventListener() {}, removeEventListener() {} },
   };
   const dependencies = {
-    vue: { ...vue, watch, onMounted: globals.onMounted, onBeforeUnmount: globals.onBeforeUnmount },
+    vue: { ...vue, useId: () => 'test-component', watch, onMounted: globals.onMounted, onBeforeUnmount: globals.onBeforeUnmount },
     '~/lib/recap-generation-progress': progress,
     '~/composables/useStoryViewer': { useStoryViewer: () => ({ openStory() {} }) },
     '~/composables/useRecapNotices': { useRecapNotices: () => ({ notifyWhileHidden: () => false }) },
@@ -117,6 +119,65 @@ test('keeps the missing-key response distinct from refunds', async t => {
   await generations.start('season-1', 'fr');
   assert.deepEqual(plain(failure), { noKeys: true, keyRefunded: false });
   assert.deepEqual(plain(generations.generations.value), {});
+});
+
+for (const code of ['season_in_progress', 'metadata_incomplete', 'availability_unavailable', 'insufficient_sources', 'finale_source_missing', 'source_rights_restricted']) {
+  test(`an eligibility refusal (${code}) leaves no failed job to retry and promises no refund`, async t => {
+    const eligibility = recapEligibility(code);
+    const state = context(t, async () => { throw { statusCode: 422, data: { data: { code: 'recap_ineligible', eligibility } } }; });
+    const { useRecapGenerations } = state.load('composables/useRecapGenerations.ts');
+    let failure, message;
+    const generations = useRecapGenerations({ showId: () => 'show-1', onCompleted() {}, onFailed: (_key, text, value) => { failure = value; message = text; } });
+    await generations.start('season-1', 'fr');
+    assert.deepEqual(plain(failure), { noKeys: false, keyRefunded: false, eligibility });
+    assert.equal(message, eligibility.message);
+    assert.deepEqual(plain(generations.generations.value), {});
+  });
+}
+
+test('all eligibility refusal reasons have a French translation', () => {
+  for (const message of Object.values(RECAP_ELIGIBILITY_MESSAGES)) {
+    assert.ok(showMessages[message], `Missing translation: ${message}`);
+    assert.notEqual(showMessages[message], message);
+  }
+});
+
+test('an existing published recap remains playable while new creation is ineligible or unchecked', t => {
+  const state = context(t, async () => {});
+  state.globals.useI18n = () => ({ t: message => message });
+  const component = state.load('components/SeasonStory.vue').default;
+  const emitted = [];
+  const props = vue.reactive({
+    season: { id: 'season-1', number: 1, recap: [{ id: 'recap-1', status: 'published' }] },
+    isAdmin: false, isGenerating: false, isLatest: false, spoilerLocked: false,
+    eligibilityPending: true, eligibility: recapEligibility('metadata_incomplete'),
+  });
+  const card = component.setup(props, { expose() {}, emit: (...args) => emitted.push(args) });
+  assert.equal(card.primaryDisabled.value, false);
+  assert.equal(card.statusLabel.value, 'Available');
+  card.handlePrimaryAction();
+  assert.deepEqual(emitted, [['view', 'recap-1']]);
+  props.spoilerLocked = true;
+  card.handlePrimaryAction();
+  assert.equal(emitted.length, 1, 'availability must not bypass the viewer’s spoiler shield');
+});
+
+test('an ineligible season explains its state and can request a fresh check', t => {
+  const state = context(t, async () => {});
+  const emitted = [];
+  const component = state.load('components/SeasonStory.vue').default;
+  const props = vue.reactive({
+    season: { id: 'season-1', number: 1, recap: [] },
+    isAdmin: false, isGenerating: false, isLatest: false, spoilerLocked: false,
+    eligibilityPending: false, eligibility: recapEligibility('season_in_progress'),
+  });
+  const card = component.setup(props, { expose() {}, emit: (...args) => emitted.push(args) });
+  assert.equal(card.statusLabel.value, 'Still airing');
+  card.handlePrimaryAction();
+  assert.deepEqual(emitted, [['generate', 'season-1']]);
+  props.eligibilityPending = true;
+  assert.equal(card.primaryDisabled.value, true);
+  assert.equal(card.statusLabel.value, 'Checking availability');
 });
 
 for (const keyRefunded of [true, false]) {

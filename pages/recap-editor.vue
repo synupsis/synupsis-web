@@ -669,7 +669,7 @@ const publishRecap = async () => {
     isDirty.value = false;
   } catch (e: any) {
     toast.error(t("Error"), {
-      description: t("Failed to publish recap.")
+      description: t(e?.data?.data?.eligibility?.message || e?.data?.eligibility?.message || 'Failed to publish recap.')
     })
   } finally {
     isPublishing.value = false;
